@@ -1,0 +1,291 @@
+/* Ép font Inter cho toàn app, kể cả token font của Polaris. */
+:root {
+  --p-font-family-sans: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+/* Tiện ích nhỏ dùng trong vài chỗ tùy biến ngoài Polaris. */
+.flag {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.score-ring {
+  --p: 0;
+  --c: #29845a;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), #e3e3e3 0);
+  flex: none;
+}
+.score-ring::after {
+  content: '';
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+}
+.score-ring > span {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+/* ===== Xem trước bài viết: phân cấp H1–H6 rõ ràng ===== */
+.article-preview {
+  color: #1a1a1a;
+  line-height: 1.7;
+  font-size: 15px;
+  word-break: break-word;
+}
+.article-preview h1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 22px 0 10px;
+}
+.article-preview h2 {
+  font-size: 23px;
+  font-weight: 700;
+  margin: 26px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e3e3e3;
+}
+.article-preview h3 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 18px 0 8px;
+}
+.article-preview h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 6px;
+}
+.article-preview h5 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #616161;
+  margin: 14px 0 6px;
+}
+.article-preview h6 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8a8a;
+  margin: 12px 0 6px;
+}
+.article-preview p {
+  margin: 10px 0;
+}
+.article-preview ul,
+.article-preview ol {
+  margin: 10px 0 10px 22px;
+}
+.article-preview li {
+  margin: 4px 0;
+}
+.article-preview a {
+  color: #005bd3;
+}
+.article-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 14px 0;
+  display: block;
+}
+.article-preview blockquote {
+  border-left: 4px solid #c9c9c9;
+  margin: 12px 0;
+  padding: 4px 14px;
+  color: #5c5c5c;
+  background: #fafafa;
+}
+.article-preview code {
+  background: #f1f1f1;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.article-preview hr {
+  border: 0;
+  border-top: 1px solid #e3e3e3;
+  margin: 20px 0;
+}
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 14px 0;
+  font-size: 14px;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid #e3e3e3;
+  padding: 8px 10px;
+  text-align: left;
+}
+.md-table th {
+  background: #f6f6f7;
+  font-weight: 600;
+}
+.md-img-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  margin: 14px 0;
+  padding: 16px;
+  border: 2px dashed #c9c9c9;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #616161;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Hiệu ứng "AI đang làm việc" - gradient chạy + chấm nảy ── */
+.ai-working {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #fff;
+  background: linear-gradient(110deg, #4b2fd6, #7b5cff, #2b8cff, #00c2b8, #7b5cff);
+  background-size: 300% 100%;
+  animation: ai-gradient 6s ease infinite;
+  box-shadow: 0 6px 20px rgba(91, 60, 224, 0.25);
+}
+.ai-working::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  transform: translateX(-100%);
+  animation: ai-shimmer 2.2s ease-in-out infinite;
+}
+@keyframes ai-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes ai-shimmer {
+  100% { transform: translateX(100%); }
+}
+.ai-working__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ai-working__dots {
+  display: inline-flex;
+  gap: 5px;
+  flex: none;
+}
+.ai-working__dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.5;
+  animation: ai-bounce 1.2s ease-in-out infinite;
+}
+.ai-working__dots span:nth-child(2) { animation-delay: 0.18s; }
+.ai-working__dots span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes ai-bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40% { transform: scale(1.15); opacity: 1; }
+}
+.ai-working__text { font-weight: 600; font-size: 14px; letter-spacing: 0.1px; flex: 1; }
+.ai-working__pct {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+/* Thanh tiến trình cho tác vụ quét/xử lý dữ liệu - nằm trong dải AI, đồng bộ màu trắng trong suốt */
+.ai-working__bar {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+.ai-working__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  transition: width 0.35s ease;
+}
+.ai-working__bar-indet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  animation: ai-bar-indet 1.3s ease-in-out infinite;
+}
+@keyframes ai-bar-indet {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-working, .ai-working::after, .ai-working__dots span, .ai-working__bar-indet { animation: none; }
+  .ai-working__bar-indet { left: 0; width: 100%; }
+}
+
+/* ===== Tối ưu hiển thị trên di động (Polaris breakpoint sm = 490px) ===== */
+@media (max-width: 489px) {
+  /* Vòng điểm SEO/AEO/GEO nhỏ lại để card không chiếm quá nhiều chiều cao */
+  .score-ring { width: 66px; height: 66px; }
+  .score-ring::after { width: 50px; height: 50px; }
+  .score-ring > span { font-size: 16px; }
+
+  /* Dải "AI đang làm việc" gọn hơn, cho phép chữ xuống dòng vừa màn hình */
+  .ai-working { padding: 12px 14px; border-radius: 10px; }
+  .ai-working__row { gap: 10px; }
+  .ai-working__text { font-size: 13px; }
+
+  /* Xem trước bài: cỡ chữ tiêu đề nhỏ lại cho màn hình hẹp */
+  .article-preview { font-size: 14px; }
+  .article-preview h1 { font-size: 23px; }
+  .article-preview h2 { font-size: 19px; }
+  .article-preview h3 { font-size: 17px; }
+
+  /* Bảng Markdown trong bài: chữ nhỏ + đệm gọn để bớt tràn ngang */
+  .md-table { font-size: 13px; }
+  .md-table th, .md-table td { padding: 6px 8px; }
+
+  /* Ô nhập: cỡ chữ 12px trên di động (theo yêu cầu). Áp cho mọi input/select/textarea,
+     gồm cả component Polaris. */
+  input,
+  select,
+  textarea,
+  .Polaris-TextField__Input,
+  .Polaris-Select__Input {
+    font-size: 12px;
+  }
+}
+
+/* Cuộn ngang mượt trên cảm ứng cho các khu vực rộng (lịch, bảng…) */
+[style*='overflow-x'] { -webkit-overflow-scrolling: touch; }

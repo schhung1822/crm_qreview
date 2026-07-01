@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+/out/
+/build/
+
+# Env & secrets
+# (Anchored to root: KHÔNG dùng "secrets/" trần — nó sẽ nuốt nhầm src/lib/secrets/ source code.)
+.env
+.env.local
+.env.*.local
+*.pem
+/secrets/
+.data/
+
+# Ảnh do AI tạo (runtime)
+public/generated/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+*.log
+
+# Prisma
+prisma/*.db
+
+# OS / editor
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test
+coverage/
+playwright-report/
+test-results/
+
+# Claude Code — file cá nhân/runtime (settings.json + agents/ + commands/ thì commit được)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

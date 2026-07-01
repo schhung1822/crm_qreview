@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.data
+public/generated
+npm-debug.log*
+*.local
+.env*
+!.env.example
+coverage
+tests

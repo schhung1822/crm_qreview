@@ -1,0 +1,107 @@
+// Prisma schema — SEO-GEO Platform
+// Khớp với data model THỰC TẾ đang chạy (kho file .data/*.json), để driver Prisma
+// có thể "ráp" khi có DATABASE_URL. Hiện app mặc định chạy file (driver 'file').
+// Trường orgId? để SẴN cho multi-tenant (SaaS) sau — chưa bắt buộc.
+// Sau khi sửa file này: chạy `npm run prisma:generate` (offline) rồi `prisma migrate`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  name         String
+  role         String // owner | admin | editor | viewer
+  passwordHash String
+  salt         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+
+  @@index([userId])
+}
+
+model Connection {
+  id           String   @id
+  orgId        String?
+  provider     String // wordpress | wix | shopify
+  label        String
+  baseUrl      String
+  locale       String   @default("vi")
+  pathStrategy String   @default("subdir") // subdir | subdomain
+  seoPlugin    String?
+  encrypted    String // credential mã hóa AES-GCM (KHÔNG plaintext)
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+
+  @@index([orgId])
+}
+
+model Article {
+  id                 String   @id
+  orgId              String?
+  title              String
+  slug               String   @default("")
+  metaDescription    String   @default("")
+  markdown           String   @default("")
+  locale             String
+  targetKeyword      String?
+  tags               Json? // string[]
+  coverImageUrl      String?
+  translationGroupId String?
+  source             String   @default("new") // new | edited
+  seoScore           Int      @default(0)
+  aeoScore           Int      @default(0)
+  geoScore           Int      @default(0)
+  status             String   @default("draft") // draft | published
+  connectionId       String?
+  cmsPostId          String?
+  publishedUrl       String?
+  updatedAt          DateTime @default(now())
+
+  @@index([orgId])
+  @@index([locale])
+}
+
+model KeywordSet {
+  id        String   @id
+  orgId     String?
+  seed      String
+  locale    String
+  estimated Boolean  @default(false)
+  keywords  Json // StoredKeyword[]
+  clusters  Json // string[]
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+}
+
+model Plan {
+  id           String   @id
+  orgId        String?
+  keywordSetId String
+  locale       String
+  title        String
+  seed         String
+  items        Json // PlanItem[]
+  createdAt    DateTime @default(now())
+
+  @@index([orgId])
+}
+
+// Cấu hình dạng key→JSON (vd image-config singleton). orgId? cho per-tenant sau.
+model AppConfig {
+  key   String @id // vd "image-config" (hoặc "<orgId>:image-config")
+  value Json
+}

@@ -1,0 +1,56 @@
+# Chạy SEO-GEO self-host: docker compose up -d
+# App hiện lưu file (.data) — volume giữ dữ liệu qua các lần restart.
+# Postgres + Redis đã khai báo SẴN cho giai đoạn migrate DB / queue (chưa bắt buộc).
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      # BẮT BUỘC ở production: 32 byte base64 (vd: openssl rand -base64 32)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Đặt ENCRYPTION_KEY trong .env}
+      # Tùy chọn: khóa tự đăng ký sau khi có tài khoản đầu tiên
+      DISABLE_SELF_REGISTRATION: ${DISABLE_SELF_REGISTRATION:-false}
+      # Bí mật để worker/cron gọi /api/jobs/run (lịch đăng). Sinh: openssl rand -hex 16
+      CRON_SECRET: ${CRON_SECRET:?Đặt CRON_SECRET trong .env}
+      # Sẵn cho giai đoạn DB/queue (app hiện chưa bắt buộc dùng):
+      DATABASE_URL: postgresql://seogeo:seogeo@db:5432/seogeo
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - app-data:/app/.data
+      - app-media:/app/public/generated
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  # Worker LỊCH ĐĂNG: định kỳ gọi /api/jobs/run của app để đăng bài đến hạn.
+  worker:
+    build: .
+    command: ['node', 'scripts/worker.mjs']
+    environment:
+      APP_URL: http://app:3000
+      CRON_SECRET: ${CRON_SECRET:?Đặt CRON_SECRET trong .env}
+      WORKER_INTERVAL_MS: ${WORKER_INTERVAL_MS:-60000}
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seogeo
+      POSTGRES_PASSWORD: seogeo
+      POSTGRES_DB: seogeo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  app-media:
+  db-data:

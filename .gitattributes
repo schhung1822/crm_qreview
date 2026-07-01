@@ -1,0 +1,23 @@
+# Cross-platform line endings — QUAN TRỌNG để chạy được trên cả Mac lẫn Windows.
+# Mặc định: tự chuẩn hóa text, checkout theo hệ điều hành.
+* text=auto
+
+# Shell script (.command / .sh) BẮT BUỘC dùng LF, nếu không Mac báo "bad interpreter".
+*.command text eol=lf
+*.sh      text eol=lf
+
+# Batch/PowerShell của Windows dùng CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# File nhị phân — không đụng vào.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

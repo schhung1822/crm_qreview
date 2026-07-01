@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEO·GEO — Mockup giao diện</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ===== Polaris-like design tokens (Shopify admin) ===== */
+  :root{
+    --bg:#f1f1f1; --surface:#ffffff; --surface-sub:#fafafa;
+    --text:#303030; --text-strong:#1a1a1a; --text-sub:#616161; --text-disabled:#8a8a8a;
+    --border:#e3e3e3; --border-strong:#cfcfcf;
+    --brand:#1a1a1a; --brand-hover:#303030;
+    --focus:#005bd3; --info-bg:#eaf4ff;
+    --success:#29845a; --success-bg:#e7f4ee;
+    --warn:#b98900; --warn-bg:#fdf3e1;
+    --critical:#c93b3b; --critical-bg:#fdecec;
+    --radius:12px; --radius-sm:8px;
+    --shadow:0 1px 0 rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
+    --shadow-card:0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#d2d2d2;border-radius:8px;border:2px solid var(--bg)}
+
+  /* ===== Icon system (SVG sprite + <use>) ===== */
+  .i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;
+     stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:middle}
+  .i.sm{width:13px;height:13px;stroke-width:2}
+  .i.xs{width:11px;height:11px;stroke-width:2.4}
+
+  /* ===== Top bar ===== */
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;background:#1a1a1a;
+    display:flex;align-items:center;gap:16px;padding:0 16px;z-index:50}
+  .logo{display:flex;align-items:center;gap:9px;color:#fff;font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .logo .mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#00b37e,#005bd3);
+    display:grid;place-items:center;font-size:13px;font-weight:800}
+  .search{flex:1;max-width:520px;margin:0 auto;position:relative}
+  .search input{width:100%;height:34px;border-radius:8px;border:1px solid #3a3a3a;background:#2a2a2a;
+    color:#fff;padding:0 12px 0 36px;font-size:13px;outline:none}
+  .search input::placeholder{color:#9a9a9a}
+  .search .i{position:absolute;left:11px;top:8px;color:#9a9a9a}
+  .topbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .icon-btn{width:34px;height:34px;border-radius:8px;border:0;background:transparent;color:#cfcfcf;
+    display:grid;place-items:center}
+  .icon-btn:hover{background:#2f2f2f;color:#fff}
+  .avatar{width:30px;height:30px;border-radius:50%;background:#00b37e;color:#fff;display:grid;
+    place-items:center;font-weight:600;font-size:12px}
+
+  /* Language switcher */
+  .lang{position:relative}
+  .lang-btn{display:flex;align-items:center;gap:7px;height:34px;padding:0 10px;border-radius:8px;border:0;
+    background:#2a2a2a;color:#fff;font-size:13px;font-weight:500}
+  .lang-btn:hover{background:#363636}
+  .lang-menu{position:absolute;top:42px;right:0;width:220px;background:#fff;border-radius:12px;
+    box-shadow:0 8px 28px rgba(0,0,0,.18);padding:6px;display:none}
+  .lang-menu.open{display:block}
+  .lang-menu .head{font-size:11px;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;
+    padding:8px 10px 4px;font-weight:600}
+  .lang-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--text)}
+  .lang-item:hover{background:#f3f3f3}
+  .lang-item.active{background:#f0f6ff;color:#005bd3;font-weight:600}
+  .lang-item .flag{font-size:16px}
+  .lang-item .tag{margin-left:auto;font-size:11px;color:var(--text-disabled);font-family:monospace}
+
+  /* ===== Layout ===== */
+  .shell{display:flex;padding-top:56px;min-height:100vh}
+  .sidebar{width:232px;flex-shrink:0;padding:16px 12px;position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto}
+  .nav-section{font-size:11px;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;
+    font-weight:600;padding:14px 10px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--text);
+    font-weight:500;font-size:13px;border:0;background:transparent;width:100%;text-align:left}
+  .nav-item:hover{background:#e7e7e7}
+  .nav-item.active{background:#dbdbdb;color:var(--text-strong);font-weight:600}
+  .nav-item .i{opacity:.8}
+  .nav-item .count{margin-left:auto;background:#fff;border:1px solid var(--border);border-radius:20px;
+    padding:0 7px;font-size:11px;color:var(--text-sub)}
+
+  .main{flex:1;min-width:0;padding:24px 28px 80px;max-width:1080px;margin:0 auto;width:100%}
+  .page-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .page-head h1{font-size:20px;font-weight:700;color:var(--text-strong);letter-spacing:-.3px}
+  .page-head .sub{color:var(--text-sub);font-size:13px;margin-top:2px}
+  .breadcrumb{font-size:12px;color:var(--text-sub);margin-bottom:6px}
+  .head-actions{margin-left:auto;display:flex;gap:8px}
+
+  /* ===== Components ===== */
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-card);margin-bottom:16px}
+  .card .ch{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  .card .ch h3{font-size:14px;font-weight:600;color:var(--text-strong)}
+  .card .cb{padding:16px}
+  .card .cb.tight{padding:0}
+
+  .btn{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border-strong);background:#fff;
+    color:var(--text);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{background:#f7f7f7}
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn.primary:hover{background:var(--brand-hover)}
+  .btn.sm{height:28px;padding:0 10px;font-size:12px}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.ghost:hover{background:#ededed}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:20px;
+    font-size:11.5px;font-weight:600}
+  .badge.green{background:var(--success-bg);color:var(--success)}
+  .badge.blue{background:var(--info-bg);color:#005bd3}
+  .badge.warn{background:var(--warn-bg);color:var(--warn)}
+  .badge.red{background:var(--critical-bg);color:var(--critical)}
+  .badge.gray{background:#f0f0f0;color:var(--text-sub)}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .ldot{width:9px;height:9px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:5px}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px;color:var(--text-strong)}
+  .input,.select,textarea{width:100%;border:1px solid var(--border-strong);border-radius:8px;
+    padding:8px 11px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none}
+  .input:focus,.select:focus,textarea:focus{border-color:var(--focus);box-shadow:0 0 0 2px rgba(0,91,211,.2)}
+  .hint{font-size:12px;color:var(--text-sub);margin-top:4px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-sub);
+    font-weight:600;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-sub)}
+  td{padding:11px 14px;border-bottom:1px solid #f0f0f0;color:var(--text)}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:#fafafa}
+  .kw{font-weight:600;color:var(--text-strong)}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+
+  .stat{background:#fff;border-radius:12px;box-shadow:var(--shadow-card);padding:16px}
+  .stat .l{font-size:12px;color:var(--text-sub);font-weight:500}
+  .stat .v{font-size:26px;font-weight:700;color:var(--text-strong);margin-top:6px;letter-spacing:-.5px}
+  .stat .d{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:3px}
+  .up{color:var(--success)} .down{color:var(--critical)}
+
+  /* Score ring */
+  .ring{--p:0;--c:var(--success);width:84px;height:84px;border-radius:50%;position:relative;
+    background:conic-gradient(var(--c) calc(var(--p)*1%),#eee 0);display:grid;place-items:center;flex-shrink:0}
+  .ring::after{content:'';position:absolute;width:64px;height:64px;border-radius:50%;background:#fff}
+  .ring .num{position:relative;z-index:1;font-size:20px;font-weight:700;color:var(--text-strong)}
+  .ring-wrap{display:flex;align-items:center;gap:14px}
+  .ring-wrap .lbl{font-size:12px;color:var(--text-sub)} .ring-wrap .lbl b{display:block;color:var(--text-strong);font-size:14px}
+
+  .check{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid #f1f1f1;font-size:13px}
+  .check:last-child{border-bottom:0}
+  .check .tick{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;color:#fff;margin-top:1px}
+  .check .tick .i{stroke:#fff}
+  .check.ok .tick{background:var(--success)} .check.no .tick{background:var(--critical)}
+  .check.warn .tick{background:var(--warn)}
+  .check .t b{color:var(--text-strong)} .check .t span{color:var(--text-sub)}
+
+  .pill-tabs{display:flex;gap:4px;background:#ededed;padding:4px;border-radius:10px;width:fit-content}
+  .pill-tabs button{border:0;background:transparent;padding:6px 14px;border-radius:7px;font-weight:600;
+    font-size:13px;color:var(--text-sub)}
+  .pill-tabs button.active{background:#fff;color:var(--text-strong);box-shadow:var(--shadow)}
+
+  /* diff */
+  .diff-row{display:flex;gap:0;font-size:13px;border-bottom:1px solid #f1f1f1}
+  .diff-row > div{padding:8px 12px;flex:1}
+  .diff-old{background:#fdecec}
+  .diff-new{background:#e7f4ee}
+  .mark{padding:1px 2px;border-radius:3px;background:#aee0c4}
+  .mark.r{background:#f7c5c5}
+
+  .toolbar{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .ed-toolbar button{width:30px;height:30px;border:1px solid var(--border);background:#fff;border-radius:7px;
+    display:grid;place-items:center;color:var(--text)}
+  .ed-toolbar button:hover{background:#f3f3f3}
+  .editor-body{padding:20px 22px;min-height:340px}
+  .editor-body h2{font-size:19px;margin:14px 0 8px;color:var(--text-strong)}
+  .editor-body p{margin:8px 0;color:#3a3a3a;line-height:1.7}
+  .answer-box{background:#f0f6ff;border-left:3px solid #005bd3;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+
+  .screen{display:none}.screen.active{display:block}
+  .note{background:var(--info-bg);border-radius:10px;padding:10px 14px;font-size:12.5px;color:#1a4a8a;
+    display:flex;gap:9px;align-items:flex-start;margin-bottom:16px}
+  .note.warn{background:var(--warn-bg);color:#7a5b00}
+  .note .i{flex:none;margin-top:1px}
+  .conn-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid #f0f0f0}
+  .conn-row:last-child{border-bottom:0}
+  .conn-logo{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-weight:700;color:#fff;font-size:12px}
+  .progress{height:6px;background:#eee;border-radius:6px;overflow:hidden}
+  .progress > i{display:block;height:100%;background:var(--success)}
+  .drop{height:90px;border:1px dashed var(--border-strong);border-radius:8px;display:flex;
+    align-items:center;justify-content:center;gap:8px;color:var(--text-sub)}
+</style>
+</head>
+<body>
+
+<!-- ===== SVG SPRITE (mọi icon là <use> tới symbol bên dưới) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-caret-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h11M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6"/></symbol>
+  <symbol id="i-translate" viewBox="0 0 24 24"><path d="M4 5h10M9 3v2c0 5-2.5 8.5-6 10"/><path d="M5 11c2 .5 4.5 2 5.5 4"/><path d="m13 19 4-9 4 9m-6.5-3h5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3m-5 5 5-5 5 5"/><path d="M5 21h14"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4m8-4v4"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M9 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1"/><path d="M15 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M3 21h18M7 21V11M12 21V5M17 21v-7"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+  <symbol id="i-bold" viewBox="0 0 24 24"><path d="M6 4h7a4 4 0 0 1 0 8H6zM6 12h8a4 4 0 0 1 0 8H6z"/></symbol>
+  <symbol id="i-italic" viewBox="0 0 24 24"><path d="M19 4h-9M14 20H5M15 4 9 20"/></symbol>
+  <symbol id="i-link2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-warning" viewBox="0 0 24 24"><path d="m10.3 4 -8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.7 6.8 19.2l1-5.8-4.3-4.1 5.9-.9Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-bang" viewBox="0 0 24 24"><path d="M12 7v6M12 17h.01"/></symbol>
+  <symbol id="i-csv" viewBox="0 0 24 24"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/></symbol>
+</svg>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="logo"><span class="mark">SG</span> SEO·GEO</div>
+  <div class="search">
+    <svg class="i"><use href="#i-search"/></svg>
+    <input placeholder="Tìm bài viết, từ khóa, dự án…" />
+  </div>
+  <div class="topbar-right">
+    <div class="lang">
+      <button class="lang-btn" onclick="toggleLang()">🇻🇳 <span>Tiếng Việt</span> <svg class="i sm"><use href="#i-chevron-down"/></svg></button>
+      <div class="lang-menu" id="langMenu">
+        <div class="head">Ngôn ngữ giao diện</div>
+        <div class="lang-item active"><span class="flag">🇻🇳</span> Tiếng Việt <span class="tag">vi</span></div>
+        <div class="lang-item"><span class="flag">🇬🇧</span> English <span class="tag">en</span></div>
+        <div class="lang-item"><span class="flag">🇨🇳</span> 中文 <span class="tag">zh</span></div>
+        <div class="lang-item"><span class="flag">🇯🇵</span> 日本語 <span class="tag">ja</span></div>
+        <div class="lang-item"><span class="flag">🇰🇷</span> 한국어 <span class="tag">ko</span></div>
+        <div class="lang-item"><span class="flag">🇫🇷</span> Français <span class="tag">fr</span></div>
+        <div class="lang-item"><span class="flag">🇩🇪</span> Deutsch <span class="tag">de</span></div>
+        <div class="lang-item"><span class="flag">🇮🇩</span> Indonesia <span class="tag">id</span></div>
+        <div class="lang-item"><span class="flag">🇮🇳</span> हिन्दी <span class="tag">hi</span></div>
+        <div class="lang-item"><span class="flag">🇹🇭</span> ไทย <span class="tag">th</span></div>
+      </div>
+    </div>
+    <button class="icon-btn" title="Trợ giúp"><svg class="i"><use href="#i-help"/></svg></button>
+    <div class="avatar">GĐ</div>
+  </div>
+</div>
+
+<div class="shell">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <button class="nav-item active" data-screen="dashboard"><svg class="i"><use href="#i-grid"/></svg> Tổng quan</button>
+
+    <div class="nav-section">Nội dung</div>
+    <button class="nav-item" data-screen="keywords"><svg class="i"><use href="#i-search"/></svg> Nghiên cứu từ khóa</button>
+    <button class="nav-item" data-screen="plan"><svg class="i"><use href="#i-list"/></svg> Content Plan</button>
+    <button class="nav-item" data-screen="editor"><svg class="i"><use href="#i-edit"/></svg> Trình soạn bài <span class="count">12</span></button>
+    <button class="nav-item" data-screen="optimize"><svg class="i"><use href="#i-target"/></svg> Tối ưu bài cũ</button>
+    <button class="nav-item" data-screen="translations"><svg class="i"><use href="#i-translate"/></svg> Quản lý bản dịch</button>
+
+    <div class="nav-section">Xuất bản</div>
+    <button class="nav-item" data-screen="publish"><svg class="i"><use href="#i-upload"/></svg> Đăng bài</button>
+    <button class="nav-item" data-screen="calendar"><svg class="i"><use href="#i-calendar"/></svg> Lịch đăng</button>
+    <button class="nav-item" data-screen="connections"><svg class="i"><use href="#i-link"/></svg> Kết nối CMS</button>
+
+    <div class="nav-section">Phân tích</div>
+    <button class="nav-item" data-screen="reports"><svg class="i"><use href="#i-bars"/></svg> Báo cáo</button>
+
+    <div class="nav-section">Hệ thống</div>
+    <button class="nav-item" data-screen="connections"><svg class="i"><use href="#i-settings"/></svg> Cài đặt & Ngôn ngữ</button>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <!-- ========== DASHBOARD ========== -->
+    <section class="screen active" id="dashboard">
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb">Dự án / Blog Công ty ABC</div>
+          <h1>Tổng quan</h1>
+          <div class="sub">10 ngôn ngữ · 3 site đã kết nối · cập nhật 5 phút trước</div>
+        </div>
+        <div class="head-actions">
+          <button class="btn">Nhập bài cũ</button>
+          <button class="btn primary"><svg class="i sm"><use href="#i-plus"/></svg> Tạo bài mới</button>
+        </div>
+      </div>
+
+      <div class="grid-4" style="margin-bottom:16px">
+        <div class="stat"><div class="l">Bài đã đăng</div><div class="v">248</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 12 tuần này</div></div>
+        <div class="stat"><div class="l">Điểm SEO trung bình</div><div class="v">82</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 4 điểm</div></div>
+        <div class="stat"><div class="l">Điểm GEO trung bình</div><div class="v">76</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 7 điểm</div></div>
+        <div class="stat"><div class="l">Lượt AI trích dẫn</div><div class="v">1.34K</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 21%</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="ch"><h3>Bài viết gần đây</h3><span class="badge gray" style="margin-left:auto">12 nháp</span></div>
+          <div class="cb tight">
+            <table>
+              <thead><tr><th>Tiêu đề</th><th>Ngôn ngữ</th><th>SEO</th><th>GEO</th><th>Trạng thái</th></tr></thead>
+              <tbody>
+                <tr><td class="kw">Cách tối ưu GEO cho website 2026</td><td>🇻🇳 vi</td><td><b>88</b></td><td><b>84</b></td><td><span class="badge green"><span class="dot"></span>Đã đăng</span></td></tr>
+                <tr><td class="kw">What is Generative Engine Optimization</td><td>🇬🇧 en</td><td><b>91</b></td><td><b>79</b></td><td><span class="badge blue"><span class="dot"></span>Chờ duyệt</span></td></tr>
+                <tr><td class="kw">生成式引擎优化完整指南</td><td>🇨🇳 zh</td><td><b>74</b></td><td><b>71</b></td><td><span class="badge gray"><span class="dot"></span>Nháp</span></td></tr>
+                <tr><td class="kw">AIと検索エンジン最適化の違い</td><td>🇯🇵 ja</td><td><b>69</b></td><td><b>62</b></td><td><span class="badge warn"><span class="dot"></span>Cần sửa</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><h3>Phủ nội dung theo ngôn ngữ</h3></div>
+          <div class="cb">
+            <div style="display:flex;flex-direction:column;gap:13px">
+              <div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>🇻🇳 Tiếng Việt</span><b>92%</b></div><div class="progress"><i style="width:92%"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>🇬🇧 English</span><b>78%</b></div><div class="progress"><i style="width:78%"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>🇨🇳 中文</span><b>54%</b></div><div class="progress"><i style="width:54%;background:#b98900"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>🇯🇵 日本語</span><b>31%</b></div><div class="progress"><i style="width:31%;background:#c93b3b"></i></div></div>
+              <div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>🇰🇷 한국어</span><b>18%</b></div><div class="progress"><i style="width:18%;background:#c93b3b"></i></div></div>
+            </div>
+            <button class="btn sm" style="margin-top:14px">Xem tất cả 10 ngôn ngữ <svg class="i sm"><use href="#i-arrow-right"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== KEYWORD RESEARCH ========== -->
+    <section class="screen" id="keywords">
+      <div class="page-head">
+        <div><h1>Nghiên cứu từ khóa</h1><div class="sub">SEO + câu hỏi GEO · riêng cho từng thị trường</div></div>
+        <div class="head-actions"><button class="btn">Lưu bộ từ khóa</button><button class="btn primary">Lên Content Plan <svg class="i sm"><use href="#i-arrow-right"/></svg></button></div>
+      </div>
+
+      <div class="card"><div class="cb">
+        <div style="display:flex;gap:12px;align-items:flex-end">
+          <div class="field" style="flex:1;margin:0"><label>Chủ đề / seed keyword</label><input class="input" value="tối ưu hóa cho AI search" /></div>
+          <div class="field" style="width:180px;margin:0"><label>Thị trường / ngôn ngữ</label>
+            <select class="select"><option>🇻🇳 Việt Nam · vi</option><option>🇬🇧 Anh · en</option><option>🇯🇵 Nhật · ja</option></select></div>
+          <button class="btn primary" style="height:38px">Phân tích</button>
+        </div>
+      </div></div>
+
+      <div class="card">
+        <div class="ch"><h3>Kết quả — 64 từ khóa, 5 cụm</h3>
+          <div class="pill-tabs" style="margin-left:auto"><button class="active">Tất cả</button><button>SEO</button><button>GEO (câu hỏi)</button></div>
+        </div>
+        <div class="cb tight">
+          <table>
+            <thead><tr><th>Từ khóa</th><th>Cụm</th><th>Volume</th><th>Độ khó</th><th>Intent</th><th>Loại</th></tr></thead>
+            <tbody>
+              <tr><td class="kw">geo là gì</td><td>Khái niệm</td><td>2.400</td><td><span class="badge green">22</span></td><td>Informational</td><td><span class="badge blue">SEO</span></td></tr>
+              <tr><td class="kw">làm sao để xuất hiện trong câu trả lời của ChatGPT</td><td>Khái niệm</td><td>880</td><td><span class="badge green">15</span></td><td>Informational</td><td><span class="badge green">GEO</span></td></tr>
+              <tr><td class="kw">tối ưu seo và geo khác nhau thế nào</td><td>So sánh</td><td>1.300</td><td><span class="badge warn">38</span></td><td>Commercial</td><td><span class="badge green">GEO</span></td></tr>
+              <tr><td class="kw">công cụ tối ưu geo</td><td>Công cụ</td><td>590</td><td><span class="badge warn">41</span></td><td>Commercial</td><td><span class="badge blue">SEO</span></td></tr>
+              <tr><td class="kw">cách viết bài cho ai overview</td><td>Hướng dẫn</td><td>720</td><td><span class="badge green">19</span></td><td>Informational</td><td><span class="badge green">GEO</span></td></tr>
+              <tr><td class="kw">schema markup cho geo</td><td>Kỹ thuật</td><td>320</td><td><span class="badge green">12</span></td><td>Informational</td><td><span class="badge blue">SEO</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== CONTENT PLAN ========== -->
+    <section class="screen" id="plan">
+      <div class="page-head">
+        <div><h1>Content Plan</h1><div class="sub">Mô hình Pillar + Cluster · 11 bài đề xuất · 🇻🇳 vi</div></div>
+        <div class="head-actions"><button class="btn"><svg class="i sm"><use href="#i-csv"/></svg> Xuất CSV</button><button class="btn primary">Tạo nháp tất cả</button></div>
+      </div>
+
+      <div class="card" style="background:linear-gradient(180deg,#f0f6ff,#fff)">
+        <div class="cb" style="display:flex;align-items:center;gap:16px">
+          <span class="badge blue" style="height:26px"><svg class="i sm"><use href="#i-star"/></svg> PILLAR</span>
+          <div style="flex:1"><div class="kw" style="font-size:15px">Hướng dẫn toàn diện tối ưu GEO cho website 2026</div>
+            <div class="hint">10 internal link · ~2.800 từ · target: "geo là gì", "tối ưu geo"</div></div>
+          <button class="btn sm">Mở outline</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="cb tight">
+        <table>
+          <thead><tr><th>Bài vệ tinh</th><th>Target keyword</th><th>Dạng</th><th>Ưu tiên</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="kw">GEO và SEO khác nhau thế nào?</td><td>seo vs geo</td><td>So sánh</td><td><span class="badge red">Cao</span></td><td><button class="btn sm">Viết</button></td></tr>
+            <tr><td class="kw">Cách viết bài để lọt AI Overview</td><td>cách viết bài cho ai overview</td><td>How-to</td><td><span class="badge red">Cao</span></td><td><button class="btn sm">Viết</button></td></tr>
+            <tr><td class="kw">7 công cụ tối ưu GEO tốt nhất</td><td>công cụ tối ưu geo</td><td>Listicle</td><td><span class="badge warn">TB</span></td><td><button class="btn sm">Viết</button></td></tr>
+            <tr><td class="kw">Schema markup cho Generative Engine</td><td>schema markup cho geo</td><td>Kỹ thuật</td><td><span class="badge gray">Thấp</span></td><td><button class="btn sm">Viết</button></td></tr>
+          </tbody>
+        </table>
+      </div></div>
+    </section>
+
+    <!-- ========== EDITOR ========== -->
+    <section class="screen" id="editor">
+      <div class="page-head">
+        <div><div class="breadcrumb">Content Plan / Bài vệ tinh</div><h1>GEO và SEO khác nhau thế nào?</h1></div>
+        <div class="head-actions"><button class="btn">Lưu nháp</button><button class="btn primary">Đăng bài <svg class="i sm"><use href="#i-arrow-right"/></svg></button></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+        <div class="card" style="margin:0">
+          <div class="toolbar ed-toolbar">
+            <select class="select" style="width:auto;height:30px;padding:0 8px"><option>Heading 2</option><option>Paragraph</option></select>
+            <button title="Đậm"><svg class="i sm"><use href="#i-bold"/></svg></button>
+            <button title="Nghiêng"><svg class="i sm"><use href="#i-italic"/></svg></button>
+            <button title="Danh sách"><svg class="i sm"><use href="#i-list"/></svg></button>
+            <button title="Liên kết"><svg class="i sm"><use href="#i-link2"/></svg></button>
+            <button title="Ảnh"><svg class="i sm"><use href="#i-image"/></svg></button>
+            <span style="margin-left:auto" class="badge green"><span class="dot"></span>Tự lưu</span>
+          </div>
+          <div class="editor-body">
+            <div class="answer-box"><b>Trả lời nhanh (tốt cho GEO):</b> SEO tối ưu để website <b>xếp hạng</b> trên Google, còn GEO tối ưu để nội dung được các engine AI như ChatGPT, Perplexity <b>trích dẫn</b> trong câu trả lời. Một bài tốt cần cả hai.</div>
+            <h2>SEO là gì?</h2>
+            <p>Search Engine Optimization là tập hợp kỹ thuật giúp trang web hiển thị cao hơn trên trang kết quả tìm kiếm…</p>
+            <h2>GEO là gì?</h2>
+            <p>Generative Engine Optimization tập trung vào việc giúp nội dung được mô hình AI tham chiếu và trích dẫn…</p>
+            <h2>Bảng so sánh nhanh</h2>
+            <p style="color:var(--text-disabled)">[Bảng so sánh SEO vs GEO — dễ được AI trích]</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:14px"><div class="cb">
+            <div class="ring-wrap" style="margin-bottom:14px"><div class="ring" style="--p:88;--c:var(--success)"><span class="num">88</span></div>
+              <div class="lbl"><b>Điểm SEO</b>Tốt — đủ điều kiện đăng</div></div>
+            <div class="ring-wrap"><div class="ring" style="--p:71;--c:#b98900"><span class="num">71</span></div>
+              <div class="lbl"><b>Điểm GEO</b>Khá — còn cải thiện được</div></div>
+          </div></div>
+
+          <div class="card" style="margin:0"><div class="ch"><h3>Checklist</h3></div><div class="cb" style="padding:6px 16px">
+            <div class="check ok"><span class="tick"><svg class="i xs"><use href="#i-check"/></svg></span><div class="t"><b>Title ≤ 60 ký tự</b></div></div>
+            <div class="check ok"><span class="tick"><svg class="i xs"><use href="#i-check"/></svg></span><div class="t"><b>Đoạn trả lời trích-dẫn-được</b></div></div>
+            <div class="check ok"><span class="tick"><svg class="i xs"><use href="#i-check"/></svg></span><div class="t"><b>Meta description</b></div></div>
+            <div class="check warn"><span class="tick"><svg class="i xs"><use href="#i-bang"/></svg></span><div class="t"><b>Thêm bảng/list dễ trích</b> <span>— GEO</span></div></div>
+            <div class="check no"><span class="tick"><svg class="i xs"><use href="#i-x"/></svg></span><div class="t"><b>Thiếu FAQ schema</b> <span>— GEO</span></div></div>
+            <div class="check no"><span class="tick"><svg class="i xs"><use href="#i-x"/></svg></span><div class="t"><b>Chỉ có 1 internal link</b> <span>— nên ≥ 2</span></div></div>
+          </div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== OPTIMIZE OLD POST ========== -->
+    <section class="screen" id="optimize">
+      <div class="page-head">
+        <div><h1>Tối ưu bài cũ</h1><div class="sub">Nhập từ WordPress/Wix · chấm điểm · sửa có duyệt diff</div></div>
+        <div class="head-actions"><button class="btn">Bỏ qua</button><button class="btn primary">Áp dụng & cập nhật site</button></div>
+      </div>
+
+      <div class="note"><svg class="i"><use href="#i-info"/></svg><div>Đã tạo <b>Revision</b> bản gốc trước khi sửa. Bạn duyệt thay đổi bên dưới rồi mới cập nhật lên site thật.</div></div>
+
+      <div class="grid-3" style="margin-bottom:16px">
+        <div class="stat"><div class="l">SEO trước → sau</div><div class="v">61 → 86</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 25</div></div>
+        <div class="stat"><div class="l">GEO trước → sau</div><div class="v">48 → 79</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 31</div></div>
+        <div class="stat"><div class="l">Nguồn</div><div class="v" style="font-size:18px;margin-top:10px">WordPress · 🇻🇳 vi</div></div>
+      </div>
+
+      <div class="card"><div class="ch"><h3>Thay đổi đề xuất (6)</h3><span class="badge gray" style="margin-left:auto">Diff</span></div>
+        <div class="cb tight">
+          <div class="diff-row"><div class="diff-old"><b>Meta title</b><br>Bài viết về GEO</div><div class="diff-new"><b>Meta title</b><br>GEO là gì? Cách tối ưu <span class="mark">Generative Engine 2026</span></div></div>
+          <div class="diff-row"><div class="diff-old"><b>Mở bài</b><br>Hôm nay chúng ta sẽ nói về GEO…</div><div class="diff-new"><b>Mở bài</b><br><span class="mark">GEO (Generative Engine Optimization) là kỹ thuật giúp nội dung được AI trích dẫn.</span> Hôm nay…</div></div>
+          <div class="diff-row"><div class="diff-old" style="color:var(--text-disabled)">không có</div><div class="diff-new"><span class="mark">Thêm FAQ schema (3 câu hỏi)</span></div></div>
+          <div class="diff-row"><div class="diff-old" style="color:var(--text-disabled)">không có</div><div class="diff-new"><span class="mark">Thêm bảng so sánh SEO vs GEO</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== TRANSLATIONS (TranslationGroup) ========== -->
+    <section class="screen" id="translations">
+      <div class="page-head">
+        <div><h1>Quản lý bản dịch</h1><div class="sub">1 nội dung ↔ 10 ngôn ngữ · trạng thái dịch & lệch phiên bản</div></div>
+        <div class="head-actions"><button class="btn">Lọc: cần dịch</button><button class="btn primary"><svg class="i sm"><use href="#i-translate"/></svg> Dịch hàng loạt</button></div>
+      </div>
+
+      <div class="note"><svg class="i"><use href="#i-info"/></svg><div>Mỗi nhóm là một <b>TranslationGroup</b>. Khi bản gốc cập nhật, các bản dịch chưa theo kịp sẽ hiện cảnh báo <b>lệch phiên bản</b>. Bản địa hóa ≠ dịch literal — từ khóa nghiên cứu riêng cho từng thị trường.</div></div>
+
+      <div class="card">
+        <div class="ch"><h3>Nhóm: "GEO và SEO khác nhau thế nào?"</h3><span class="badge gray" style="margin-left:auto">Gốc: 🇻🇳 vi · v3</span></div>
+        <div class="cb tight">
+          <table>
+            <thead><tr><th>Ngôn ngữ</th><th>Tiêu đề bản địa</th><th>SEO</th><th>GEO</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>🇻🇳 vi <span class="badge blue" style="margin-left:4px">gốc</span></td><td class="kw">GEO và SEO khác nhau thế nào?</td><td><b>88</b></td><td><b>84</b></td><td><span class="badge green"><span class="dot"></span>Đã đăng · v3</span></td><td><button class="btn sm">Mở</button></td></tr>
+              <tr><td>🇬🇧 en</td><td class="kw">SEO vs GEO: What's the Difference?</td><td><b>91</b></td><td><b>79</b></td><td><span class="badge warn"><span class="dot"></span>Lệch · v2</span></td><td><button class="btn sm">Cập nhật</button></td></tr>
+              <tr><td>🇨🇳 zh</td><td class="kw">SEO 与 GEO 有何不同？</td><td><b>74</b></td><td><b>71</b></td><td><span class="badge blue"><span class="dot"></span>Nháp</span></td><td><button class="btn sm">Mở</button></td></tr>
+              <tr><td>🇯🇵 ja</td><td style="color:var(--text-disabled)">— chưa có bản dịch —</td><td>—</td><td>—</td><td><span class="badge gray"><span class="dot"></span>Thiếu</span></td><td><button class="btn sm primary">Dịch</button></td></tr>
+              <tr><td>🇰🇷 ko</td><td style="color:var(--text-disabled)">— chưa có bản dịch —</td><td>—</td><td>—</td><td><span class="badge gray"><span class="dot"></span>Thiếu</span></td><td><button class="btn sm primary">Dịch</button></td></tr>
+              <tr><td>🇫🇷 fr</td><td style="color:var(--text-disabled)">— chưa có bản dịch —</td><td>—</td><td>—</td><td><span class="badge gray"><span class="dot"></span>Thiếu</span></td><td><button class="btn sm primary">Dịch</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="stat"><div class="l">Đã dịch</div><div class="v">3 / 10</div><div class="d">ngôn ngữ</div></div>
+        <div class="stat"><div class="l">Lệch phiên bản</div><div class="v" style="color:var(--warn)">1</div><div class="d">cần cập nhật</div></div>
+        <div class="stat"><div class="l">hreflang</div><div class="v" style="color:var(--success);font-size:20px;margin-top:10px">Đối xứng ✓</div><div class="d">hợp lệ</div></div>
+      </div>
+    </section>
+
+    <!-- ========== PUBLISH ========== -->
+    <section class="screen" id="publish">
+      <div class="page-head">
+        <div><h1>Đăng bài</h1><div class="sub">Xem trước chính xác nội dung gửi lên CMS</div></div>
+      </div>
+
+      <div class="note warn"><svg class="i"><use href="#i-warning"/></svg><div>Đây là thao tác thay đổi site thật. Kiểm tra kỹ rồi bấm <b>Xác nhận đăng</b>.</div></div>
+
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
+        <div class="card" style="margin:0"><div class="ch"><h3>Xem trước</h3><span class="badge green" style="margin-left:auto">SEO 88 · GEO 84</span></div>
+          <div class="cb">
+            <div class="field"><label>Tiêu đề</label><input class="input" value="GEO và SEO khác nhau thế nào? Hướng dẫn 2026"/></div>
+            <div class="field"><label>Đường dẫn (slug)</label><input class="input" value="geo-va-seo-khac-nhau"/>
+              <div class="hint">URL: <b>example.com/vi/geo-va-seo-khac-nhau</b></div></div>
+            <div class="field"><label>Meta description</label><textarea rows="2">So sánh SEO và GEO: điểm khác biệt, khi nào dùng cái nào, và cách tối ưu cả hai cho website 2026.</textarea></div>
+            <div class="grid-2">
+              <div class="field" style="margin:0"><label>Ảnh đại diện</label><div class="drop"><svg class="i"><use href="#i-image"/></svg> featured.jpg</div></div>
+              <div class="field" style="margin:0"><label>Chuyên mục</label><input class="input" value="SEO / Marketing"/></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:14px"><div class="ch"><h3>Đích đến</h3></div><div class="cb">
+            <div class="field"><label>Site / kết nối</label><select class="select"><option>blog.example.com · WP · vi</option></select></div>
+            <div class="field" style="margin:0"><label>Trạng thái</label><select class="select"><option>Đăng ngay</option><option>Hẹn giờ</option><option>Lưu nháp trên CMS</option></select></div>
+          </div></div>
+
+          <div class="card" style="margin-bottom:14px"><div class="ch"><h3>hreflang</h3></div><div class="cb" style="padding:8px 16px">
+            <div class="check ok"><span class="tick"><svg class="i xs"><use href="#i-check"/></svg></span><div class="t"><b>🇻🇳 vi</b> <span>/vi/ (bài này)</span></div></div>
+            <div class="check ok"><span class="tick"><svg class="i xs"><use href="#i-check"/></svg></span><div class="t"><b>🇬🇧 en</b> <span>en.example.com</span></div></div>
+            <div class="check warn"><span class="tick"><svg class="i xs"><use href="#i-bang"/></svg></span><div class="t"><b>🇨🇳 zh</b> <span>chưa có bản dịch</span></div></div>
+          </div></div>
+
+          <button class="btn primary" style="width:100%;height:40px">Xác nhận đăng</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== CALENDAR ========== -->
+    <section class="screen" id="calendar">
+      <div class="page-head">
+        <div><h1>Lịch đăng</h1><div class="sub">Tháng 6, 2026 · hẹn giờ đăng đa ngôn ngữ</div></div>
+        <div class="head-actions">
+          <div class="pill-tabs" style="margin-right:8px"><button class="active">Tháng</button><button>Tuần</button><button>Danh sách</button></div>
+          <button class="btn primary"><svg class="i sm"><use href="#i-plus"/></svg> Lên lịch</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="cb">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:11px;color:var(--text-sub);text-transform:uppercase;font-weight:600;margin-bottom:8px;text-align:center">
+          <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>CN</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px" id="calgrid"></div>
+      </div></div>
+
+      <div class="card"><div class="ch"><h3>Sắp đăng</h3></div><div class="cb" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px"><span class="badge blue">29/06 · 09:00</span><span class="kw" style="flex:1">7 công cụ tối ưu GEO tốt nhất</span><span class="badge gray">🇻🇳 vi · blog.example.com</span></div>
+        <div style="display:flex;align-items:center;gap:12px"><span class="badge blue">30/06 · 14:00</span><span class="kw" style="flex:1">SEO vs GEO: What's the Difference?</span><span class="badge gray">🇬🇧 en · en.example.com</span></div>
+        <div style="display:flex;align-items:center;gap:12px"><span class="badge blue">02/07 · 10:00</span><span class="kw" style="flex:1">生成式引擎优化完整指南</span><span class="badge gray">🇨🇳 zh · /zh/</span></div>
+      </div></div>
+    </section>
+
+    <!-- ========== REPORTS ========== -->
+    <section class="screen" id="reports">
+      <div class="page-head">
+        <div><h1>Báo cáo</h1><div class="sub">Hiệu quả SEO & GEO · 30 ngày qua</div></div>
+        <div class="head-actions">
+          <select class="select" style="width:auto;height:34px"><option>Tất cả ngôn ngữ</option><option>🇻🇳 vi</option><option>🇬🇧 en</option></select>
+          <button class="btn">Xuất PDF</button>
+        </div>
+      </div>
+
+      <div class="grid-4" style="margin-bottom:16px">
+        <div class="stat"><div class="l">Hiển thị (impressions)</div><div class="v">412K</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 18%</div></div>
+        <div class="stat"><div class="l">Vị trí TB trên Google</div><div class="v">8.4</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 2.1 bậc</div></div>
+        <div class="stat"><div class="l">Lượt AI trích dẫn</div><div class="v">1.34K</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 21%</div></div>
+        <div class="stat"><div class="l">Từ khóa top 10</div><div class="v">156</div><div class="d up"><svg class="i xs"><use href="#i-caret-up"/></svg> 23</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card"><div class="ch"><h3>Xu hướng trích dẫn AI</h3><span class="badge gray" style="margin-left:auto">ChatGPT · Perplexity · AI Overview</span></div>
+          <div class="cb">
+            <svg viewBox="0 0 320 120" style="width:100%;height:130px">
+              <polyline fill="none" stroke="#005bd3" stroke-width="2.5" points="0,95 45,88 90,80 135,70 180,55 225,48 270,32 320,20"/>
+              <polyline fill="none" stroke="#29845a" stroke-width="2.5" points="0,108 45,104 90,98 135,92 180,85 225,72 270,60 320,50"/>
+              <polyline fill="none" stroke="#b98900" stroke-width="2" stroke-dasharray="4" points="0,112 45,110 90,108 135,100 180,95 225,90 270,82 320,78"/>
+            </svg>
+            <div style="display:flex;gap:16px;font-size:12px;margin-top:8px">
+              <span><span class="ldot" style="background:#005bd3"></span>AI Overview</span><span><span class="ldot" style="background:#29845a"></span>Perplexity</span><span><span class="ldot" style="background:#b98900"></span>ChatGPT</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card"><div class="ch"><h3>Top bài được AI trích dẫn</h3></div><div class="cb tight">
+          <table>
+            <thead><tr><th>Bài</th><th>Ngôn ngữ</th><th>Trích dẫn</th></tr></thead>
+            <tbody>
+              <tr><td class="kw">Cách tối ưu GEO cho website 2026</td><td>🇻🇳 vi</td><td><b>418</b></td></tr>
+              <tr><td class="kw">What is Generative Engine Optimization</td><td>🇬🇧 en</td><td><b>356</b></td></tr>
+              <tr><td class="kw">GEO và SEO khác nhau thế nào?</td><td>🇻🇳 vi</td><td><b>241</b></td></tr>
+              <tr><td class="kw">Schema markup cho GEO</td><td>🇻🇳 vi</td><td><b>187</b></td></tr>
+            </tbody>
+          </table>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ========== CONNECTIONS / SETTINGS ========== -->
+    <section class="screen" id="connections">
+      <div class="page-head">
+        <div><h1>Kết nối CMS & Ngôn ngữ</h1><div class="sub">WordPress, Wix · cấu trúc URL đa ngôn ngữ</div></div>
+        <div class="head-actions"><button class="btn primary"><svg class="i sm"><use href="#i-plus"/></svg> Thêm kết nối</button></div>
+      </div>
+
+      <div class="card"><div class="ch"><h3>Site đã kết nối</h3></div><div class="cb tight">
+        <div class="conn-row"><div class="conn-logo" style="background:#21759b">WP</div>
+          <div style="flex:1"><div class="kw">blog.example.com</div><div class="hint">WordPress · Application Password · plugin Yoast</div></div>
+          <span class="badge gray">subdir /vi/</span><span class="badge green"><span class="dot"></span>Đã nối</span></div>
+        <div class="conn-row"><div class="conn-logo" style="background:#21759b">WP</div>
+          <div style="flex:1"><div class="kw">en.example.com</div><div class="hint">WordPress · Application Password · plugin RankMath</div></div>
+          <span class="badge gray">subdomain en.</span><span class="badge green"><span class="dot"></span>Đã nối</span></div>
+        <div class="conn-row"><div class="conn-logo" style="background:#faad4d;color:#1a1a1a">Wix</div>
+          <div style="flex:1"><div class="kw">shop.example.com</div><div class="hint">Wix Blog API · OAuth</div></div>
+          <span class="badge gray">subdir /ja/</span><span class="badge warn"><span class="dot"></span>Token sắp hết hạn</span></div>
+      </div></div>
+
+      <div class="card"><div class="ch"><h3>Ngôn ngữ hệ thống (10)</h3><span class="badge blue" style="margin-left:auto">Mặc định: Tiếng Việt</span></div>
+        <div class="cb">
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span class="badge blue">🇻🇳 vi · mặc định</span><span class="badge gray">🇬🇧 en</span><span class="badge gray">🇨🇳 zh</span>
+            <span class="badge gray">🇯🇵 ja</span><span class="badge gray">🇰🇷 ko</span><span class="badge gray">🇫🇷 fr</span>
+            <span class="badge gray">🇩🇪 de</span><span class="badge gray">🇮🇩 id</span><span class="badge gray">🇮🇳 hi</span><span class="badge gray">🇹🇭 th</span>
+          </div>
+          <div class="hint" style="margin-top:12px">Áp dụng cho cả <b>giao diện app</b> (next-intl) và <b>ngôn ngữ nội dung</b> tạo ra. Mỗi ngôn ngữ nghiên cứu từ khóa riêng theo thị trường.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Screen switching
+  document.querySelectorAll('.nav-item').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const s=btn.dataset.screen; if(!s) return;
+      document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.screen').forEach(sc=>sc.classList.remove('active'));
+      document.getElementById(s).classList.add('active');
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+  // pill tabs
+  document.querySelectorAll('.pill-tabs').forEach(g=>g.querySelectorAll('button').forEach(b=>
+    b.addEventListener('click',()=>{g.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active')})));
+  // calendar grid (June 2026 starts on Monday)
+  (function(){
+    const grid=document.getElementById('calgrid'); if(!grid) return;
+    const events={'29':'🇻🇳','30':'🇬🇧','2':'🇨🇳','12':'🇻🇳','18':'🇬🇧','24':'🇯🇵'};
+    for(let d=1;d<=30;d++){
+      const ev=events[d];
+      grid.innerHTML+=`<div style="min-height:64px;border:1px solid var(--border);border-radius:8px;padding:6px;background:${d===28?'#f0f6ff':'#fff'}">
+        <div style="font-size:12px;font-weight:600;color:${d===28?'#005bd3':'var(--text-sub)'}">${d}</div>
+        ${ev?`<div class="badge blue" style="margin-top:6px;font-size:10px">${ev} đăng</div>`:''}</div>`;
+    }
+  })();
+  // lang menu
+  function toggleLang(){document.getElementById('langMenu').classList.toggle('open')}
+  document.addEventListener('click',e=>{if(!e.target.closest('.lang'))document.getElementById('langMenu').classList.remove('open')});
+  document.querySelectorAll('.lang-item').forEach(i=>i.addEventListener('click',()=>{
+    document.querySelectorAll('.lang-item').forEach(x=>x.classList.remove('active'));i.classList.add('active');
+    document.querySelector('.lang-btn').firstChild.textContent=i.querySelector('.flag').textContent+' ';
+    document.querySelector('.lang-btn span').textContent=i.childNodes[2].textContent.trim();
+    document.getElementById('langMenu').classList.remove('open');
+  }));
+</script>
+</body>
+</html>
