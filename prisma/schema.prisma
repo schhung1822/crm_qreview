@@ -1,8 +1,27 @@
-// Prisma schema — SEO-GEO Platform
-// Khớp với data model THỰC TẾ đang chạy (kho file .data/*.json), để driver Prisma
-// có thể "ráp" khi có DATABASE_URL. Hiện app mặc định chạy file (driver 'file').
-// Trường orgId? để SẴN cho multi-tenant (SaaS) sau — chưa bắt buộc.
-// Sau khi sửa file này: chạy `npm run prisma:generate` (offline) rồi `prisma migrate`.
+// Prisma schema — SEO-GEO Platform (GĐ2: nền tảng di trú Postgres)
+// ─────────────────────────────────────────────────────────────────────────────
+// Mô hình hóa ĐẦY ĐỦ data model đang chạy trên kho file .data/*.json để driver
+// Prisma "ráp" khi có DATABASE_URL + STORAGE_DRIVER=prisma.
+//
+// NGUYÊN TẮC CÔ LẬP ĐA TỔ CHỨC:
+//  - Hiện tại cô lập bằng THƯ MỤC VẬT LÝ (.data/biz/<id>/): ID biz khác không tồn
+//    tại trong file của biz hiện tại → không rò chéo.
+//  - Trên Postgres, cô lập thành CỘT `bizId` (bắt buộc) + index trên MỌI bảng thuộc
+//    biz. Lá chắn "thư mục" biến mất → lớp repo PHẢI luôn lọc theo bizId, và nên bật
+//    Row-Level Security (RLS) theo bizId làm lưới an toàn (xem docs/POSTGRES-MIGRATION.md).
+//
+// PHÂN LOẠI BẢNG:
+//  - TOÀN CỤC (không bizId): User, Session, Biz, BizMember, Subscription, Order,
+//    Coupon, Notification (theo userId), PlatformConfig.
+//  - THUỘC BIZ (bizId bắt buộc + index): Connection, Article, KeywordSet, ContentPlan,
+//    Revision, PublishJob, Comment, ApiToken, AiUsage, AiUsageSeries, AiUsageByUser,
+//    Citation, BizConfig.
+//
+// Nhiều store dạng "cấu hình singleton theo biz" (image-config, article-config,
+// task-routing, cost-config, drive, dataforseo, integrations, ai-secrets, email,
+// tracking-config) KHÔNG cần bảng riêng → gộp vào BizConfig(bizId, key, value Json).
+//
+// Sau khi sửa file này: `npm run prisma:generate` rồi `prisma migrate dev`.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,15 +32,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────── TOÀN CỤC ───────────────────────────
+
 model User {
   id           String   @id
   email        String   @unique
   name         String
-  role         String // owner | admin | editor | viewer
+  role         String // owner | admin | editor | viewer (vai trò TOÀN CỤC gốc; quyền thực tế theo biz)
   passwordHash String
   salt         String
   active       Boolean  @default(true)
+  permissions  Json? // Permission[] tùy chỉnh (vắng = mặc định vai trò)
   createdAt    DateTime @default(now())
+
+  memberships BizMember[]
 }
 
 model Session {
@@ -32,9 +56,116 @@ model Session {
   @@index([userId])
 }
 
+// Biz = tổ chức/workspace, phạm vi lớn nhất. Mọi dữ liệu nội dung/cấu hình thuộc về biz.
+model Biz {
+  id          String   @id
+  name        String
+  ownerId     String // userId chủ sở hữu (subscription gắn theo chủ)
+  phone       String?
+  email       String?
+  website     String?
+  description String?
+  suspended   Boolean  @default(false) // quản trị nền tảng tạm khóa
+  createdAt   DateTime @default(now())
+
+  members BizMember[]
+
+  @@index([ownerId])
+}
+
+model BizMember {
+  bizId       String
+  userId      String
+  role        String // owner | admin | editor | viewer (vai trò TRONG biz này)
+  permissions Json? // Permission[] tùy chỉnh cho editor/viewer trong biz này
+
+  biz  Biz  @relation(fields: [bizId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([bizId, userId])
+  @@index([userId])
+}
+
+// Đăng ký gói theo TÀI KHOẢN CHỦ (userId). Giới hạn áp trên các biz họ sở hữu.
+model Subscription {
+  userId            String    @id
+  plan              String // free | starter | pro | agency | enterprise
+  status            String // trialing | active | past_due | canceled | free
+  billingCycle      String    @default("monthly") // monthly | yearly
+  trialEndsAt       DateTime?
+  currentPeriodEnd  DateTime?
+  overageArticles   Int?
+  unlimitedArticles Boolean? // superadmin cấp không giới hạn
+  updatedAt         DateTime  @default(now())
+}
+
+model Order {
+  id              String    @id
+  userId          String
+  userEmail       String
+  type            String // subscription | overage
+  plan            String? // với subscription
+  months          Int? // 3 | 6 | 12
+  overageArticles Int? // với overage
+  currency        String // VND | USD
+  amount          Int // giá gốc
+  couponCode      String?
+  discount        Int       @default(0)
+  total           Int // amount - discount
+  status          String // pending | paid | canceled | refunded
+  payCode         String // mã khớp nội dung chuyển khoản Sepay
+  phone           String?
+  utm             Json? // OrderUtm
+  note            String?
+  activationError String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([payCode])
+}
+
+model Coupon {
+  code      String    @id // duy nhất, viết HOA
+  type      String // percent | fixed
+  value     Int // percent: 1-100; fixed: số tiền theo currency
+  currency  String? // chỉ dùng cho fixed
+  maxUses   Int       @default(0) // 0 = không giới hạn
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  plans     Json? // PlanId[] áp dụng (vắng = mọi gói)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+}
+
+// Thông báo trong app — theo TỪNG USER (không thuộc biz).
+model Notification {
+  id           String   @id
+  userId       String
+  type         String // assigned | submitted | approved | rejected | ...
+  articleId    String?
+  articleTitle String?
+  actorName    String?
+  note         String?
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Cấu hình TOÀN CỤC nền tảng (key→JSON): branding, payment-config, platform-email,
+// announcements, plans (override gói), ...
+model PlatformConfig {
+  key   String @id
+  value Json
+}
+
+// ─────────────────────────── THUỘC BIZ ───────────────────────────
+
 model Connection {
   id           String   @id
-  orgId        String?
+  bizId        String
   provider     String // wordpress | wix | shopify
   label        String
   baseUrl      String
@@ -42,15 +173,15 @@ model Connection {
   pathStrategy String   @default("subdir") // subdir | subdomain
   seoPlugin    String?
   encrypted    String // credential mã hóa AES-GCM (KHÔNG plaintext)
-  status       String   @default("active")
+  status       String   @default("active") // active | error
   createdAt    DateTime @default(now())
 
-  @@index([orgId])
+  @@index([bizId])
 }
 
 model Article {
   id                 String   @id
-  orgId              String?
+  bizId              String
   title              String
   slug               String   @default("")
   metaDescription    String   @default("")
@@ -58,25 +189,32 @@ model Article {
   locale             String
   targetKeyword      String?
   tags               Json? // string[]
+  categories         Json? // string[]
   coverImageUrl      String?
   translationGroupId String?
   source             String   @default("new") // new | edited
   seoScore           Int      @default(0)
   aeoScore           Int      @default(0)
   geoScore           Int      @default(0)
-  status             String   @default("draft") // draft | published
+  status             String   @default("draft") // draft | review | scheduled | published
+  approved           Boolean?
+  reviewNote         String?
+  submittedBy        String?
+  reviewedBy         String?
+  assignedTo         String?
   connectionId       String?
   cmsPostId          String?
   publishedUrl       String?
   updatedAt          DateTime @default(now())
 
-  @@index([orgId])
-  @@index([locale])
+  @@index([bizId])
+  @@index([bizId, locale])
+  @@index([bizId, status])
 }
 
 model KeywordSet {
   id        String   @id
-  orgId     String?
+  bizId     String
   seed      String
   locale    String
   estimated Boolean  @default(false)
@@ -84,12 +222,13 @@ model KeywordSet {
   clusters  Json // string[]
   createdAt DateTime @default(now())
 
-  @@index([orgId])
+  @@index([bizId])
 }
 
-model Plan {
+// Kế hoạch nội dung (KHÁC với "gói cước" của billing — gói cước lưu ở PlatformConfig).
+model ContentPlan {
   id           String   @id
-  orgId        String?
+  bizId        String
   keywordSetId String
   locale       String
   title        String
@@ -97,11 +236,132 @@ model Plan {
   items        Json // PlanItem[]
   createdAt    DateTime @default(now())
 
-  @@index([orgId])
+  @@index([bizId])
 }
 
-// Cấu hình dạng key→JSON (vd image-config singleton). orgId? cho per-tenant sau.
-model AppConfig {
-  key   String @id // vd "image-config" (hoặc "<orgId>:image-config")
+// Snapshot nội dung CŨ trước mỗi lần ghi đè bài trên CMS (để diff & rollback).
+model Revision {
+  id              String   @id
+  bizId           String
+  connectionId    String
+  cmsPostId       String
+  title           String
+  contentHtml     String
+  metaDescription String?
+  snapshotOk      Boolean  @default(false)
+  reason          String
+  createdAt       DateTime @default(now())
+
+  @@index([bizId])
+  @@index([bizId, cmsPostId])
+}
+
+model PublishJob {
+  id           String    @id
+  bizId        String
+  connectionId String
+  article      Json // PublishArticle
+  alternates   Json // { locale, url }[]
+  articleId    String?
+  status       String // scheduled | pending | running | done | error
+  runAt        DateTime?
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  lastError    String?
+  resultPostId String?
+  resultUrl    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now())
+
+  @@index([bizId])
+  @@index([bizId, status])
+}
+
+model Comment {
+  id        String   @id
+  bizId     String
+  articleId String
+  userId    String
+  userName  String // chụp tên lúc viết
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([bizId, articleId])
+}
+
+model ApiToken {
+  id         String    @id // tok_<hex>
+  bizId      String
+  name       String
+  prefix     String // 11 ký tự đầu (hiển thị nhận diện)
+  hash       String // sha256(token thô)
+  createdBy  String // userId
+  lastUsedAt DateTime?
+  revoked    Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([bizId])
+  @@index([hash])
+}
+
+// Token AI đã dùng theo biz + provider::model (bộ đếm tháng hiện tại).
+model AiUsage {
+  bizId     String
+  key       String // `${provider}::${model}`
+  provider  String
+  model     String
+  inTokens  Int    @default(0)
+  outTokens Int    @default(0)
+  calls     Int    @default(0)
+  images    Int    @default(0)
+
+  @@id([bizId, key])
+  @@index([bizId])
+}
+
+// Chuỗi thời gian usage theo NGÀY (cho biểu đồ).
+model AiUsageSeries {
+  bizId     String
+  date      String // YYYY-MM-DD
+  key       String // `${provider}::${model}`
+  provider  String
+  model     String
+  inTokens  Int    @default(0)
+  outTokens Int    @default(0)
+  images    Int    @default(0)
+
+  @@id([bizId, date, key])
+  @@index([bizId, date])
+}
+
+// Token theo từng nhân viên (báo cáo usage theo actor).
+model AiUsageByUser {
+  bizId     String
+  userId    String
+  inTokens  Int    @default(0)
+  outTokens Int    @default(0)
+
+  @@id([bizId, userId])
+  @@index([bizId])
+}
+
+model Citation {
+  id        String   @id
+  bizId     String
+  data      Json // nội dung trích dẫn (mô hình hóa chi tiết sau khi chốt shape)
+  createdAt DateTime @default(now())
+
+  @@index([bizId])
+}
+
+// Cấu hình singleton THEO BIZ (key→JSON): image-config, article-config, task-routing,
+// cost-config, drive, dataforseo, integrations, ai-secrets, email, tracking-config.
+// Gộp thay cho 10+ bảng riêng — mỗi (bizId, key) là một bản ghi cấu hình.
+model BizConfig {
+  bizId String
+  key   String
   value Json
+
+  @@id([bizId, key])
+  @@index([bizId])
 }
