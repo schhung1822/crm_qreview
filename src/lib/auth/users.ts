@@ -72,6 +72,10 @@ export async function createUser(input: {
   password: string;
   role: Role;
   permissions?: Permission[] | null;
+  // Nếu true: khi ĐÂY là user ĐẦU TIÊN (rows rỗng, quyết định TRONG lock) → ép vai trò 'owner'.
+  // Đóng race "2 owner": trước đây route đọc userCount() ngoài lock nên 2 request đồng thời đều
+  // thấy count=0 và đều thành owner.
+  firstIsOwner?: boolean;
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
   const salt = randomBytes(16).toString('hex');
@@ -91,10 +95,15 @@ export async function createUser(input: {
     createdAt: new Date().toISOString(),
     ...(custom ? { permissions: custom } : {}),
   };
-  // Kiểm tra trùng email + ghi trong CÙNG một lock → không còn race tạo trùng.
+  // Kiểm tra trùng email + quyết định owner-đầu-tiên + ghi trong CÙNG một lock → không còn race
+  // (không tạo trùng email, không sinh 2 owner khi 2 request đăng ký đồng thời lúc hệ thống rỗng).
   return mutateJson<UserRecord[], PublicUser>(FILE, [], (rows) => {
     if (rows.some((u) => u.email.toLowerCase() === email)) {
       throw new Error('Email đã tồn tại');
+    }
+    if (input.firstIsOwner && rows.length === 0) {
+      record.role = 'owner';
+      delete record.permissions; // owner toàn quyền, không dùng tùy chỉnh
     }
     return [[...rows, record], toPublic(record)];
   });
@@ -162,6 +171,21 @@ export async function updateUser(
     // Vai trò toàn quyền (owner/admin) không dùng tùy chỉnh → dọn cho sạch dữ liệu.
     if (isFullAccessRole(u.role)) delete u.permissions;
     return [rows, undefined];
+  });
+}
+
+// Đặt lại mật khẩu cho CHÍNH CHỦ (tự đổi mật khẩu / quên mật khẩu). KHÔNG áp guard bảo vệ
+// owner như updateUser (guard đó chỉ dành cho trang quản lý nhân sự) - owner vẫn phải tự đổi
+// được mật khẩu của mình. Trả về thông tin công khai của user (để gửi email thông báo).
+export async function setPassword(id: string, newPassword: string): Promise<PublicUser | undefined> {
+  const salt = randomBytes(16).toString('hex');
+  const passwordHash = await hashPassword(newPassword, salt);
+  return mutateJson<UserRecord[], PublicUser | undefined>(FILE, [], (rows) => {
+    const u = rows.find((x) => x.id === id);
+    if (!u) return [rows, undefined];
+    u.salt = salt;
+    u.passwordHash = passwordHash;
+    return [rows, toPublic(u)];
   });
 }
 

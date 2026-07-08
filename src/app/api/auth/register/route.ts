@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { setSessionCookie } from '@/lib/auth/cookie';
 import { createSession } from '@/lib/auth/session';
+import { isSuperadminEmail } from '@/lib/auth/superadmin';
 import { createUser, userCount } from '@/lib/auth/users';
+import { appLoginUrl } from '@/lib/email/mailer';
+import { sendEventEmail } from '@/lib/store/platform-email';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +37,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Email hợp lệ + mật khẩu 8–128 ký tự' }, { status: 400 });
   }
   const isFirst = (await userCount()) === 0;
+  // BẢO MẬT: KHÔNG cho tự đăng ký bằng email superadmin (trừ tài khoản đầu tiên = bootstrap chủ nền
+  // tảng). Chặn kẻ xấu "chiếm chỗ" email superadmin trước khi chủ thật kịp tạo tài khoản.
+  if (!isFirst && isSuperadminEmail(parsed.data.email)) {
+    return NextResponse.json(
+      { error: 'Email này không thể tự đăng ký. Liên hệ quản trị viên.' },
+      { status: 403 },
+    );
+  }
   // Nếu tắt tự đăng ký: chỉ cho tạo tài khoản ĐẦU TIÊN (owner) qua đây.
   if (SELF_REGISTRATION_OFF && !isFirst) {
     return NextResponse.json(
@@ -42,10 +53,20 @@ export async function POST(req: Request) {
     );
   }
   try {
-    const user = await createUser({ ...parsed.data, role: isFirst ? 'owner' : 'viewer' });
+    // Vai trò owner-đầu-tiên được quyết định LẠI trong lock của createUser (firstIsOwner) để đóng
+    // race; isFirst ở trên chỉ dùng cho thông báo/kiểm superadmin, không phải nguồn chân lý.
+    const user = await createUser({ ...parsed.data, role: 'viewer', firstIsOwner: true });
     const { token, maxAge } = await createSession(user.id);
+    // Email chào mừng (an toàn - không chặn nếu SMTP lỗi/tắt).
+    const loginUrl = await appLoginUrl(req);
+    void sendEventEmail('registered', user.email, {
+      name: user.name,
+      email: user.email,
+      loginUrl,
+    });
     const res = NextResponse.json({ user, firstAccount: isFirst });
     setSessionCookie(res, token, maxAge);
+    // KHÔNG tạo biz ở đây: tài khoản mới phải qua onboarding tự tạo biz trước (biz là phạm vi lớn nhất).
     return res;
   } catch (err) {
     return NextResponse.json(

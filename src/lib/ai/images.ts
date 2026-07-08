@@ -1,10 +1,46 @@
 // Tạo ảnh bằng AI: OpenAI (gpt-image-1) hoặc Gemini (Imagen). Server-only.
 // Trả base64 PNG; tầng route sẽ lưu file vào public/generated và trả URL.
 import { getActiveKey } from '../secrets/store';
+import { entitlementsForBiz, ownerQuotaStatus, providerAllowedForPlan } from '../billing/entitlement';
+import { activeBizId } from '../data/biz-path';
 import type { ImageConfig, ImageSize as CfgImageSize } from '../store/image-config';
 import { recordUsage } from './usage';
 
 export type ImageSize = CfgImageSize;
+
+// CHỐT GÓI + HẠN MỨC cho tạo ẢNH. Trước đây chỉ lời gọi TEXT (qua callProvider) mới bị chốt, còn
+// ảnh đi thẳng REST → lách được quota. Đưa chốt vào đây để MỌI đường tạo ảnh đều qua kiểm tra.
+// Không có ngữ cảnh biz (worker/test) → bỏ qua (giống assertPlanAndBudget của providers.ts).
+async function assertImageQuota(provider: 'openai' | 'gemini'): Promise<void> {
+  const bizId = activeBizId();
+  if (!bizId) return;
+
+  // (1) Gating model ảnh theo gói (vd Free/economy không được dùng OpenAI vốn cần 'standard').
+  try {
+    const ent = await entitlementsForBiz(bizId);
+    if (!providerAllowedForPlan(ent.plan, provider)) {
+      throw new Error(
+        `Model tạo ảnh của "${provider}" cần gói cao hơn. Nâng cấp gói hoặc chọn nhà cung cấp tiết kiệm hơn.`,
+      );
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('cần gói cao hơn')) throw e;
+    /* lỗi đọc entitlement khác → không chặn oan */
+  }
+
+  // (2) Hạn mức bài AI của gói (gộp theo tài khoản chủ) - ảnh cũng tiêu vào hạn mức chung.
+  try {
+    const q = await ownerQuotaStatus(bizId);
+    if (q.over) {
+      throw new Error(
+        `Đã dùng hết hạn mức ${q.articlesCap} bài AI của gói trong tháng này. Nâng cấp gói hoặc mua thêm để tiếp tục tạo ảnh.`,
+      );
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('hạn mức')) throw e;
+    /* lỗi đọc quota khác → không chặn oan */
+  }
+}
 
 // Ghi nhận 1 lần tạo ảnh: token (nếu API trả) + đếm 1 ảnh (để tính phí theo ảnh cho
 // model không trả token như Imagen/DALL·E). Không chặn lỗi ghi.
@@ -68,6 +104,9 @@ export async function generateImageB64(opts: {
   if (!p) {
     throw new Error('Cần API key OpenAI hoặc Gemini (có hỗ trợ tạo ảnh) - nhập ở API Keys & AI.');
   }
+
+  // CHỐT gói + hạn mức TRƯỚC khi gọi API tạo ảnh (mọi đường tạo ảnh đều đi qua đây).
+  await assertImageQuota(p.provider);
 
   if (p.provider === 'openai') {
     const model = opts.model && IMAGE_MODELS.openai.includes(opts.model) ? opts.model : 'gpt-image-1';
@@ -163,7 +202,11 @@ export async function generateImageB64(opts: {
     if (res.ok) {
       const data = (await res.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>;
-        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          thoughtsTokenCount?: number;
+        };
       };
       const part = data.candidates?.[0]?.content?.parts?.find((x) => x.inlineData?.data);
       if (part?.inlineData?.data) {
@@ -171,7 +214,8 @@ export async function generateImageB64(opts: {
           'gemini',
           model,
           data.usageMetadata?.promptTokenCount,
-          data.usageMetadata?.candidatesTokenCount,
+          // Cộng token "suy nghĩ" (nếu có) vào token ra cho khớp cách Google tính phí.
+          (data.usageMetadata?.candidatesTokenCount ?? 0) + (data.usageMetadata?.thoughtsTokenCount ?? 0),
         );
         return { b64: part.inlineData.data };
       }
@@ -197,7 +241,7 @@ const NO_TEXT_RULES = [
 function styleGuidance(config: ImageConfig): string {
   const s = config.systemDesign?.trim();
   return s
-    ? `Use this only as a reference for color palette, mood and composition (do not display it): ${s}.`
+    ? `Use this brand design system ONLY as a reference for art style, color palette, lighting, mood and composition. IGNORE any typography, UI/component or layout-spec text in it, and NEVER display any of its words on the image:\n${s}`
     : 'Use a clean, modern, professional palette and composition.';
 }
 
@@ -208,6 +252,7 @@ export function buildCoverPrompt(input: {
   summary?: string;
   content?: string;
   sceneBrief?: string; // mô tả cảnh do AI rút từ nội dung bài → ảnh bám sát nội dung
+  userBrief?: string; // mô tả người dùng muốn ảnh trông thế nào → ưu tiên CAO NHẤT
   config: ImageConfig;
 }): string {
   const topic = [input.summary, input.content].filter(Boolean).join(' - ').slice(0, 500);
@@ -215,8 +260,13 @@ export function buildCoverPrompt(input: {
   const subject = input.sceneBrief?.trim()
     ? `SCENE TO DEPICT (must match the article's content): ${input.sceneBrief.trim()}.`
     : `A scene that visually represents the topic of this article: "${input.title}".${topic ? ` Depict concepts from: ${topic}.` : ''}`;
+  // Yêu cầu của người dùng (nếu có) là chỉ dẫn QUAN TRỌNG NHẤT về nội dung/bố cục/phong cách.
+  const userWish = input.userBrief?.trim()
+    ? `USER REQUEST (HIGHEST priority — the image MUST follow this): ${input.userBrief.trim()}.`
+    : '';
   return [
     'A clean, professional blog hero/banner ILLUSTRATION.',
+    userWish,
     subject,
     'Use concrete, relevant imagery/objects/setting - NOT a poster, NOT a style guide.',
     styleGuidance(input.config),
@@ -228,9 +278,14 @@ export function buildCoverPrompt(input: {
 }
 
 // Dựng prompt ảnh minh họa trong bài - cùng nguyên tắc (không chữ, style tham chiếu).
-export function buildIllustrationPrompt(alt: string, config: ImageConfig): string {
+// userBrief = mô tả người dùng muốn ảnh trông thế nào (áp cho MỌI ảnh minh họa của lần tạo này).
+export function buildIllustrationPrompt(alt: string, config: ImageConfig, userBrief?: string): string {
+  const userWish = userBrief?.trim()
+    ? `USER REQUEST for the style/look (HIGHEST priority): ${userBrief.trim()}.`
+    : '';
   return [
     `A clean, professional in-article ILLUSTRATION depicting: ${alt}.`,
+    userWish,
     'Use symbolic/relevant imagery - NOT a poster, NOT a style guide.',
     styleGuidance(config),
     NO_TEXT_RULES,

@@ -21,7 +21,9 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Email hợp lệ + mật khẩu ≥ 8 ký tự' }, { status: 400 });
   }
-  const user = await createUser({ ...parsed.data, role: 'owner' });
+  // firstIsOwner: quyết định owner TRONG lock (đóng race nếu setup + register chạy đồng thời lúc
+  // hệ thống rỗng). Nếu đã có user chen vào trước, người này thành viewer thay vì owner thứ hai.
+  const user = await createUser({ ...parsed.data, role: 'owner', firstIsOwner: true });
   const { token, maxAge } = await createSession(user.id);
   const res = NextResponse.json({ user });
   setSessionCookie(res, token, maxAge);

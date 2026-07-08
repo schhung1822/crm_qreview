@@ -4,10 +4,19 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { decryptWith, encryptWith } from '../crypto';
+import { bizFile } from '../data/biz-path';
 import { env } from '../env';
 import { resolveEncryptionKey } from './key';
 
-export const AI_PROVIDERS = ['anthropic', 'openai', 'gemini', 'deepseek'] as const;
+export const AI_PROVIDERS = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'deepseek',
+  'moonshot',
+  'qwen',
+  'minimax',
+] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
 
 export const AI_TASKS = ['writing', 'analysis'] as const;
@@ -51,6 +60,27 @@ export const PROVIDER_META: Record<AiProviderId, ProviderMeta> = {
     models: { writer: 'deepseek-chat', fast: 'deepseek-chat' },
     keyHint: 'sk-...',
   },
+  moonshot: {
+    id: 'moonshot',
+    label: 'Kimi (Moonshot AI)',
+    envVar: 'MOONSHOT_API_KEY',
+    models: { writer: 'kimi-k2-0711-preview', fast: 'moonshot-v1-8k' },
+    keyHint: 'sk-...',
+  },
+  qwen: {
+    id: 'qwen',
+    label: 'Qwen (Alibaba)',
+    envVar: 'DASHSCOPE_API_KEY',
+    models: { writer: 'qwen-plus', fast: 'qwen-turbo' },
+    keyHint: 'sk-...',
+  },
+  minimax: {
+    id: 'minimax',
+    label: 'MiniMax',
+    envVar: 'MINIMAX_API_KEY',
+    models: { writer: 'MiniMax-Text-01', fast: 'MiniMax-Text-01' },
+    keyHint: 'eyJ...',
+  },
 };
 
 interface ProviderEntry {
@@ -65,7 +95,7 @@ interface SecretsData {
   routing: Record<AiTask, AiProviderId>;
 }
 
-const FILE = path.join(process.cwd(), '.data', 'ai-secrets.json');
+const NAME = 'ai-secrets.json'; // CÔ LẬP THEO BIZ
 
 function emptyData(): SecretsData {
   return { providers: {}, routing: { writing: 'anthropic', analysis: 'anthropic' } };
@@ -73,7 +103,7 @@ function emptyData(): SecretsData {
 
 async function read(): Promise<SecretsData> {
   try {
-    const raw = await fs.readFile(FILE, 'utf8');
+    const raw = await fs.readFile(bizFile(NAME), 'utf8');
     const parsed = JSON.parse(raw) as SecretsData;
     return { ...emptyData(), ...parsed, routing: { ...emptyData().routing, ...parsed.routing } };
   } catch {
@@ -82,8 +112,9 @@ async function read(): Promise<SecretsData> {
 }
 
 async function write(data: SecretsData): Promise<void> {
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
+  const file = bizFile(NAME);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
 
 // Key từ env (fallback) khi store chưa có.
@@ -97,6 +128,12 @@ function envKey(provider: AiProviderId): string | undefined {
       return env.geminiKey;
     case 'deepseek':
       return env.deepseekKey;
+    case 'moonshot':
+      return env.moonshotKey;
+    case 'qwen':
+      return env.qwenKey;
+    case 'minimax':
+      return env.minimaxKey;
   }
 }
 
@@ -187,6 +224,16 @@ export async function setRouting(task: AiTask, provider: AiProviderId): Promise<
   const data = await read();
   data.routing[task] = provider;
   await write(data);
+}
+
+// Lấy key ĐỂ HIỂN THỊ LẠI cho người quản lý (icon con mắt). CHỈ trả key do CHÍNH biz nhập
+// (source='store'); KHÔNG bao giờ trả key nền tảng cấu hình qua ENV — nếu chủ nền tảng đặt key
+// dùng chung qua ENV, tenant có quyền aikeys:manage KHÔNG được đọc lộ khóa chung đó.
+export async function getRevealableKey(provider: AiProviderId): Promise<string | undefined> {
+  const data = await read();
+  const entry = data.providers[provider];
+  if (entry?.encrypted) return safeDecrypt(entry.encrypted);
+  return undefined;
 }
 
 // Lấy key thật để gọi API (server-only). Tôn trọng enabled.

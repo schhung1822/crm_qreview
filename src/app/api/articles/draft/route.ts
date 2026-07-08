@@ -42,11 +42,12 @@ const UpsertSchema = z.object({
   seoScore: z.number().min(0).max(100).optional(),
   aeoScore: z.number().min(0).max(100).optional(),
   geoScore: z.number().min(0).max(100).optional(),
-  status: z.enum(['draft', 'published']).optional(),
   source: z.enum(['new', 'edited']).optional(),
   connectionId: z.string().max(64).optional(),
-  cmsPostId: z.string().max(64).optional(),
-  publishedUrl: z.string().max(2000).optional(),
+  // BẢO MẬT: KHÔNG cho client tự đặt status='published', cmsPostId, publishedUrl qua endpoint lưu
+  // nháp — đó là KẾT QUẢ của việc đăng thật (chỉ luồng publish/runner set server-side). Trước đây
+  // biên tập viên (chỉ cần content:write) có thể đánh dấu bài "đã đăng" + bịa publishedUrl, qua mặt
+  // cổng duyệt và CMS. Zod loại các field lạ nên client gửi kèm cũng bị bỏ qua (không báo lỗi).
 });
 
 // POST /api/articles/draft → tạo/cập nhật bản nháp.
@@ -57,7 +58,9 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
   }
-  const article = await upsertArticle(parsed.data);
+  // Lưu nháp = nội dung có thể đã đổi → THU HỒI phê duyệt cũ (nếu có) để buộc duyệt lại,
+  // tránh việc "được duyệt bản sạch rồi sửa nội dung khác mà vẫn đăng được".
+  const article = await upsertArticle({ ...parsed.data, approved: false });
   return NextResponse.json({ article });
 }
 

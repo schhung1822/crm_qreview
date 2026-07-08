@@ -19,6 +19,16 @@ export function resolveEncryptionKey(): Buffer {
     }
   }
 
+  // PRODUCTION: BẮT BUỘC ENCRYPTION_KEY hợp lệ. Không được tự sinh .localkey ở prod vì:
+  //  - key gắn với đĩa cục bộ → mất/đổi đĩa (redeploy, scale) làm HỎNG toàn bộ secret đã mã hóa;
+  //  - ai đọc được thư mục .data cũng giải mã được secret.
+  // Fail-fast rõ ràng thay vì âm thầm sinh key tạm.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Thiếu ENCRYPTION_KEY (base64, 32 bytes) ở production. Sinh key: openssl rand -base64 32',
+    );
+  }
+
   const dir = path.join(process.cwd(), '.data');
   const file = path.join(dir, '.localkey');
   if (existsSync(file)) {
