@@ -2,9 +2,56 @@
 
 > Runbook thực thi cho việc chuyển SEO-GEO từ kho file `.data/*.json` (single-instance)
 > sang PostgreSQL, để bỏ ràng buộc "một instance" và mở đường scale ngang + backup/HA.
->
-> Trạng thái hiện tại: **2A xong** (schema Prisma đầy đủ ở `prisma/schema.prisma`).
-> Các bước 2B–2F dưới đây là công việc còn lại, làm **tăng dần + kiểm thử giữa mỗi bước**.
+
+## ✅ HƯỚNG ĐÃ CHỌN & TRIỂN KHAI: blob-backend
+
+Sau khi cân nhắc, chọn **blob-backend** (ít rủi ro nhất, đạt đúng mục tiêu multi-instance) thay vì
+viết lại 27 store sang bảng quan hệ. Đã triển khai xong + verify (typecheck, 188 test, dry-run):
+
+- **Bảng `JsonBlob(scope, name, data, version)`**: mỗi file `.data/*.json` thành MỘT hàng.
+  `scope` = bizId (dữ liệu thuộc biz) hoặc `"_global"`; `name` = tên file.
+- **`src/lib/data/json-store.ts`** route đọc/ghi theo `STORAGE_DRIVER`:
+  - `file` (mặc định): y như cũ (`.data/*.json`, lock in-process).
+  - `prisma`: đọc/ghi `JsonBlob`; **`mutateJson` dùng `INSERT … ON CONFLICT DO NOTHING` +
+    `SELECT … FOR UPDATE` trong transaction → atomic ĐA-INSTANCE** (thay khóa in-process).
+- **27 store GIỮ NGUYÊN** — chỉ gọi `readJson/writeJsonAtomic/mutateJson`, không biết backend.
+- Cô lập tenant: `scope` suy từ đường dẫn `bizFile()` (đã qua guard kiểm membership + validate
+  bizId ở M8). Test `tests/blob-key.test.ts` khóa chặt quy đổi path→scope (gồm cả Windows).
+
+### Cutover blob-backend (các bước bạn chạy khi có Postgres)
+
+```bash
+# 0) Dựng Postgres (vd docker compose up -d db) và đặt DATABASE_URL.
+export DATABASE_URL=postgresql://user:pass@host:5432/seogeo
+
+# 1) Tạo bảng (gồm JsonBlob). Lần đầu:
+npx prisma migrate dev --name init      # hoặc: npx prisma db push  (không tạo file migration)
+
+# 2) Nạp dữ liệu .data → JsonBlob (idempotent, đối chiếu số bản ghi). Thử trước bằng --dry-run:
+node scripts/migrate-to-postgres.mjs --dry-run
+DATABASE_URL=$DATABASE_URL node scripts/migrate-to-postgres.mjs
+
+# 3) Bật driver Postgres rồi deploy. GIỮ .data làm bản lùi 1–2 tuần.
+export STORAGE_DRIVER=prisma
+#    (rollback = bỏ STORAGE_DRIVER → quay lại .data ngay)
+
+# 4) Khói kiểm: đăng nhập, chuyển biz, xem/tạo bài, chạy 1 publish-job. Rồi bật ≥2 instance.
+```
+
+> **Lưu ý fs-trực-tiếp (không qua json-store):** một số chỗ dùng `fs` thẳng sẽ KHÔNG ghi vào
+> Postgres ở chế độ prisma, nhưng đều VÔ HẠI trên deploy mới:
+> - `biz.ts:ensureMigrated` (nâng cấp dữ liệu single-tenant CŨ) — deploy mới không có legacy → no-op;
+>   `createBiz/deleteBiz` gọi `fs.mkdir/rm(bizDir)` chỉ tạo/xóa thư mục rỗng (bỏ qua được).
+> - `secrets/key.ts` `.localkey` — production BẮT BUỘC `ENCRYPTION_KEY` (đã fail-fast) nên không dùng.
+> Dữ liệu thực của biz/bài/đơn… đều qua `mutateJson/readJson` → vào JsonBlob đúng.
+
+---
+
+## (Tùy chọn/tương lai) Hướng bảng quan hệ
+
+Phần dưới đây mô tả hướng RELATIONAL (Article/Order/Subscription… bảng riêng) — KHÔNG bắt buộc cho
+vận hành. Schema quan hệ + `prismaRepositories` + `migrate-to-postgres.mjs --relational` đã sẵn cho
+ai muốn query quan hệ/phân tích sau này. Các bước 2B–2F dưới là lộ trình cho hướng đó.
 
 ## 0. Bối cảnh & bất biến
 

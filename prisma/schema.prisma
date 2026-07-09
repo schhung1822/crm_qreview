@@ -367,3 +367,21 @@ model BizConfig {
   @@id([bizId, key])
   @@index([bizId])
 }
+
+// ─────────────────────── KHO BLOB JSON (runtime storage) ───────────────────────
+// Cách di trú Postgres ĐANG DÙNG (chọn: blob-backend, ít rủi ro): mỗi file .data/*.json thành
+// MỘT hàng ở đây, giữ nguyên mô hình "blob theo (biz, tên file)" nên KHÔNG phải sửa 27 store.
+//   scope = bizId (dữ liệu thuộc biz)  |  "_global" (users/sessions/bizes/orders/...).
+//   name  = tên file (vd "articles.json", "connections.json").
+// json-store.ts route đọc/ghi vào đây khi STORAGE_DRIVER=prisma; mutateJson dùng SELECT ... FOR
+// UPDATE trong transaction → atomic ĐA-INSTANCE (thay khóa in-process của driver file).
+// Các bảng quan hệ ở trên là tùy chọn cho phân tích/tương lai; runtime dùng JsonBlob.
+model JsonBlob {
+  scope     String
+  name      String
+  data      Json
+  version   Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([scope, name])
+}

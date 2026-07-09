@@ -1,14 +1,20 @@
 // Di trú dữ liệu .data/*.json → PostgreSQL (GĐ2 bước 2E). CHẠY MỘT LẦN, idempotent (upsert).
 //
-//   node scripts/migrate-to-postgres.mjs --dry-run   # chỉ đọc + đếm, KHÔNG ghi DB (không cần Postgres)
-//   DATABASE_URL=postgres://... node scripts/migrate-to-postgres.mjs   # nạp thật vào Postgres
+//   node scripts/migrate-to-postgres.mjs --dry-run        # chỉ đọc + đếm, KHÔNG ghi DB
+//   DATABASE_URL=postgres://... node scripts/migrate-to-postgres.mjs           # BLOB (mặc định)
+//   DATABASE_URL=postgres://... node scripts/migrate-to-postgres.mjs --relational  # bảng quan hệ
 //
-// TRƯỚC KHI CHẠY THẬT: npx prisma migrate deploy (tạo bảng). SAU KHI CHẠY: psql -f docs/RLS.sql.
+// MẶC ĐỊNH = BLOB: mỗi file .data/*.json thành MỘT hàng JsonBlob(scope,name,data) — khớp storage
+// runtime khi STORAGE_DRIVER=prisma (xem json-store.ts). Đây là cách di trú ĐANG DÙNG.
+// --relational: nạp vào các bảng quan hệ (Article, Order...) — tùy chọn cho phân tích/tương lai.
+//
+// TRƯỚC KHI CHẠY THẬT: npx prisma migrate deploy (tạo bảng). (RLS chỉ áp cho chế độ --relational.)
 // Secret (encrypted / ai-secrets) copy NGUYÊN ciphertext — KHÔNG giải mã (giữ ENCRYPTION_KEY là đủ).
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const DRY = process.argv.includes('--dry-run');
+const RELATIONAL = process.argv.includes('--relational');
 const DATA = process.env.DATA_DIR || path.join(process.cwd(), '.data');
 const BIZ_DIR = path.join(DATA, 'biz');
 
@@ -246,21 +252,67 @@ async function migrateBiz(bizId) {
   }
 }
 
+// ─────────────────────── BLOB (mặc định) ───────────────────────
+
+// Ghi 1 file JSON thành 1 hàng JsonBlob(scope, name).
+async function upBlob(scope, name, file) {
+  const data = readJson(file, null);
+  if (data === null) return;
+  bump('JsonBlob', 1);
+  if (DRY) return;
+  const p = await getPrisma();
+  await p.jsonBlob.upsert({
+    where: { scope_name: { scope, name } },
+    create: { scope, name, data },
+    update: { data },
+  });
+  bump('JsonBlob', 0, 1);
+}
+
+// Chỉ nhận file *.json thật (bỏ .tmp, file ẩn như .localkey/.biz-migrated).
+const isJson = (f) => f.endsWith('.json') && !f.endsWith('.tmp') && !f.startsWith('.');
+
+async function migrateBlobs() {
+  // Global: mọi .data/*.json ở gốc → scope "_global".
+  for (const f of readdirSync(DATA)) {
+    const full = path.join(DATA, f);
+    if (isJson(f) && statSync(full).isFile()) await upBlob('_global', f, full);
+  }
+  // Per-biz: .data/biz/<id>/*.json → scope = <id>.
+  const bizIds = existsSync(BIZ_DIR)
+    ? readdirSync(BIZ_DIR).filter((d) => statSync(path.join(BIZ_DIR, d)).isDirectory())
+    : [];
+  console.log(`[migrate] ${bizIds.length} biz.`);
+  for (const bizId of bizIds) {
+    const dir = path.join(BIZ_DIR, bizId);
+    for (const f of readdirSync(dir)) {
+      const full = path.join(dir, f);
+      if (isJson(f) && statSync(full).isFile()) await upBlob(bizId, f, full);
+    }
+  }
+}
+
 // ─────────────────────── MAIN ───────────────────────
 
-async function main() {
-  console.log(`[migrate] ${DRY ? 'DRY-RUN (không ghi DB)' : 'THẬT (ghi vào Postgres)'} · DATA=${DATA}`);
-  if (!DRY && !process.env.DATABASE_URL) {
-    console.error('[migrate] Thiếu DATABASE_URL. Đặt env hoặc chạy với --dry-run.');
-    process.exit(1);
-  }
+async function migrateRelational() {
   await migrateGlobal();
-
   const bizIds = existsSync(BIZ_DIR)
     ? readdirSync(BIZ_DIR).filter((d) => statSync(path.join(BIZ_DIR, d)).isDirectory())
     : [];
   console.log(`[migrate] ${bizIds.length} biz.`);
   for (const bizId of bizIds) await migrateBiz(bizId);
+}
+
+async function main() {
+  const mode = RELATIONAL ? 'RELATIONAL (bảng quan hệ)' : 'BLOB (JsonBlob)';
+  console.log(`[migrate] ${mode} · ${DRY ? 'DRY-RUN (không ghi DB)' : 'THẬT (ghi vào Postgres)'} · DATA=${DATA}`);
+  if (!DRY && !process.env.DATABASE_URL) {
+    console.error('[migrate] Thiếu DATABASE_URL. Đặt env hoặc chạy với --dry-run.');
+    process.exit(1);
+  }
+
+  if (RELATIONAL) await migrateRelational();
+  else await migrateBlobs();
 
   // Đối chiếu.
   console.log('\n[migrate] Đối chiếu số bản ghi (src=đọc từ JSON, dst=đã ghi DB):');
