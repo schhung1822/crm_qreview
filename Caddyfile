@@ -1,0 +1,12 @@
+# Caddy: reverse proxy + HTTPS TỰ ĐỘNG (Let's Encrypt) cho SEO-GEO.
+# Caddy tự xin & tự gia hạn chứng chỉ TLS — không cần certbot. Yêu cầu: DNS geo.done.vn trỏ đúng
+# IP VPS và cổng 80/443 mở. Đổi email dưới đây thành email của bạn (nhận cảnh báo chứng chỉ).
+{
+	email admin@done.vn
+}
+
+geo.done.vn {
+	encode gzip
+	# 'app' là tên service trong docker-compose; Caddy gọi tới qua mạng nội bộ của compose.
+	reverse_proxy app:3000
+}

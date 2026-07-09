@@ -1,0 +1,28 @@
+# Lớp CHỒNG cho production: thêm Caddy (HTTPS tự động) + KHÔNG lộ cổng app ra Internet.
+# Dùng KÈM docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  app:
+    environment:
+      # URL công khai — dùng cho link email, ảnh /generated, và chốt CSRF (Origin hợp lệ).
+      APP_URL: https://geo.done.vn
+    # Chỉ mở cổng 3000 ở localhost của VPS; truy cập từ ngoài BẮT BUỘC qua Caddy (443).
+    ports:
+      - '127.0.0.1:3000:3000'
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # lưu chứng chỉ TLS (đừng xóa — tránh xin lại/đụng rate-limit LE)
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

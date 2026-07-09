@@ -9,6 +9,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Sinh Prisma client từ schema (cần cho STORAGE_DRIVER=prisma; ở file mode chỉ nằm im, vô hại).
+RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine AS runner
