@@ -139,9 +139,11 @@ model Coupon {
   createdAt DateTime  @default(now())
 }
 
-// Thông báo trong app — theo TỪNG USER (không thuộc biz).
+// Thông báo trong app — theo user, NHƯNG cô lập theo biz (store hiện dùng bizFile → mỗi biz một
+// danh sách thông báo cho cùng user). Giữ bizId để trung thực hành vi + đọc theo (bizId,userId).
 model Notification {
   id           String   @id
+  bizId        String
   userId       String
   type         String // assigned | submitted | approved | rejected | ...
   articleId    String?
@@ -151,7 +153,7 @@ model Notification {
   read         Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  @@index([userId])
+  @@index([bizId, userId])
 }
 
 // Cấu hình TOÀN CỤC nền tảng (key→JSON): branding, payment-config, platform-email,
