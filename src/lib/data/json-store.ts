@@ -13,7 +13,7 @@ import path from 'node:path';
 const locks = new Map<string, Promise<unknown>>();
 
 // ─────────────────────── Chọn backend ───────────────────────
-function usePrisma(): boolean {
+function isPrismaDriver(): boolean {
   return process.env.STORAGE_DRIVER === 'prisma';
 }
 
@@ -62,7 +62,7 @@ export function withFileLock<T>(file: string, fn: () => Promise<T>): Promise<T> 
 
 // ─────────────────────── API công khai (không đổi chữ ký) ───────────────────────
 export async function readJson<T>(file: string, fallback: T): Promise<T> {
-  if (usePrisma()) {
+  if (isPrismaDriver()) {
     const { scope, name } = blobKey(file);
     const row = await (await client()).jsonBlob.findUnique({ where: { scope_name: { scope, name } } });
     return row ? (row.data as T) : fallback;
@@ -75,7 +75,7 @@ export async function readJson<T>(file: string, fallback: T): Promise<T> {
 }
 
 export async function writeJsonAtomic(file: string, data: unknown): Promise<void> {
-  if (usePrisma()) {
+  if (isPrismaDriver()) {
     const { scope, name } = blobKey(file);
     const p = await client();
     await p.jsonBlob.upsert({
@@ -104,7 +104,7 @@ export async function mutateJson<T, R>(
   fallback: T,
   mutator: (current: T) => Promise<[T, R]> | [T, R],
 ): Promise<R> {
-  if (usePrisma()) {
+  if (isPrismaDriver()) {
     const { scope, name } = blobKey(file);
     const p = await client();
     return p.$transaction(

@@ -50,9 +50,13 @@ export function scoreAeo(a: ArticleInput): ScoreResult {
   const paras = paragraphs(md);
   const firstPara = paras[0] ?? '';
 
-  // 1) Trả lời thẳng & SỚM: đoạn đầu là câu trả lời ngắn gọn, tự đứng độc lập.
+  // 1) Trả lời thẳng & SỚM: đoạn đầu là câu trả lời ngắn gọn, tự đứng độc lập. Đạt nếu CÓ marker,
+  // hoặc đủ độ dài VÀ chứa từ khóa (không cho điểm oan đoạn mở đầu lan man). Không có từ khóa → xét
+  // độ dài như cũ.
+  const kwFold = fold((a.targetKeyword ?? '').trim());
+  const auLenOk = firstPara.length >= 40 && firstPara.length <= 360;
   const answerUpfront =
-    M.quickAnswer.test(firstPara) || (firstPara.length >= 40 && firstPara.length <= 360);
+    M.quickAnswer.test(firstPara) || (auLenOk && (!kwFold || fold(firstPara).includes(kwFold)));
 
   // 2) Có đoạn ĐÚNG TẦM SNIPPET (~40–60 từ ≈ 250–340 ký tự) để engine lấy nguyên.
   const snippetPara = paras.some((p) => {

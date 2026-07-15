@@ -9,6 +9,7 @@ import { scoreGeo } from '@/lib/geo/score';
 import { scoreSeo } from '@/lib/seo/score';
 import { pickBestKeyword } from '@/lib/scoring/keyword';
 import { buildScoreInput } from '@/lib/scoring/types';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { applyArticleRules, getArticleConfig } from '@/lib/store/article-config';
 import { AI_PROVIDERS } from '@/lib/secrets/store';
 
@@ -34,6 +35,10 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
+
+  // AI cải thiện bài → giới hạn chống lạm dụng chi phí.
+  const rl = rateLimit(`article:${clientIp(req)}`, 12, 60_000);
+  if (!rl.ok) return NextResponse.json({ error: `Thử lại sau ${rl.retryAfter}s.` }, { status: 429 });
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

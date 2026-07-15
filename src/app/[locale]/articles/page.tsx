@@ -24,7 +24,7 @@ interface Article {
   id: string;
   title: string;
   locale: string;
-  status: 'draft' | 'published';
+  status: 'draft' | 'review' | 'published';
   updatedAt: string;
   seoScore: number;
   aeoScore: number;
@@ -32,17 +32,27 @@ interface Article {
   targetKeyword?: string;
   publishedUrl?: string;
   translationGroupId?: string;
+  approved?: boolean;
+  reviewNote?: string;
+  assignedTo?: string;
 }
 
 export default function ArticlesPage() {
   const t = useTranslations('articles');
+  const tc = useTranslations('common');
   const locale = useLocale();
 
   const [items, setItems] = useState<Article[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  // Quyền theo biz + userId + cờ bắt buộc duyệt (để gạn nút Gửi duyệt / Duyệt / Trả lại).
+  const [perms, setPerms] = useState<{ permissions: string[]; requireApproval: boolean } | null>(
+    null,
+  );
+  const [acting, setActing] = useState<string | null>(null);
+  const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
 
-  const [status, setStatus] = useState<'all' | 'draft' | 'published'>('all');
+  const [status, setStatus] = useState<'all' | 'draft' | 'review' | 'published'>('all');
   const [time, setTime] = useState<'all' | '7' | '30' | '90'>('all');
   const [q, setQ] = useState('');
 
@@ -59,6 +69,62 @@ export default function ArticlesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/auth/permissions');
+      if (res.ok) {
+        const d = await res.json();
+        setPerms({
+          permissions: Array.isArray(d.permissions) ? d.permissions : [],
+          requireApproval: !!d.requireApproval,
+        });
+      } else {
+        setPerms({ permissions: [], requireApproval: false });
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/biz/members-lite');
+      if (res.ok) setMembers((await res.json()).members ?? []);
+    })();
+  }, []);
+
+  const canPublish = perms?.permissions.includes('content:publish') ?? false;
+  const canWrite = perms?.permissions.includes('content:write') ?? false;
+
+  // Giao/bỏ giao bài cho 1 thành viên rồi nạp lại danh sách.
+  const assign = useCallback(
+    async (id: string, userId: string) => {
+      await fetch('/api/articles/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId: userId || null }),
+      });
+      await load();
+    },
+    [load],
+  );
+
+  // Chuyển trạng thái duyệt của 1 bài (gửi duyệt / duyệt / trả lại) rồi nạp lại danh sách.
+  const review = useCallback(
+    async (id: string, action: 'submit' | 'approve' | 'reject', note?: string) => {
+      setActing(id);
+      try {
+        const res = await fetch('/api/articles/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, action, note }),
+        });
+        if (res.ok) await load();
+      } finally {
+        setActing(null);
+      }
+    },
+    [load],
+  );
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -137,21 +203,52 @@ export default function ArticlesPage() {
         </Text>
       );
     })(),
-    <Badge key={`${a.id}-s`} tone={a.status === 'published' ? 'success' : undefined}>
-      {a.status === 'published' ? t('statusPublished') : t('statusDraft')}
-    </Badge>,
+    <BlockStack key={`${a.id}-s`} gap="100" inlineAlign="start">
+      <Badge
+        tone={
+          a.status === 'published' ? 'success' : a.status === 'review' ? 'attention' : undefined
+        }
+      >
+        {a.status === 'published'
+          ? t('statusPublished')
+          : a.status === 'review'
+            ? t('statusReview')
+            : t('statusDraft')}
+      </Badge>
+      {a.status === 'draft' && a.approved ? <Badge tone="success">{t('approvedTag')}</Badge> : null}
+      {a.status === 'draft' && a.reviewNote ? (
+        <Text as="span" tone="critical" variant="bodySm">
+          {t('rejectedTag')}: {a.reviewNote}
+        </Text>
+      ) : null}
+    </BlockStack>,
     `${a.seoScore} / ${a.aeoScore ?? 0} / ${a.geoScore}`,
     new Date(a.updatedAt).toLocaleDateString(),
-    <InlineStack key={`${a.id}-act`} gap="200" wrap={false}>
-      {a.status === 'published' && a.publishedUrl ? (
-        <ExtLink key={`${a.id}-v`} href={a.publishedUrl}>
-          {t('edit')}
-        </ExtLink>
-      ) : (
-        <Button key={`${a.id}-b`} size="slim" url={`/${locale}/editor?draft=${a.id}&from=articles`}>
-          {t('edit')}
-        </Button>
-      )}
+    <Select
+      key={`${a.id}-asg`}
+      label=""
+      labelHidden
+      disabled={!canWrite}
+      options={[
+        { label: t('unassigned'), value: '' },
+        ...members.map((m) => ({ label: m.name, value: m.id })),
+      ]}
+      value={a.assignedTo ?? ''}
+      onChange={(v) => void assign(a.id, v)}
+    />,
+    <InlineStack key={`${a.id}-act`} gap="200" wrap blockAlign="center">
+      {/* "Sửa" LUÔN mở trình soạn thảo trong app (kể cả bài đã đăng). Với bài đã đăng, thêm
+          link "Mở" RIÊNG để xem bản public (tab mới). */}
+      <Button key={`${a.id}-b`} size="slim" url={`/${locale}/editor?draft=${a.id}&from=articles`}>
+        {t('edit')}
+      </Button>
+      {/* Ô "Mở" LUÔN chiếm chỗ (ẩn khi bài chưa đăng) để "Dịch" thẳng hàng giữa các dòng. */}
+      <span
+        key={`${a.id}-v`}
+        style={{ visibility: a.status === 'published' && a.publishedUrl ? 'visible' : 'hidden' }}
+      >
+        <ExtLink href={a.publishedUrl ?? '#'}>{tc('open')}</ExtLink>
+      </span>
       <Button
         key={`${a.id}-t`}
         size="slim"
@@ -160,6 +257,49 @@ export default function ArticlesPage() {
       >
         {t('translate')}
       </Button>
+      {/* Quy trình duyệt: nháp → "Gửi duyệt" (khi không tự đăng được hoặc biz bắt buộc duyệt);
+          chờ duyệt → "Duyệt"/"Trả lại" cho người có quyền đăng, còn lại chỉ báo đang chờ. */}
+      {a.status === 'draft' && canWrite && (!canPublish || (perms?.requireApproval ?? false)) ? (
+        <Button
+          key={`${a.id}-sub`}
+          size="slim"
+          loading={acting === a.id}
+          onClick={() => void review(a.id, 'submit')}
+        >
+          {t('submitReview')}
+        </Button>
+      ) : null}
+      {a.status === 'review' ? (
+        canPublish ? (
+          <>
+            <Button
+              key={`${a.id}-ap`}
+              size="slim"
+              loading={acting === a.id}
+              onClick={() => void review(a.id, 'approve')}
+            >
+              {t('approve')}
+            </Button>
+            <Button
+              key={`${a.id}-rj`}
+              size="slim"
+              variant="plain"
+              tone="critical"
+              disabled={acting === a.id}
+              onClick={() => {
+                const note = window.prompt(t('rejectReason'));
+                if (note !== null) void review(a.id, 'reject', note);
+              }}
+            >
+              {t('reject')}
+            </Button>
+          </>
+        ) : (
+          <Text as="span" tone="subdued" variant="bodySm" key={`${a.id}-pend`}>
+            {t('pendingApproval')}
+          </Text>
+        )
+      ) : null}
     </InlineStack>,
   ]);
 
@@ -179,10 +319,11 @@ export default function ArticlesPage() {
                 options={[
                   { label: t('filterAll'), value: 'all' },
                   { label: t('statusDraft'), value: 'draft' },
+                  { label: t('statusReview'), value: 'review' },
                   { label: t('statusPublished'), value: 'published' },
                 ]}
                 value={status}
-                onChange={(v) => setStatus(v as 'all' | 'draft' | 'published')}
+                onChange={(v) => setStatus(v as 'all' | 'draft' | 'review' | 'published')}
               />
               <Select
                 label={t('filterTime')}
@@ -241,7 +382,17 @@ export default function ArticlesPage() {
               </Box>
             ) : (
               <DataTable
-                columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text']}
+                columnContentTypes={[
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                  'text',
+                ]}
                 headings={[
                   '',
                   t('colTitle'),
@@ -250,6 +401,7 @@ export default function ArticlesPage() {
                   t('colStatus'),
                   'SEO / AEO / GEO',
                   t('colUpdated'),
+                  t('colAssignee'),
                   '',
                 ]}
                 rows={rows}

@@ -8,8 +8,72 @@ import {
   type AiProviderId,
   type AiTask,
 } from '../secrets/store';
+import { entitlementsForBiz, ownerQuotaStatus, providerAllowedForPlan } from '../billing/entitlement';
+import { activeBizId } from '../data/biz-path';
+import { getCostConfig } from '../store/cost-config';
 import { extractJson } from './json';
-import { recordUsage } from './usage';
+import { getMonthlyTokens, recordUsage } from './usage';
+
+// Lỗi VƯỢT HẠN MỨC token (gói hoặc tự-đặt). Ném ra để chặn gọi AI; lớp trên hiển thị message.
+export class BudgetError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BudgetError';
+  }
+}
+// Lỗi GÓI KHÔNG CHO PHÉP (vd model của nhà cung cấp cần gói cao hơn). Cũng chặn gọi AI.
+export class PlanError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PlanError';
+  }
+}
+
+// Chốt chặn TRƯỚC khi gọi provider: (1) model gating theo gói, (2) hạn mức bài AI của gói (gộp theo
+// tài khoản chủ), (3) trần token tự-đặt của biz. Không có ngữ cảnh biz (worker/test) → bỏ qua.
+async function assertPlanAndBudget(provider: AiProviderId): Promise<void> {
+  const bizId = activeBizId();
+  if (!bizId) return;
+
+  // (1) Model gating theo gói.
+  try {
+    const ent = await entitlementsForBiz(bizId);
+    if (!providerAllowedForPlan(ent.plan, provider)) {
+      throw new PlanError(
+        `Model của nhà cung cấp "${provider}" cần gói cao hơn. Nâng cấp gói hoặc chọn nhà cung cấp tiết kiệm hơn.`,
+      );
+    }
+  } catch (e) {
+    if (e instanceof PlanError) throw e; // lỗi đọc entitlement khác → bỏ qua, không chặn oan
+  }
+
+  // (2) Hạn mức bài AI của gói (gộp theo owner).
+  try {
+    const q = await ownerQuotaStatus(bizId);
+    if (q.over) {
+      throw new BudgetError(
+        `Đã dùng hết hạn mức ${q.articlesCap} bài AI của gói trong tháng này. Nâng cấp gói hoặc mua thêm để tiếp tục.`,
+      );
+    }
+  } catch (e) {
+    if (e instanceof BudgetError) throw e;
+  }
+
+  // (3) Trần token TỰ ĐẶT của biz (cost-config) - giới hạn phụ do người dùng đặt.
+  let budget = 0;
+  try {
+    budget = (await getCostConfig()).monthlyTokenBudget;
+  } catch {
+    return;
+  }
+  if (budget <= 0) return;
+  const used = await getMonthlyTokens();
+  if (used >= budget) {
+    throw new BudgetError(
+      `Đã dùng ${used.toLocaleString('vi-VN')}/${budget.toLocaleString('vi-VN')} token trong tháng - vượt hạn mức tự đặt của biz.`,
+    );
+  }
+}
 
 export interface CompleteInput {
   system: string;
@@ -50,11 +114,20 @@ async function callProvider(
   // max_tokens chỉ là TRẦN, tính tiền theo token THỰC sinh ra → đặt rộng KHÔNG tốn thêm.
   const PROVIDER_MAX: Record<AiProviderId, number> = {
     anthropic: 8192,
-    gemini: 8192,
-    deepseek: 8192,
+    // Gemini 2.x/2.5+ hỗ trợ output lớn VÀ tiêu token cho "thinking" → 8192 quá thấp khiến bài
+    // dài bị cắt cụt/rỗng (JSON hỏng). Nới rộng; app vẫn kẹp thực tế ~16000. Gemini tự clamp
+    // theo giới hạn model nên không gây 400.
+    gemini: 32768,
+    deepseek: 8192, // trần cứng của DeepSeek (xin quá → 400, đã có tự-phục-hồi hạ về 4096)
     openai: 16000,
+    moonshot: 8192,
+    qwen: 8192,
+    minimax: 8192,
   };
   const maxTokens = Math.min(input.maxTokens ?? 4096, PROVIDER_MAX[provider] ?? 8192);
+
+  // CHỐT GÓI + HẠN MỨC: kiểm TRƯỚC khi gọi API (mọi lời gọi text đều đi qua đây).
+  await assertPlanAndBudget(provider);
 
   if (provider === 'anthropic') {
     const res = await aiFetch('https://api.anthropic.com/v1/messages', {
@@ -74,11 +147,21 @@ async function callProvider(
     if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = (await res.json()) as {
       content?: Array<{ text?: string }>;
-      usage?: { input_tokens?: number; output_tokens?: number };
+      // input_tokens KHÔNG gồm token đọc/ghi cache (khi bật prompt caching) → cộng thêm cho đúng.
+      // output_tokens của Claude ĐÃ gồm token extended-thinking nên không cần cộng riêng.
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
     };
     return {
       text: data.content?.map((b) => b.text ?? '').join('') ?? '',
-      inTokens: data.usage?.input_tokens ?? 0,
+      inTokens:
+        (data.usage?.input_tokens ?? 0) +
+        (data.usage?.cache_creation_input_tokens ?? 0) +
+        (data.usage?.cache_read_input_tokens ?? 0),
       outTokens: data.usage?.output_tokens ?? 0,
     };
   }
@@ -100,20 +183,32 @@ async function callProvider(
     if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+      // thoughtsTokenCount = token "suy nghĩ" (Gemini 2.5+/3.x thinking) - Google TÍNH PHÍ như
+      // output. Phải cộng vào candidatesTokenCount để đếm ĐÚNG token ra (nếu không sẽ thiếu nhiều).
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+      };
     };
     return {
       text: data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '',
       inTokens: data.usageMetadata?.promptTokenCount ?? 0,
-      outTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+      outTokens:
+        (data.usageMetadata?.candidatesTokenCount ?? 0) + (data.usageMetadata?.thoughtsTokenCount ?? 0),
     };
   }
 
-  // OpenAI & DeepSeek đều dùng schema chat/completions tương thích nhau.
-  const baseUrl =
-    provider === 'deepseek'
-      ? 'https://api.deepseek.com/chat/completions'
-      : 'https://api.openai.com/v1/chat/completions';
+  // OpenAI, DeepSeek, Moonshot (Kimi), Qwen, MiniMax đều dùng schema chat/completions
+  // tương thích OpenAI (model + messages + choices[].message.content + usage).
+  const CHAT_URL: Partial<Record<AiProviderId, string>> = {
+    openai: 'https://api.openai.com/v1/chat/completions',
+    deepseek: 'https://api.deepseek.com/chat/completions',
+    moonshot: 'https://api.moonshot.ai/v1/chat/completions',
+    qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
+    minimax: 'https://api.minimaxi.chat/v1/text/chatcompletion_v2',
+  };
+  const baseUrl = CHAT_URL[provider] ?? 'https://api.openai.com/v1/chat/completions';
   // Model suy luận của OpenAI (o-series, gpt-5) yêu cầu max_completion_tokens thay vì
   // max_tokens (gửi sai → 400). Tự nhận diện theo tên model.
   const isReasoning = provider === 'openai' && /^(o\d|gpt-5)/.test(model);
@@ -231,6 +326,8 @@ export async function completeJson<T>(
   try {
     result = await complete(task, { ...input, json: true }, tier, override);
   } catch (e) {
+    // Vượt hạn mức / gói chặn → NÉM TIẾP để lớp trên hiện đúng thông báo (không rơi về mock/null).
+    if (e instanceof BudgetError || e instanceof PlanError) throw e;
     console.error(
       `[completeJson] lỗi provider (task=${task}):`,
       e instanceof Error ? e.message : e,
@@ -305,13 +402,23 @@ export async function listProviderModels(
       .sort();
   }
 
-  if (provider === 'deepseek' && kind === 'image') return []; // DeepSeek không tạo ảnh
+  // DeepSeek / Moonshot / Qwen / MiniMax không tạo ảnh.
+  if (kind === 'image' && ['deepseek', 'moonshot', 'qwen', 'minimax'].includes(provider)) return [];
 
-  // OpenAI & DeepSeek: GET /models (Bearer), schema tương thích.
-  const url =
-    provider === 'deepseek'
-      ? 'https://api.deepseek.com/models'
-      : 'https://api.openai.com/v1/models';
+  // MiniMax không có endpoint liệt kê model công khai → trả danh sách tĩnh (model đặt tên cố định).
+  // Vì vậy nút "Test" của MiniMax không xác thực được key qua listing (chỉ báo lỗi khi gọi thật).
+  if (provider === 'minimax') {
+    return ['MiniMax-Text-01', 'abab6.5s-chat', 'abab6.5-chat'];
+  }
+
+  // OpenAI, DeepSeek, Moonshot, Qwen: GET /models (Bearer), schema tương thích OpenAI.
+  const MODELS_URL: Partial<Record<AiProviderId, string>> = {
+    openai: 'https://api.openai.com/v1/models',
+    deepseek: 'https://api.deepseek.com/models',
+    moonshot: 'https://api.moonshot.ai/v1/models',
+    qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models',
+  };
+  const url = MODELS_URL[provider] ?? 'https://api.openai.com/v1/models';
   const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
   if (!res.ok) throw new Error(`${provider} ${res.status}`);
   const data = (await res.json()) as { data?: Array<{ id: string }> };

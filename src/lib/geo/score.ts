@@ -1,6 +1,7 @@
 // Chấm điểm GEO theo docs/SEO-GEO-CHECKLIST.md (mục B + C). Hàm thuần, testable.
 import {
   computeScore,
+  fold,
   type ArticleInput,
   type ScoreCheck,
   type ScoreResult,
@@ -43,9 +44,14 @@ export function scoreGeo(a: ArticleInput): ScoreResult {
   const M = markersFor(a.locale);
   const firstParagraph = md.split(/\n{2,}/).find((p) => p.trim() && !p.startsWith('#')) ?? '';
 
+  // Đoạn "trả lời nhanh": đạt nếu CÓ marker (Trả lời nhanh/TL;DR…), HOẶC đoạn đầu đúng tầm độ dài
+  // VÀ chứa từ khóa (tránh cho điểm oan một đoạn mở đầu lan man bất kỳ chỉ vì đủ dài). Không có
+  // từ khóa thì quay về xét độ dài (tương thích cũ).
+  const kwFold = fold((a.targetKeyword ?? '').trim());
+  const qaLenOk = firstParagraph.length > 40 && firstParagraph.length < 320;
   const hasQuickAnswer =
     M.quickAnswer.test(firstParagraph) ||
-    (firstParagraph.length > 40 && firstParagraph.length < 320);
+    (qaLenOk && (!kwFold || fold(firstParagraph).includes(kwFold)));
   // Q&A: có dấu hỏi (cả ？ full-width) ở heading/đoạn, hoặc mục FAQ.
   const hasQA = /[?？]\s*\n/.test(md) || /##[^\n]*[?？]/.test(md) || /faq/i.test(md);
   const hasList = /^[-*]\s|\n\d+\.\s/m.test(md);

@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 const CreateSchema = z.object({
-  provider: z.enum(['wordpress', 'wix', 'shopify']),
+  provider: z.enum(['wordpress', 'wix', 'shopify', 'haravan', 'sapo']),
   label: z.string().min(1).max(120),
   baseUrl: z.string().min(1).max(2000),
   locale: z.enum(locales),

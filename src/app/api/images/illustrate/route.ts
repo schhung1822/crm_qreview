@@ -7,6 +7,7 @@ import {
   imageProviderAvailable,
 } from '@/lib/ai/images';
 import { saveGeneratedImage } from '@/lib/ai/image-store';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { getImageConfig } from '@/lib/store/image-config';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,8 @@ const BodySchema = z.object({
   markdown: z.string().min(1).max(400_000),
   imageProvider: z.enum(['', 'openai', 'gemini']).optional(),
   imageModel: z.string().max(120).optional(),
+  // Mô tả người dùng muốn ảnh minh họa trông thế nào (tùy chọn) → áp cho mọi ảnh của lần này.
+  brief: z.string().max(1000).optional(),
   max: z.number().min(1).max(6).default(3),
 });
 
@@ -25,6 +28,10 @@ const PLACEHOLDER = /!\[([^\]]*)\]\((?!https?:\/\/|\/generated\/)([^)]*)\)/g;
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
+
+  // Tạo tới 6 ảnh AI/lần → tốn kém nhất; giới hạn chặt để chống lạm dụng chi phí.
+  const rl = rateLimit(`img:${clientIp(req)}`, 8, 60_000);
+  if (!rl.ok) return NextResponse.json({ error: `Thử lại sau ${rl.retryAfter}s.` }, { status: 429 });
 
   if (!(await imageProviderAvailable())) {
     return NextResponse.json({ ok: false, needsImageKey: true });
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
   try {
     for (const m of matches) {
       const alt = (m[1] || 'minh họa').trim();
-      const prompt = buildIllustrationPrompt(alt, config);
+      const prompt = await buildIllustrationPrompt(alt, config, parsed.data.brief);
       const { b64 } = await generateImageB64({ prompt, size: '1536x1024', provider, model });
       const url = await saveGeneratedImage(b64, alt);
       images.push({ alt, url });

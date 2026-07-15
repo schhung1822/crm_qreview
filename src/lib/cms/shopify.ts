@@ -11,6 +11,15 @@ import type {
 
 const API_VERSION = '2024-10';
 
+function mimeFromName(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'gif') return 'image/gif';
+  if (ext === 'svg') return 'image/svg+xml';
+  return 'image/webp';
+}
+
 // Lỗi xác thực/kết nối Shopify với gợi ý xử lý cụ thể (hiện cho người dùng khi Test).
 function shopifyAuthError(status: number): Error {
   if (status === 401) {
@@ -22,7 +31,8 @@ function shopifyAuthError(status: number): Error {
   }
   if (status === 403) {
     return new Error(
-      'Token thiếu quyền (403). Trong app bật scope read_content + write_content (mục Store content) rồi Install lại app.',
+      'Token thiếu quyền (403). Trong app bật scope read_content + write_content (mục Store content), ' +
+        'thêm write_files nếu muốn tải ảnh lên Shopify, rồi Install lại app.',
     );
   }
   if (status === 404) {
@@ -157,10 +167,82 @@ export class ShopifyAdapter implements CmsAdapter {
     return this.toCmsPost(data.article);
   }
 
-  async uploadMedia(file: { url?: string; filename: string }): Promise<{ id: string; url: string }> {
-    // Ảnh bài Shopify gắn trực tiếp khi tạo (article.image.src). Ở đây trả url passthrough.
+  // Gọi Admin GraphQL API.
+  private async graphql<T>(query: string, variables?: unknown): Promise<T> {
+    const res = await safeFetch(`${this.base()}/graphql.json`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ query, variables }),
+    });
+    if (!res.ok) throw await shopifyError(res, 'graphql');
+    const json = (await res.json()) as { data?: T; errors?: Array<{ message: string }> };
+    if (json.errors?.length) throw new Error('Shopify GraphQL: ' + json.errors.map((e) => e.message).join('; '));
+    return json.data as T;
+  }
+
+  // Upload ảnh lên Shopify Files (cần scope write_files). URL công khai sẵn → passthrough.
+  // Luồng: stagedUploadsCreate → tải bytes lên staged target → fileCreate → poll tới khi có URL.
+  async uploadMedia(file: { url?: string; data?: Buffer; filename: string }): Promise<{ id?: string; url: string }> {
     if (file.url) return { id: file.filename, url: file.url };
-    throw new Error('Shopify uploadMedia: cần url ảnh (Files API chưa cấu hình).');
+    if (!file.data) throw new Error('Shopify uploadMedia: thiếu dữ liệu ảnh.');
+    const mimeType = mimeFromName(file.filename);
+
+    // 1) Xin chỗ tải tạm.
+    const staged = await this.graphql<{
+      stagedUploadsCreate: {
+        stagedTargets: Array<{ url: string; resourceUrl: string; parameters: Array<{ name: string; value: string }> }>;
+        userErrors: Array<{ message: string }>;
+      };
+    }>(
+      `mutation($input:[StagedUploadInput!]!){stagedUploadsCreate(input:$input){stagedTargets{url resourceUrl parameters{name value}} userErrors{message}}}`,
+      { input: [{ filename: file.filename, mimeType, httpMethod: 'POST', resource: 'FILE' }] },
+    );
+    const target = staged.stagedUploadsCreate.stagedTargets[0];
+    if (!target) {
+      const e = staged.stagedUploadsCreate.userErrors?.[0]?.message;
+      throw new Error('Shopify: không tạo được staged upload' + (e ? ` (${e})` : ' — kiểm tra scope write_files.'));
+    }
+
+    // 2) Tải bytes lên staged target (multipart, KHÔNG kèm token Shopify).
+    const form = new FormData();
+    for (const p of target.parameters) form.append(p.name, p.value);
+    form.append('file', new Blob([new Uint8Array(file.data)], { type: mimeType }), file.filename);
+    const up = await safeFetch(target.url, { method: 'POST', body: form });
+    if (!up.ok) throw new Error(`Shopify: tải ảnh lên kho tạm thất bại (HTTP ${up.status}).`);
+
+    // 3) Đăng ký file từ resourceUrl.
+    const created = await this.graphql<{
+      fileCreate: {
+        files: Array<{ id: string; fileStatus: string; image?: { url?: string } }>;
+        userErrors: Array<{ message: string }>;
+      };
+    }>(
+      `mutation($files:[FileCreateInput!]!){fileCreate(files:$files){files{id fileStatus ... on MediaImage{image{url}}} userErrors{message}}}`,
+      { files: [{ originalSource: target.resourceUrl, contentType: 'IMAGE' }] },
+    );
+    const cErr = created.fileCreate.userErrors?.[0]?.message;
+    if (cErr) throw new Error('Shopify fileCreate: ' + cErr);
+    const node = created.fileCreate.files[0];
+    if (!node) throw new Error('Shopify: fileCreate không trả file.');
+
+    // 4) Ảnh xử lý bất đồng bộ → poll tới khi có URL CDN (READY).
+    const url = node.image?.url ?? (await this.pollFileUrl(node.id));
+    if (!url) throw new Error('Shopify: ảnh chưa sẵn sàng sau khi tải lên.');
+    return { id: node.id, url };
+  }
+
+  private async pollFileUrl(id: string): Promise<string | undefined> {
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 800));
+      const data = await this.graphql<{ node: { fileStatus?: string; image?: { url?: string } } | null }>(
+        `query($id:ID!){node(id:$id){... on MediaImage{fileStatus image{url}}}}`,
+        { id },
+      );
+      const url = data.node?.image?.url;
+      if (url) return url;
+      if (data.node?.fileStatus === 'FAILED') return undefined;
+    }
+    return undefined;
   }
 
   private toBody(input: Partial<CmsPostInput>): Record<string, unknown> {

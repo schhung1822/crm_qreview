@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { coverImageHtml, htmlToMarkdown, markdownToHtml } from '@/lib/content/markdown';
 
+describe('markdownToHtml — bảng GFM không có pipe biên', () => {
+  it('nhận diện bảng "Cột A | Cột B" + "--- | ---" (không có | ở biên)', () => {
+    const md = 'Cột A | Cột B\n--- | ---\n1 | 2';
+    const html = markdownToHtml(md);
+    expect(html).toContain('<table');
+    expect(html).toContain('<th>Cột A</th>');
+    expect(html).toContain('<td>1</td>');
+  });
+  it('vẫn nhận bảng có pipe biên như cũ', () => {
+    const html = markdownToHtml('| A | B |\n| --- | --- |\n| 1 | 2 |');
+    expect(html).toContain('<table');
+    expect(html).toContain('<th>A</th>');
+  });
+});
+
+describe('htmlToMarkdown — giữ alt bất kể thứ tự src/alt', () => {
+  it('src ĐỨNG TRƯỚC alt vẫn giữ alt', () => {
+    expect(htmlToMarkdown('<img src="/pic.jpg" alt="Con mèo">')).toContain('![Con mèo](/pic.jpg)');
+  });
+  it('alt đứng trước src vẫn giữ alt', () => {
+    expect(htmlToMarkdown('<img alt="Con mèo" src="/pic.jpg">')).toContain('![Con mèo](/pic.jpg)');
+  });
+});
+
+describe('markdownToHtml — giải mã entity typographic (không escape hai lần)', () => {
+  it('&#8230; render thành … chứ không phải literal', () => {
+    const html = markdownToHtml('Đang tải&#8230;');
+    expect(html).toContain('…');
+    expect(html).not.toContain('&amp;#8230;');
+    expect(html).not.toContain('&#8230;');
+  });
+  it('KHÔNG mở lỗ XSS: &lt;script&gt; vẫn được giữ escape', () => {
+    const html = markdownToHtml('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<script>');
+  });
+});
+
 describe('markdownToHtml — chống XSS', () => {
   it('vô hiệu hóa link javascript:', () => {
     const html = markdownToHtml('[bấm](javascript:alert(document.cookie))');
@@ -31,6 +68,18 @@ describe('markdownToHtml — chống XSS', () => {
     const html = markdownToHtml('<img src=x onerror=alert(1)>');
     expect(html).not.toContain('<img src=x onerror');
     expect(html).toContain('&lt;img');
+  });
+
+  it('không bơm được onerror qua dấu " trong URL ảnh (không thoát thuộc tính)', () => {
+    const html = markdownToHtml('![x](/a" onerror="alert(1))');
+    expect(html).not.toContain('onerror="'); // thuộc tính onerror không hình thành
+    expect(html).not.toContain('" onerror'); // dấu " không thoát khỏi src=
+  });
+
+  it('không thoát được href qua dấu " trong URL link', () => {
+    const html = markdownToHtml('[x](/a" onmouseover="alert(1))');
+    expect(html).not.toContain('onmouseover="');
+    expect(html).not.toContain('" onmouseover');
   });
 });
 

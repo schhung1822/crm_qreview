@@ -49,7 +49,10 @@ export async function POST(req: Request) {
   }
   if (parsed.data.pipelineEnabled !== undefined) patch.pipelineEnabled = parsed.data.pipelineEnabled;
   if (parsed.data.jsonLd !== undefined) {
-    patch.jsonLd = { enabled: true, ...parsed.data.jsonLd };
+    // Deep-merge với cấu hình hiện tại (saveArticleConfig THAY nguyên jsonLd, không merge).
+    // Không ép enabled=true: cập nhật thiếu field nào thì GIỮ field đó, kể cả 'enabled'.
+    const cur = await getArticleConfig();
+    patch.jsonLd = { ...cur.jsonLd, ...parsed.data.jsonLd };
   }
   if (parsed.data.maxTokens !== undefined) patch.maxTokens = parsed.data.maxTokens;
   return NextResponse.json(await saveArticleConfig(patch));

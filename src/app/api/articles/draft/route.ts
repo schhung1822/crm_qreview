@@ -44,10 +44,14 @@ const UpsertSchema = z.object({
   geoScore: z.number().min(0).max(100).optional(),
   source: z.enum(['new', 'edited']).optional(),
   connectionId: z.string().max(64).optional(),
-  // BẢO MẬT: KHÔNG cho client tự đặt status='published', cmsPostId, publishedUrl qua endpoint lưu
-  // nháp — đó là KẾT QUẢ của việc đăng thật (chỉ luồng publish/runner set server-side). Trước đây
-  // biên tập viên (chỉ cần content:write) có thể đánh dấu bài "đã đăng" + bịa publishedUrl, qua mặt
-  // cổng duyệt và CMS. Zod loại các field lạ nên client gửi kèm cũng bị bỏ qua (không báo lỗi).
+  // cmsPostId ĐƯỢC PHÉP: khi nhập bài cũ về sửa (Tối ưu bài cũ), phải ghi lại id bài trên CMS để
+  // lần đăng sau CẬP NHẬT đúng bài đó thay vì tạo bài mới. Đây KHÔNG phải vector qua mặt duyệt
+  // (không đổi status/approved) — người dùng vẫn cần quyền đăng + qua cổng duyệt mới ghi được lên CMS.
+  cmsPostId: z.string().max(64).optional(),
+  // BẢO MẬT: KHÔNG cho client tự đặt status='published' hay publishedUrl qua endpoint lưu nháp —
+  // đó là KẾT QUẢ của việc đăng thật (chỉ luồng publish/runner set server-side). Trước đây biên tập
+  // viên (chỉ cần content:write) có thể đánh dấu bài "đã đăng" + bịa publishedUrl, qua mặt cổng
+  // duyệt (và làm link nội bộ trỏ URL không có thật). Zod loại field lạ nên client gửi kèm cũng bị bỏ qua.
 });
 
 // POST /api/articles/draft → tạo/cập nhật bản nháp.

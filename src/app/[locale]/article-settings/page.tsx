@@ -18,6 +18,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { XIcon } from '@/components/icons';
+import { HelpLabel, InfoHint } from '@/components/InfoHint';
 
 interface Rule {
   from: string;
@@ -186,18 +187,21 @@ export default function ArticleSettingsPage() {
             </Text>
             {(
               [
-                { key: 'keywords', label: t('taskAnalysis') },
-                { key: 'blueprint', label: t('taskBlueprint') },
-                { key: 'write', label: t('taskWrite') },
+                { key: 'keywords', label: t('taskAnalysis'), help: t('taskAnalysisHelp') },
+                { key: 'blueprint', label: t('taskBlueprint'), help: t('taskBlueprintHelp') },
+                { key: 'write', label: t('taskWrite'), help: t('taskWriteHelp') },
               ] as const
             ).map((task) => {
               const cur = routing[task.key];
               const opts = cur.provider ? models[cur.provider] ?? [] : [];
               return (
                 <InlineGrid key={task.key} columns={{ xs: 1, md: '1fr 1fr 1fr' }} gap="300" alignItems="center">
-                  <Text as="span" variant="bodyMd" fontWeight="medium">
-                    {task.label}
-                  </Text>
+                  <InlineStack gap="050" blockAlign="center" wrap={false}>
+                    <Text as="span" variant="bodyMd" fontWeight="medium">
+                      {task.label}
+                    </Text>
+                    <InfoHint content={task.help} label={task.label} />
+                  </InlineStack>
                   <Select
                     label={t('routeProvider')}
                     labelHidden
@@ -254,7 +258,7 @@ export default function ArticleSettingsPage() {
             </Text>
             <InlineGrid columns={{ xs: 1, md: '260px 1fr' }} gap="400" alignItems="start">
               <TextField
-                label={t('maxTokensLabel')}
+                label={<HelpLabel label={t('maxTokensLabel')} help={t('maxTokensLabelHelp')} />}
                 type="number"
                 min={0}
                 max={16000}
@@ -325,7 +329,7 @@ export default function ArticleSettingsPage() {
               {t('schemaTitle')}
             </Text>
             <Checkbox
-              label={t('schemaToggle')}
+              label={<HelpLabel label={t('schemaToggle')} help={t('schemaToggleHelp')} />}
               checked={jsonLd.enabled}
               onChange={(v) => patchJsonLd({ enabled: v })}
               helpText={t('schemaHelp')}
@@ -333,14 +337,14 @@ export default function ArticleSettingsPage() {
             {jsonLd.enabled ? (
               <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
                 <TextField
-                  label={t('schemaOrg')}
+                  label={<HelpLabel label={t('schemaOrg')} help={t('schemaOrgHelp')} />}
                   value={jsonLd.organizationName ?? ''}
                   onChange={(v) => patchJsonLd({ organizationName: v })}
                   autoComplete="organization"
                   placeholder="Acme Inc."
                 />
                 <TextField
-                  label={t('schemaAuthor')}
+                  label={<HelpLabel label={t('schemaAuthor')} help={t('schemaAuthorHelp')} />}
                   value={jsonLd.authorName ?? ''}
                   onChange={(v) => patchJsonLd({ authorName: v })}
                   autoComplete="name"
@@ -370,61 +374,125 @@ export default function ArticleSettingsPage() {
                 {t('empty')}
               </Text>
             ) : (
-              <BlockStack gap="300">
-                {/* Tiêu đề cột (ẩn trên mobile) */}
-                <InlineGrid columns={{ xs: 1, md: '1fr 1fr auto auto auto' }} gap="300" alignItems="center">
-                  <Text as="span" variant="bodySm" tone="subdued">{t('from')}</Text>
-                  <Text as="span" variant="bodySm" tone="subdued">{t('to')}</Text>
-                  <Text as="span" variant="bodySm" tone="subdued">{t('wholeWord')}</Text>
-                  <Text as="span" variant="bodySm" tone="subdued">{t('caseSensitive')}</Text>
-                  <span />
-                </InlineGrid>
+              <>
+                {/* DESKTOP (≥490px): dạng bảng — header + hàng thẳng cột. Ẩn trên mobile. */}
+                <div className="rules-desktop">
+                  <BlockStack gap="300">
+                    {/* Tiêu đề cột — khung cột DÙNG CHUNG với hàng dữ liệu để thẳng cột. */}
+                    <InlineGrid columns={{ xs: 1, sm: '1fr 1fr 56px 88px 40px' }} gap="300" alignItems="center">
+                      <Text as="span" variant="bodySm" tone="subdued">{t('from')}</Text>
+                      <Text as="span" variant="bodySm" tone="subdued">{t('to')}</Text>
+                      <Text as="span" variant="bodySm" tone="subdued" alignment="center">{t('wholeWord')}</Text>
+                      <Text as="span" variant="bodySm" tone="subdued" alignment="center">{t('caseSensitive')}</Text>
+                      <span />
+                    </InlineGrid>
 
-                {rules.map((r, i) => (
-                  <InlineGrid
-                    key={i}
-                    columns={{ xs: 1, md: '1fr 1fr auto auto auto' }}
-                    gap="300"
-                    alignItems="center"
-                  >
-                    <TextField
-                      label={t('from')}
-                      labelHidden
-                      value={r.from}
-                      onChange={(v) => patch(i, { from: v })}
-                      placeholder={t('fromPlaceholder')}
-                      autoComplete="off"
-                    />
-                    <TextField
-                      label={t('to')}
-                      labelHidden
-                      value={r.to}
-                      onChange={(v) => patch(i, { to: v })}
-                      placeholder={t('toPlaceholder')}
-                      autoComplete="off"
-                    />
-                    <Checkbox
-                      label={t('wholeWord')}
-                      labelHidden
-                      checked={!!r.wholeWord}
-                      onChange={(v) => patch(i, { wholeWord: v })}
-                    />
-                    <Checkbox
-                      label={t('caseSensitive')}
-                      labelHidden
-                      checked={!!r.caseSensitive}
-                      onChange={(v) => patch(i, { caseSensitive: v })}
-                    />
-                    <Button
-                      icon={XIcon}
-                      variant="tertiary"
-                      tone="critical"
-                      accessibilityLabel={t('removeRule')}
-                      onClick={() => removeRule(i)}
-                    />
-                  </InlineGrid>
-                ))}
-              </BlockStack>
+                    {rules.map((r, i) => (
+                      <InlineGrid
+                        key={i}
+                        columns={{ xs: 1, sm: '1fr 1fr 56px 88px 40px' }}
+                        gap="300"
+                        alignItems="center"
+                      >
+                        <TextField
+                          label={t('from')}
+                          labelHidden
+                          value={r.from}
+                          onChange={(v) => patch(i, { from: v })}
+                          placeholder={t('fromPlaceholder')}
+                          autoComplete="off"
+                        />
+                        <TextField
+                          label={t('to')}
+                          labelHidden
+                          value={r.to}
+                          onChange={(v) => patch(i, { to: v })}
+                          placeholder={t('toPlaceholder')}
+                          autoComplete="off"
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Checkbox
+                            label={t('wholeWord')}
+                            labelHidden
+                            checked={!!r.wholeWord}
+                            onChange={(v) => patch(i, { wholeWord: v })}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Checkbox
+                            label={t('caseSensitive')}
+                            labelHidden
+                            checked={!!r.caseSensitive}
+                            onChange={(v) => patch(i, { caseSensitive: v })}
+                          />
+                        </div>
+                        <Button
+                          icon={XIcon}
+                          variant="tertiary"
+                          tone="critical"
+                          accessibilityLabel={t('removeRule')}
+                          onClick={() => removeRule(i)}
+                        />
+                      </InlineGrid>
+                    ))}
+                  </BlockStack>
+                </div>
+
+                {/* MOBILE (<490px): mỗi quy tắc là 1 thẻ có nhãn rõ ràng, không dồn cột. */}
+                <div className="rules-mobile">
+                  <BlockStack gap="300">
+                    {rules.map((r, i) => (
+                      <Box
+                        key={i}
+                        padding="300"
+                        borderWidth="025"
+                        borderColor="border"
+                        borderRadius="200"
+                        background="bg-surface-secondary"
+                      >
+                        <BlockStack gap="300">
+                          <TextField
+                            label={t('from')}
+                            value={r.from}
+                            onChange={(v) => patch(i, { from: v })}
+                            placeholder={t('fromPlaceholder')}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label={t('to')}
+                            value={r.to}
+                            onChange={(v) => patch(i, { to: v })}
+                            placeholder={t('toPlaceholder')}
+                            autoComplete="off"
+                          />
+                          <InlineStack gap="400" wrap blockAlign="center">
+                            <Checkbox
+                              label={t('wholeWord')}
+                              checked={!!r.wholeWord}
+                              onChange={(v) => patch(i, { wholeWord: v })}
+                            />
+                            <Checkbox
+                              label={t('caseSensitive')}
+                              checked={!!r.caseSensitive}
+                              onChange={(v) => patch(i, { caseSensitive: v })}
+                            />
+                          </InlineStack>
+                          <InlineStack align="end">
+                            <Button
+                              icon={XIcon}
+                              variant="tertiary"
+                              tone="critical"
+                              onClick={() => removeRule(i)}
+                            >
+                              {t('removeRule')}
+                            </Button>
+                          </InlineStack>
+                        </BlockStack>
+                      </Box>
+                    ))}
+                  </BlockStack>
+                </div>
+              </>
             )}
 
             <Box>

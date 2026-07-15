@@ -11,6 +11,7 @@ import {
   Layout,
   Page,
   Select,
+  Spinner,
   Text,
   TextField,
 } from '@shopify/polaris';
@@ -18,6 +19,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExtLink } from '@/components/ui';
+import { HelpLabel } from '@/components/InfoHint';
+import { SheetPublishPanel } from '@/components/SheetPublishPanel';
 import { markdownToHtml } from '@/lib/content/markdown';
 import { scoreAeo } from '@/lib/aeo/score';
 import { scoreGeo } from '@/lib/geo/score';
@@ -64,11 +67,14 @@ export default function PublishPage() {
   const [schedDate, setSchedDate] = useState('');
   const [schedTime, setSchedTime] = useState('09:00');
 
+  const [dest, setDest] = useState<'cms' | 'sheet'>('cms'); // đích đăng: CMS đã kết nối / Google Sheet
   const [conns, setConns] = useState<Conn[] | null>(null);
   const [connId, setConnId] = useState('');
+  const [draftConnId, setDraftConnId] = useState<string | null>(null); // kết nối gốc của bản nháp (có thể đã bị xóa)
 
   // Taxonomy của site đích.
   const [cats, setCats] = useState<Term[]>([]);
+  const [loadingTax, setLoadingTax] = useState(false); // đang kéo chuyên mục của site đích
   const [taxSupported, setTaxSupported] = useState(true);
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   // Chuyên mục bài cũ đã có (nhập về để sửa) - chờ taxonomy tải xong rồi chọn sẵn.
@@ -83,10 +89,7 @@ export default function PublishPage() {
   useEffect(() => {
     fetch('/api/connections')
       .then((r) => r.json())
-      .then((d: { connections: Conn[] }) => {
-        setConns(d.connections);
-        if (d.connections[0]) setConnId(d.connections[0].id);
-      })
+      .then((d: { connections: Conn[] }) => setConns(d.connections))
       .catch(() => setConns([]));
     fetch('/api/articles/draft')
       .then((r) => r.json())
@@ -114,7 +117,8 @@ export default function PublishPage() {
     setTags(Array.isArray(a.tags) ? a.tags.join(', ') : '');
     // Chuyên mục đã gán trên web → chọn sẵn sau khi taxonomy tải (effect bên dưới).
     setDraftCats(Array.isArray(a.categories) ? a.categories : []);
-    if (a.connectionId) setConnId(a.connectionId);
+    // KHÔNG set connId thẳng: kết nối gốc có thể đã bị xóa → để effect reconcile kiểm tra rồi chọn.
+    setDraftConnId(a.connectionId ?? '');
   }, []);
 
   useEffect(() => {
@@ -122,11 +126,25 @@ export default function PublishPage() {
     if (id) void loadDraft(id);
   }, [params, loadDraft]);
 
+  // Chốt kết nối khi đã có danh sách: ưu tiên kết nối gốc của bản nháp NẾU CÒN TỒN TẠI; nếu đã bị
+  // xóa (vd xóa rồi thêm mới) → chọn kết nối còn tồn tại đầu tiên, tránh gửi id chết lên CMS
+  // ("Không tìm thấy kết nối" khi tải chuyên mục / đăng bài).
+  useEffect(() => {
+    if (!conns) return;
+    const ids = new Set(conns.map((c) => c.id));
+    if (draftConnId && ids.has(draftConnId)) {
+      setConnId(draftConnId);
+      return;
+    }
+    setConnId((cur) => (cur && ids.has(cur) ? cur : conns[0]?.id ?? ''));
+  }, [conns, draftConnId]);
+
   // Tải taxonomy khi đổi kết nối.
   useEffect(() => {
     if (!connId) return;
     setCats([]);
     setSelectedCats([]);
+    setLoadingTax(true);
     fetch(`/api/connections/${connId}/taxonomy`)
       .then((r) => r.json())
       .then((d: { supported?: boolean; categories?: Term[] }) => {
@@ -136,7 +154,8 @@ export default function PublishPage() {
       .catch(() => {
         setTaxSupported(false);
         setCats([]);
-      });
+      })
+      .finally(() => setLoadingTax(false));
   }, [connId]);
 
   // Khi taxonomy đã tải & có chuyên mục từ bài cũ → chọn sẵn (chỉ giữ id còn tồn tại
@@ -242,11 +261,11 @@ export default function PublishPage() {
       <BlockStack gap="400">
         <Banner tone="warning">{t('publish.warning')}</Banner>
 
-        {noConns ? (
+        {noConns && dest === 'cms' ? (
           <Banner
             tone="info"
             title={t('connections.empty')}
-            action={{ content: t('connections.add'), url: `/${locale}/connections` }}
+            action={{ content: t('connections.add'), url: `/${locale}/settings` }}
           />
         ) : null}
 
@@ -297,7 +316,7 @@ export default function PublishPage() {
                 ) : null}
                 <TextField label={t('publish.fieldTitle')} value={title} onChange={setTitle} autoComplete="off" />
                 <TextField
-                  label={t('publish.slug')}
+                  label={<HelpLabel label={t('publish.slug')} help={t('publish.slugHelp')} />}
                   value={slug}
                   onChange={setSlug}
                   autoComplete="off"
@@ -321,104 +340,146 @@ export default function PublishPage() {
                   <Text as="h2" variant="headingSm">
                     {t('publish.destination')}
                   </Text>
+                  {/* Chọn ĐÍCH đăng: CMS đã kết nối hoặc Google Sheet. */}
                   <Select
-                    label={t('publish.site')}
-                    options={(conns ?? []).map((c) => ({
-                      label: `${c.label} · ${c.provider} · ${c.locale}`,
-                      value: c.id,
-                    }))}
-                    value={connId}
-                    onChange={(v) => {
-                      // Người dùng tự đổi site → bỏ chọn-sẵn chuyên mục của bài cũ (id khác site).
-                      setConnId(v);
-                      setDraftCats([]);
-                    }}
-                    disabled={noConns}
-                    placeholder={noConns ? '-' : undefined}
-                  />
-                  <Select
-                    label={t('common.status')}
+                    label={<HelpLabel label={t('sheet.destLabel')} help={t('sheet.destLabelHelp')} />}
                     options={[
-                      { label: t('publish.publishNow'), value: 'publish' },
-                      // Chỉ hẹn giờ được cho bài CHƯA đăng (bản nháp).
-                      {
-                        label: t('publish.scheduledOption'),
-                        value: 'scheduled',
-                        disabled: draftStatus === 'published',
-                      },
-                      { label: t('publish.saveToCms'), value: 'draft' },
+                      { label: t('sheet.destCms'), value: 'cms' },
+                      { label: t('sheet.destSheet'), value: 'sheet' },
                     ]}
-                    value={status}
-                    onChange={(v) => setStatus(v as 'publish' | 'draft' | 'scheduled')}
-                    helpText={draftStatus === 'published' ? t('publish.publishedNoSchedule') : undefined}
+                    value={dest}
+                    onChange={(v) => setDest(v as 'cms' | 'sheet')}
                   />
-                  {status === 'scheduled' ? (
+                  {dest === 'cms' ? (
                     <>
-                      <TextField
-                        type="date"
-                        label={t('publish.scheduleDate')}
-                        value={schedDate}
-                        onChange={setSchedDate}
-                        autoComplete="off"
+                      <Select
+                        label={<HelpLabel label={t('publish.site')} help={t('publish.siteHelp')} />}
+                        options={(conns ?? []).map((c) => ({
+                          label: `${c.label} · ${c.provider} · ${c.locale}`,
+                          value: c.id,
+                        }))}
+                        value={connId}
+                        onChange={(v) => {
+                          // Người dùng tự đổi site → bỏ chọn-sẵn chuyên mục của bài cũ (id khác site).
+                          setConnId(v);
+                          setDraftCats([]);
+                        }}
+                        disabled={noConns}
+                        placeholder={noConns ? '-' : undefined}
                       />
-                      <TextField
-                        type="time"
-                        label={t('publish.scheduleTime')}
-                        value={schedTime}
-                        onChange={setSchedTime}
-                        autoComplete="off"
-                        helpText={t('publish.scheduleHint')}
+                      <Select
+                        label={<HelpLabel label={t('common.status')} help={t('common.statusHelp')} />}
+                        options={[
+                          { label: t('publish.publishNow'), value: 'publish' },
+                          // Chỉ hẹn giờ được cho bài CHƯA đăng (bản nháp).
+                          {
+                            label: t('publish.scheduledOption'),
+                            value: 'scheduled',
+                            disabled: draftStatus === 'published',
+                          },
+                          { label: t('publish.saveToCms'), value: 'draft' },
+                        ]}
+                        value={status}
+                        onChange={(v) => setStatus(v as 'publish' | 'draft' | 'scheduled')}
+                        helpText={draftStatus === 'published' ? t('publish.publishedNoSchedule') : undefined}
                       />
+                      {status === 'scheduled' ? (
+                        <>
+                          <TextField
+                            type="date"
+                            label={<HelpLabel label={t('publish.scheduleDate')} help={t('publish.scheduleDateHelp')} />}
+                            value={schedDate}
+                            onChange={setSchedDate}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            type="time"
+                            label={<HelpLabel label={t('publish.scheduleTime')} help={t('publish.scheduleTimeHelp')} />}
+                            value={schedTime}
+                            onChange={setSchedTime}
+                            autoComplete="off"
+                            helpText={t('publish.scheduleHint')}
+                          />
+                        </>
+                      ) : null}
                     </>
                   ) : null}
                 </BlockStack>
               </Card>
 
-              {/* Chuyên mục & thẻ */}
-              <Card>
-                <BlockStack gap="300">
-                  <Text as="h2" variant="headingSm">
-                    {t('publish.categories')}
-                  </Text>
-                  {!taxSupported ? (
-                    <Text as="p" tone="subdued" variant="bodySm">
-                      {t('publish.taxonomyUnsupported')}
-                    </Text>
-                  ) : cats.length === 0 ? (
-                    <Text as="p" tone="subdued" variant="bodySm">
-                      -
-                    </Text>
-                  ) : (
-                    <ChoiceList
-                      allowMultiple
-                      title=""
-                      titleHidden
-                      choices={cats.map((c) => ({ label: c.name, value: c.id }))}
-                      selected={selectedCats}
-                      onChange={setSelectedCats}
-                    />
-                  )}
-                  <TextField
-                    label={t('publish.tags')}
-                    value={tags}
-                    onChange={setTags}
-                    autoComplete="off"
-                    helpText={t('publish.tagsHelp')}
-                    disabled={!taxSupported}
-                  />
-                </BlockStack>
-              </Card>
+              {dest === 'cms' ? (
+                <>
+                  {/* Chuyên mục & thẻ */}
+                  <Card>
+                    <BlockStack gap="300">
+                      <Text as="h2" variant="headingSm">
+                        {t('publish.categories')}
+                      </Text>
+                      {loadingTax ? (
+                        <InlineStack gap="200" blockAlign="center">
+                          <Spinner size="small" />
+                          <Text as="span" tone="subdued" variant="bodySm">
+                            {t('publish.loadingCategories')}
+                          </Text>
+                        </InlineStack>
+                      ) : !taxSupported ? (
+                        <Text as="p" tone="subdued" variant="bodySm">
+                          {t('publish.taxonomyUnsupported')}
+                        </Text>
+                      ) : cats.length === 0 ? (
+                        <Text as="p" tone="subdued" variant="bodySm">
+                          -
+                        </Text>
+                      ) : (
+                        <ChoiceList
+                          allowMultiple
+                          title=""
+                          titleHidden
+                          choices={cats.map((c) => ({ label: c.name, value: c.id }))}
+                          selected={selectedCats}
+                          onChange={setSelectedCats}
+                        />
+                      )}
+                      <TextField
+                        label={t('publish.tags')}
+                        value={tags}
+                        onChange={setTags}
+                        autoComplete="off"
+                        helpText={t('publish.tagsHelp')}
+                        disabled={!taxSupported}
+                      />
+                    </BlockStack>
+                  </Card>
 
-              <Button
-                variant="primary"
-                fullWidth
-                size="large"
-                loading={publishing}
-                disabled={!connId || noConns || !hasContent || (status === 'scheduled' && !schedDate)}
-                onClick={publish}
-              >
-                {status === 'scheduled' ? t('publish.confirmSchedule') : t('publish.confirm')}
-              </Button>
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    size="large"
+                    loading={publishing}
+                    disabled={!connId || noConns || !hasContent || (status === 'scheduled' && !schedDate)}
+                    onClick={publish}
+                  >
+                    {status === 'scheduled' ? t('publish.confirmSchedule') : t('publish.confirm')}
+                  </Button>
+                </>
+              ) : (
+                <SheetPublishPanel
+                  settingsHref={`/${locale}/settings`}
+                  article={{
+                    articleId: draftId || undefined,
+                    title,
+                    slug,
+                    metaDescription: meta,
+                    markdown,
+                    targetKeyword: keyword,
+                    tags,
+                    categories: selectedCats,
+                    coverImageUrl,
+                    locale,
+                    hasContent,
+                  }}
+                />
+              )}
             </BlockStack>
           </Layout.Section>
         </Layout>

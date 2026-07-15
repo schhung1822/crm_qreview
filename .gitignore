@@ -45,3 +45,6 @@ test-results/
 # Claude Code — file cá nhân/runtime (settings.json + agents/ + commands/ thì commit được)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# TypeScript incremental build info (artifact)
+tsconfig.tsbuildinfo

@@ -1,0 +1,1472 @@
+{
+  "vi": {
+    "metaTitle": "Viết nội dung chuẩn SEO, AEO & GEO bằng AI - đăng đa kênh, đa ngôn ngữ",
+    "metaDescription": "Nền tảng AI giúp bạn nghiên cứu từ khóa, viết và tối ưu bài chuẩn SEO/AEO/GEO, chấm điểm tự động rồi đăng thẳng lên WordPress, Wix, Shopify, Haravan, Sapo hay Google Sheet - hỗ trợ 10 ngôn ngữ.",
+    "login": "Đăng nhập",
+    "skipToContent": "Tới nội dung chính",
+    "langLabel": "Ngôn ngữ",
+    "heroBadge": "Nền tảng nội dung AI · SEO · AEO · GEO",
+    "heroTitle": "Một nền tảng AI: phân tích, lên kế hoạch và viết nội dung được AI trích dẫn",
+    "heroSubtitle": "Báo cáo Social & sàn TMĐT, phân tích kịch bản video, viết bài tối ưu cho AI trích dẫn, tự động đi internal link và backlink — tất cả trong một chỗ.",
+    "heroCtaPrimary": "Đăng nhập để bắt đầu",
+    "heroCtaSecondary": "Xem tính năng",
+    "heroNote": "Dùng khóa API AI của chính bạn - chủ động chi phí, không phụ thuộc.",
+    "problemTitle": "Bạn có đang gặp những vấn đề này?",
+    "problems": [
+      {
+        "title": "Viết chuẩn SEO quá tốn thời gian",
+        "desc": "Nghiên cứu từ khóa, dựng dàn ý, tối ưu tiêu đề, meta, heading, chèn liên kết... mỗi bài ngốn hàng giờ đồng hồ."
+      },
+      {
+        "title": "Bài không được AI trích dẫn",
+        "desc": "ChatGPT, Perplexity, Google AI Overviews đang thay đổi cách tìm kiếm - nội dung không tối ưu GEO sẽ bị bỏ lại phía sau."
+      },
+      {
+        "title": "Quản lý đa kênh, đa ngôn ngữ rối rắm",
+        "desc": "Đăng thủ công lên nhiều CMS, dịch từng bài, theo dõi hiệu quả... quá nhiều việc lặp đi lặp lại."
+      }
+    ],
+    "featuresTitle": "Tất cả những gì bạn cần, trong một nền tảng",
+    "featuresSubtitle": "Sáu năng lực cốt lõi giúp bạn thắng cả trên Google lẫn trong câu trả lời của AI.",
+    "features": [
+      {
+        "title": "Báo cáo Social đa nền tảng",
+        "desc": "Quét Facebook, TikTok, YouTube, Instagram — AI mổ xẻ nội dung, tương tác và chiến lược đối thủ."
+      },
+      {
+        "title": "Phân tích shop sàn TMĐT",
+        "desc": "Báo cáo Shopee, TikTok Shop, Lazada: sản phẩm, đánh giá, giá và cơ hội thị trường."
+      },
+      {
+        "title": "Phân tích kịch bản video",
+        "desc": "Dán link TikTok/YouTube/Facebook — AI bóc tách hook, công thức, timeline theo giây và lý do viral."
+      },
+      {
+        "title": "Viết bài chuẩn SEO · GEO",
+        "desc": "Nội dung tối ưu để Google xếp hạng và được AI trích dẫn: ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "Tự động internal link & backlink",
+        "desc": "AI tìm bài liên quan và đi link nội bộ lẫn chéo site — chỉ nối nội dung thật sự liên quan."
+      },
+      {
+        "title": "Phân tích, lên kế hoạch, viết",
+        "desc": "Từ nghiên cứu từ khóa đến kế hoạch nội dung và bài hoàn chỉnh — tất cả bằng AI, trong một luồng."
+      }
+    ],
+    "audienceTitle": "Dành cho ai?",
+    "audience": [
+      {
+        "title": "Chủ shop & doanh nghiệp",
+        "desc": "Tự chủ nội dung website, kéo khách từ tìm kiếm mà không cần đội SEO riêng."
+      },
+      {
+        "title": "Agency & freelancer SEO",
+        "desc": "Tăng sản lượng bài chất lượng cho nhiều khách hàng, nhiều ngôn ngữ, trong thời gian ngắn."
+      },
+      {
+        "title": "Đội marketing in-house",
+        "desc": "Chuẩn hóa quy trình viết - tối ưu - duyệt - đăng và cộng tác nhiều người trên cùng nền tảng."
+      },
+      {
+        "title": "Người sáng tạo nội dung",
+        "desc": "Biến ý tưởng thành bài chuẩn SEO/GEO thật nhanh, tập trung vào chất lượng thay vì thao tác thủ công."
+      }
+    ],
+    "howTitle": "Cách hoạt động",
+    "steps": [
+      {
+        "title": "Kết nối",
+        "desc": "Nhập khóa API AI và kết nối website (WordPress, Wix, Shopify...)."
+      },
+      {
+        "title": "Nghiên cứu & lập kế hoạch",
+        "desc": "Tìm từ khóa và dựng kế hoạch nội dung theo cụm chủ đề."
+      },
+      {
+        "title": "Viết & tối ưu",
+        "desc": "Để AI viết bản nháp, chấm điểm SEO/AEO/GEO rồi làm theo gợi ý để nâng điểm."
+      },
+      {
+        "title": "Đăng & đo lường",
+        "desc": "Xuất bản đa kênh và theo dõi token, chi phí cùng lượt AI trích dẫn."
+      }
+    ],
+    "savingsTitle": "Tiết kiệm thời gian và chi phí",
+    "savingsSubtitle": "Làm việc của cả một quy trình chỉ trong vài phút.",
+    "savings": [
+      {
+        "value": "Vài phút",
+        "label": "cho một bài chuẩn SEO thay vì hàng giờ"
+      },
+      {
+        "value": "3 trong 1",
+        "label": "SEO + AEO + GEO trong một lần viết"
+      },
+      {
+        "value": "10 ngôn ngữ",
+        "label": "bản địa hóa cho từng thị trường"
+      },
+      {
+        "value": "Đa kênh",
+        "label": "đăng thẳng lên nhiều CMS, hết copy-paste"
+      }
+    ],
+    "faqTitle": "Câu hỏi thường gặp",
+    "faqs": [
+      {
+        "q": "SEO, AEO và GEO khác nhau thế nào?",
+        "a": "SEO tối ưu để xếp hạng trên Google. AEO tối ưu để được chọn làm câu trả lời trực tiếp (featured snippet, People Also Ask). GEO tối ưu để các engine AI như ChatGPT, Perplexity và Google AI Overviews trích dẫn nội dung của bạn."
+      },
+      {
+        "q": "Tôi có cần biết kỹ thuật không?",
+        "a": "Không. Bạn chỉ cần nhập chủ đề; nền tảng lo phần nghiên cứu, viết, tối ưu và chấm điểm. Có hướng dẫn chi tiết và tutorial cho người mới."
+      },
+      {
+        "q": "Nền tảng dùng AI nào?",
+        "a": "Bạn dùng khóa API của chính mình với Claude, OpenAI, Gemini hoặc DeepSeek - chủ động chi phí và hạn mức, minh bạch theo từng token."
+      },
+      {
+        "q": "Đăng bài lên được những đâu?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo và Google Sheet. Sửa bài cũ rồi đăng lại sẽ cập nhật đúng bài, không tạo bản trùng."
+      },
+      {
+        "q": "Có hỗ trợ nhiều ngôn ngữ không?",
+        "a": "Có. Giao diện và nội dung hỗ trợ 10 ngôn ngữ, kèm khả năng bản địa hóa bài viết theo từ khóa của từng thị trường."
+      },
+      {
+        "q": "Tôi bắt đầu như thế nào?",
+        "a": "Đăng nhập, nhập khóa API AI, kết nối website và viết bài đầu tiên - chỉ vài bước là xong."
+      }
+    ],
+    "ctaTitle": "Sẵn sàng để nội dung của bạn được tìm thấy và được trích dẫn?",
+    "ctaSubtitle": "Đăng nhập và tạo bài chuẩn SEO, AEO, GEO đầu tiên ngay hôm nay.",
+    "ctaButton": "Đăng nhập để bắt đầu",
+    "footerTagline": "Viết chuẩn SEO, AEO & GEO bằng AI - đa kênh, đa ngôn ngữ.",
+    "footerRights": "Mọi quyền được bảo lưu.",
+    "integrationsLabel": "Đăng thẳng lên"
+  },
+  "en": {
+    "metaTitle": "Write SEO, AEO & GEO content with AI - publish everywhere, in any language",
+    "metaDescription": "An AI platform to research keywords, write and optimize SEO/AEO/GEO-ready articles, score them automatically, and publish straight to WordPress, Wix, Shopify, Haravan, Sapo or Google Sheet - in 10 languages.",
+    "login": "Log in",
+    "skipToContent": "Skip to main content",
+    "langLabel": "Language",
+    "heroBadge": "AI content platform · SEO · AEO · GEO",
+    "heroTitle": "One AI platform: analyze, plan and write content that AI cites",
+    "heroSubtitle": "Social & e-commerce reports, video script analysis, AI-citation-ready writing, and automatic internal + backlinks — all in one place.",
+    "heroCtaPrimary": "Log in to start",
+    "heroCtaSecondary": "See features",
+    "heroNote": "Use your own AI API key - stay in control of cost, no lock-in.",
+    "problemTitle": "Do these problems sound familiar?",
+    "problems": [
+      {
+        "title": "SEO writing takes too long",
+        "desc": "Keyword research, outlining, optimizing title, meta and headings, adding links... every article eats up hours."
+      },
+      {
+        "title": "Your articles never get cited by AI",
+        "desc": "ChatGPT, Perplexity and Google AI Overviews are reshaping search - content that is not GEO-optimized gets left behind."
+      },
+      {
+        "title": "Multi-channel, multi-language is a mess",
+        "desc": "Manually publishing to several CMSs, translating each article, tracking results... far too much repetitive work."
+      }
+    ],
+    "featuresTitle": "Everything you need, in one platform",
+    "featuresSubtitle": "Six core capabilities to win on Google and inside AI answers.",
+    "features": [
+      {
+        "title": "Multi-platform social reports",
+        "desc": "Scan Facebook, TikTok, YouTube, Instagram — AI dissects content, engagement and competitor strategy."
+      },
+      {
+        "title": "E-commerce shop analysis",
+        "desc": "Shopee, TikTok Shop and Lazada reports: products, reviews, pricing and market opportunities."
+      },
+      {
+        "title": "Video script analysis",
+        "desc": "Paste a TikTok/YouTube/Facebook link — AI breaks down the hook, formula, second-by-second timeline and why it went viral."
+      },
+      {
+        "title": "SEO · GEO-ready writing",
+        "desc": "Content optimized to rank on Google and get cited by AI: ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "Auto internal links & backlinks",
+        "desc": "AI finds related posts and links them internally and across sites — only genuinely related content."
+      },
+      {
+        "title": "Analyze, plan, write",
+        "desc": "From keyword research to content plan to a finished article — all with AI, in one flow."
+      }
+    ],
+    "audienceTitle": "Who is it for?",
+    "audience": [
+      {
+        "title": "Store owners & businesses",
+        "desc": "Own your website content and pull in customers from search without a dedicated SEO team."
+      },
+      {
+        "title": "SEO agencies & freelancers",
+        "desc": "Scale quality output for many clients, in many languages, in a short time."
+      },
+      {
+        "title": "In-house marketing teams",
+        "desc": "Standardize the write - optimize - review - publish workflow and collaborate on one platform."
+      },
+      {
+        "title": "Content creators",
+        "desc": "Turn ideas into SEO/GEO-ready articles fast, and focus on quality instead of manual work."
+      }
+    ],
+    "howTitle": "How it works",
+    "steps": [
+      {
+        "title": "Connect",
+        "desc": "Add your AI API key and connect a website (WordPress, Wix, Shopify...)."
+      },
+      {
+        "title": "Research & plan",
+        "desc": "Find keywords and build a content plan by topic cluster."
+      },
+      {
+        "title": "Write & optimize",
+        "desc": "Let AI draft, score it for SEO/AEO/GEO, then follow the tips to raise the score."
+      },
+      {
+        "title": "Publish & measure",
+        "desc": "Publish across channels and track tokens, cost and AI citations."
+      }
+    ],
+    "savingsTitle": "Save time and money",
+    "savingsSubtitle": "A whole workflow done in just a few minutes.",
+    "savings": [
+      {
+        "value": "Minutes",
+        "label": "for an SEO-ready article instead of hours"
+      },
+      {
+        "value": "3-in-1",
+        "label": "SEO + AEO + GEO in a single pass"
+      },
+      {
+        "value": "10 languages",
+        "label": "localized for every market"
+      },
+      {
+        "value": "Multi-channel",
+        "label": "publish to many CMSs, no copy-paste"
+      }
+    ],
+    "faqTitle": "Frequently asked questions",
+    "faqs": [
+      {
+        "q": "How are SEO, AEO and GEO different?",
+        "a": "SEO optimizes to rank on Google. AEO optimizes to be picked as the direct answer (featured snippet, People Also Ask). GEO optimizes so AI engines like ChatGPT, Perplexity and Google AI Overviews cite your content."
+      },
+      {
+        "q": "Do I need technical skills?",
+        "a": "No. You just enter a topic; the platform handles research, writing, optimization and scoring. There is a detailed guide and a tutorial for newcomers."
+      },
+      {
+        "q": "Which AI does it use?",
+        "a": "You use your own API key with Claude, OpenAI, Gemini or DeepSeek - you control cost and limits, transparent per token."
+      },
+      {
+        "q": "Where can I publish?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo and Google Sheet. Editing an old article and republishing updates the right post, with no duplicates."
+      },
+      {
+        "q": "Does it support multiple languages?",
+        "a": "Yes. The interface and content support 10 languages, with the ability to localize articles for each market's keywords."
+      },
+      {
+        "q": "How do I get started?",
+        "a": "Log in, add your AI API key, connect a website and write your first article - just a few steps."
+      }
+    ],
+    "ctaTitle": "Ready for your content to be found - and cited?",
+    "ctaSubtitle": "Log in and create your first SEO, AEO and GEO-ready article today.",
+    "ctaButton": "Log in to start",
+    "footerTagline": "Write SEO, AEO & GEO content with AI - multi-channel, multilingual.",
+    "footerRights": "All rights reserved.",
+    "integrationsLabel": "Publish straight to"
+  },
+  "zh": {
+    "metaTitle": "用 AI 撰写 SEO、AEO 与 GEO 内容 - 一键发布到各平台，支持任意语言",
+    "metaDescription": "一个 AI 平台，帮你研究关键词、撰写并优化符合 SEO/AEO/GEO 标准的文章、自动评分，并直接发布到 WordPress、Wix、Shopify、Haravan、Sapo 或 Google Sheet - 支持 10 种语言。",
+    "login": "登录",
+    "skipToContent": "跳到主要内容",
+    "langLabel": "语言",
+    "heroBadge": "AI 内容平台 · SEO · AEO · GEO",
+    "heroTitle": "一个 AI 平台：分析、规划并撰写被 AI 引用的内容",
+    "heroSubtitle": "社媒与电商报告、视频脚本分析、面向 AI 引用优化的写作，以及自动 internal link 与 backlink——全部集于一处。",
+    "heroCtaPrimary": "登录即可开始",
+    "heroCtaSecondary": "查看功能",
+    "heroNote": "使用你自己的 AI API key - 成本自主掌控，无供应商绑定。",
+    "problemTitle": "这些烦恼你是否也有？",
+    "problems": [
+      {
+        "title": "写 SEO 文章太耗时",
+        "desc": "关键词研究、拟大纲、优化标题、meta 和标题层级、添加链接……每篇文章都要花上好几个小时。"
+      },
+      {
+        "title": "文章从来没被 AI 引用过",
+        "desc": "ChatGPT、Perplexity 和 Google AI Overviews 正在重塑搜索 - 没有做 GEO 优化的内容只会被甩在后面。"
+      },
+      {
+        "title": "多渠道、多语言乱成一团",
+        "desc": "手动发布到多个 CMS、逐篇翻译、追踪效果……重复性的工作实在太多。"
+      }
+    ],
+    "featuresTitle": "你所需要的一切，尽在一个平台",
+    "featuresSubtitle": "六大核心能力，助你同时赢得 Google 与 AI 答案。",
+    "features": [
+      {
+        "title": "多平台社媒报告",
+        "desc": "扫描 Facebook、TikTok、YouTube、Instagram——AI 深度剖析内容、互动与竞品策略。"
+      },
+      {
+        "title": "电商店铺分析",
+        "desc": "Shopee、TikTok Shop、Lazada 报告：产品、评价、定价与市场机会。"
+      },
+      {
+        "title": "视频脚本分析",
+        "desc": "粘贴 TikTok/YouTube/Facebook 链接——AI 拆解 hook、公式、逐秒时间线以及爆火原因。"
+      },
+      {
+        "title": "SEO · GEO 标准写作",
+        "desc": "内容经过优化，既能在 Google 排名，也能被 AI 引用：ChatGPT、Gemini、AI Overviews。"
+      },
+      {
+        "title": "自动 internal link 与 backlink",
+        "desc": "AI 找到相关文章，在站内与跨站互相链接——只连接真正相关的内容。"
+      },
+      {
+        "title": "分析、规划、撰写",
+        "desc": "从关键词研究到内容规划再到成稿——全程 AI 驱动，一气呵成。"
+      }
+    ],
+    "audienceTitle": "适合谁使用？",
+    "audience": [
+      {
+        "title": "店主与企业",
+        "desc": "掌握自己网站的内容，无需专门的 SEO 团队也能从搜索中引流客户。"
+      },
+      {
+        "title": "SEO 代理商与自由职业者",
+        "desc": "在短时间内为众多客户、以多种语言规模化产出优质内容。"
+      },
+      {
+        "title": "企业内部营销团队",
+        "desc": "把撰写 - 优化 - 审核 - 发布的流程标准化，在同一个平台上协作。"
+      },
+      {
+        "title": "内容创作者",
+        "desc": "快速把创意变成符合 SEO/GEO 标准的文章，专注于质量而非繁琐的手工活。"
+      }
+    ],
+    "howTitle": "使用流程",
+    "steps": [
+      {
+        "title": "连接",
+        "desc": "填入你的 AI API key，并连接一个网站（WordPress、Wix、Shopify……）。"
+      },
+      {
+        "title": "研究与规划",
+        "desc": "找到关键词，按主题集群构建内容规划。"
+      },
+      {
+        "title": "撰写与优化",
+        "desc": "让 AI 撰写初稿，为 SEO/AEO/GEO 评分，然后按提示提升分数。"
+      },
+      {
+        "title": "发布与衡量",
+        "desc": "跨渠道发布，并追踪 token、成本和 AI 引用情况。"
+      }
+    ],
+    "savingsTitle": "省时又省钱",
+    "savingsSubtitle": "整套流程只需几分钟即可完成。",
+    "savings": [
+      {
+        "value": "几分钟",
+        "label": "完成一篇符合 SEO 标准的文章，无需数小时"
+      },
+      {
+        "value": "三合一",
+        "label": "一次生成即包含 SEO + AEO + GEO"
+      },
+      {
+        "value": "10 种语言",
+        "label": "为每个市场做本地化"
+      },
+      {
+        "value": "多渠道",
+        "label": "发布到多个 CMS，无需复制粘贴"
+      }
+    ],
+    "faqTitle": "常见问题",
+    "faqs": [
+      {
+        "q": "SEO、AEO 和 GEO 有什么区别？",
+        "a": "SEO 优化的目标是在 Google 上获得排名。AEO 优化的目标是被选为直接答案（精选摘要、People Also Ask）。GEO 优化的目标是让 ChatGPT、Perplexity 和 Google AI Overviews 等 AI 引擎引用你的内容。"
+      },
+      {
+        "q": "我需要技术能力吗？",
+        "a": "不需要。你只要输入一个主题，平台就会负责研究、撰写、优化和评分。还有详细的指南和面向新手的教程。"
+      },
+      {
+        "q": "它使用哪种 AI？",
+        "a": "你使用自己的 API key，配合 Claude、OpenAI、Gemini 或 DeepSeek - 成本和额度自主掌控，按 token 透明计费。"
+      },
+      {
+        "q": "可以发布到哪些平台？",
+        "a": "WordPress、Wix、Shopify、Haravan、Sapo 和 Google Sheet。编辑旧文章后重新发布会精准更新对应文章，不会产生重复内容。"
+      },
+      {
+        "q": "支持多种语言吗？",
+        "a": "支持。界面和内容都支持 10 种语言，并能针对各市场的关键词对文章进行本地化。"
+      },
+      {
+        "q": "我该如何开始？",
+        "a": "登录、填入你的 AI API key、连接一个网站，然后撰写你的第一篇文章 - 只需几步即可。"
+      }
+    ],
+    "ctaTitle": "准备好让你的内容被搜到 - 并被引用了吗？",
+    "ctaSubtitle": "今天就登录，创建你第一篇符合 SEO、AEO 和 GEO 标准的文章。",
+    "ctaButton": "登录即可开始",
+    "footerTagline": "用 AI 撰写 SEO、AEO 与 GEO 内容 - 多渠道、多语言。",
+    "footerRights": "版权所有。",
+    "integrationsLabel": "一键发布到"
+  },
+  "ja": {
+    "metaTitle": "AIでSEO・AEO・GEO対応コンテンツを作成 - あらゆる媒体に、あらゆる言語で公開",
+    "metaDescription": "キーワードを調査し、SEO/AEO/GEO対応の記事をAIで執筆・最適化し、自動でスコアリングして、WordPress・Wix・Shopify・Haravan・Sapo・Google Sheetへ直接公開できるAIプラットフォーム - 10言語対応。",
+    "login": "ログイン",
+    "skipToContent": "メインコンテンツへスキップ",
+    "langLabel": "言語",
+    "heroBadge": "AI コンテンツプラットフォーム · SEO · AEO · GEO",
+    "heroTitle": "ひとつの AI プラットフォームで、AI に引用されるコンテンツを分析・企画・執筆",
+    "heroSubtitle": "ソーシャル＆EC レポート、動画スクリプト分析、AI 引用に最適化したライティング、そして自動の internal link と backlink——すべてがひとつに。",
+    "heroCtaPrimary": "ログインして始める",
+    "heroCtaSecondary": "機能を見る",
+    "heroNote": "自分のAI APIキーを利用 - コストを自分で管理でき、ロックインもありません。",
+    "problemTitle": "こんなお悩み、ありませんか?",
+    "problems": [
+      {
+        "title": "SEO記事の執筆に時間がかかりすぎる",
+        "desc": "キーワード調査、構成づくり、タイトル・メタ・見出しの最適化、リンク追加... 記事1本ごとに何時間も費やしてしまう。"
+      },
+      {
+        "title": "記事がAIに一向に引用されない",
+        "desc": "ChatGPT、Perplexity、Google AI Overviewsが検索を塗り替えつつある - GEO最適化されていないコンテンツは取り残されます。"
+      },
+      {
+        "title": "多チャネル・多言語の運用が煩雑",
+        "desc": "複数のCMSへの手作業での公開、記事ごとの翻訳、成果の追跡... 繰り返し作業があまりに多すぎる。"
+      }
+    ],
+    "featuresTitle": "必要なものすべてを、ひとつのプラットフォームに",
+    "featuresSubtitle": "Google でも AI の回答内でも勝つための、6 つのコア機能。",
+    "features": [
+      {
+        "title": "マルチプラットフォーム ソーシャルレポート",
+        "desc": "Facebook、TikTok、YouTube、Instagram をスキャン——AI がコンテンツ、エンゲージメント、競合戦略を徹底分析。"
+      },
+      {
+        "title": "EC ショップ分析",
+        "desc": "Shopee、TikTok Shop、Lazada のレポート：商品、レビュー、価格、市場機会。"
+      },
+      {
+        "title": "動画スクリプト分析",
+        "desc": "TikTok/YouTube/Facebook のリンクを貼るだけ——AI が hook、型、秒単位のタイムライン、バズった理由を分解。"
+      },
+      {
+        "title": "SEO · GEO 対応ライティング",
+        "desc": "Google で上位表示され、AI に引用されるよう最適化されたコンテンツ：ChatGPT、Gemini、AI Overviews。"
+      },
+      {
+        "title": "自動 internal link ＆ backlink",
+        "desc": "AI が関連記事を見つけ、サイト内外でリンク——本当に関連する内容だけをつなぎます。"
+      },
+      {
+        "title": "分析・企画・執筆",
+        "desc": "キーワード調査からコンテンツ企画、完成記事まで——すべて AI で、ひとつの流れに。"
+      }
+    ],
+    "audienceTitle": "こんな方におすすめ",
+    "audience": [
+      {
+        "title": "店舗オーナー・事業者",
+        "desc": "専任のSEOチームがなくても、自社サイトのコンテンツを自分のものにし、検索から顧客を集められます。"
+      },
+      {
+        "title": "SEO代理店・フリーランス",
+        "desc": "多数のクライアント向けに、多言語で、短時間で質の高いアウトプットをスケールできます。"
+      },
+      {
+        "title": "社内マーケティングチーム",
+        "desc": "執筆 - 最適化 - レビュー - 公開のワークフローを標準化し、ひとつのプラットフォームで協業できます。"
+      },
+      {
+        "title": "コンテンツクリエイター",
+        "desc": "アイデアをSEO/GEO対応の記事へ素早く変え、手作業ではなく質に集中できます。"
+      }
+    ],
+    "howTitle": "ご利用の流れ",
+    "steps": [
+      {
+        "title": "接続する",
+        "desc": "AI APIキーを追加し、ウェブサイト(WordPress、Wix、Shopify...)を接続します。"
+      },
+      {
+        "title": "調査・計画する",
+        "desc": "キーワードを見つけ、トピッククラスターごとにコンテンツプランを組み立てます。"
+      },
+      {
+        "title": "執筆・最適化する",
+        "desc": "AIにドラフトを作成させ、SEO/AEO/GEOでスコアリングし、ヒントに沿ってスコアを高めます。"
+      },
+      {
+        "title": "公開・計測する",
+        "desc": "複数チャネルへ公開し、token、コスト、AIの引用を追跡します。"
+      }
+    ],
+    "savingsTitle": "時間もコストも節約",
+    "savingsSubtitle": "一連のワークフローが、わずか数分で完了。",
+    "savings": [
+      {
+        "value": "数分",
+        "label": "何時間もかけずにSEO対応の記事が1本"
+      },
+      {
+        "value": "3-in-1",
+        "label": "SEO + AEO + GEOを一度に"
+      },
+      {
+        "value": "10言語",
+        "label": "あらゆる市場向けにローカライズ"
+      },
+      {
+        "value": "多チャネル",
+        "label": "多数のCMSへ公開、コピペ不要"
+      }
+    ],
+    "faqTitle": "よくあるご質問",
+    "faqs": [
+      {
+        "q": "SEO、AEO、GEOはどう違いますか?",
+        "a": "SEOはGoogleで上位表示するための最適化です。AEOは直接の回答(強調スニペット、People Also Ask)に選ばれるための最適化です。GEOはChatGPT、Perplexity、Google AI OverviewsといったAIエンジンがあなたのコンテンツを引用するための最適化です。"
+      },
+      {
+        "q": "専門的な知識は必要ですか?",
+        "a": "いいえ。トピックを入力するだけで、プラットフォームが調査・執筆・最適化・スコアリングを行います。詳しいガイドと初心者向けのチュートリアルもご用意しています。"
+      },
+      {
+        "q": "どのAIを使いますか?",
+        "a": "Claude、OpenAI、Gemini、DeepSeekで自分のAPIキーを利用します - コストと上限を自分で管理でき、tokenごとに透明です。"
+      },
+      {
+        "q": "どこに公開できますか?",
+        "a": "WordPress、Wix、Shopify、Haravan、Sapo、Google Sheetです。古い記事を編集して再公開すると、正しい記事が更新され、重複は生じません。"
+      },
+      {
+        "q": "多言語に対応していますか?",
+        "a": "はい。インターフェースとコンテンツは10言語に対応し、各市場のキーワードに合わせて記事をローカライズできます。"
+      },
+      {
+        "q": "どうやって始めればよいですか?",
+        "a": "ログインし、AI APIキーを追加し、ウェブサイトを接続して、最初の記事を書くだけ - わずか数ステップです。"
+      }
+    ],
+    "ctaTitle": "あなたのコンテンツを、見つけられ、引用される存在に。",
+    "ctaSubtitle": "今すぐログインして、最初のSEO・AEO・GEO対応記事を作成しましょう。",
+    "ctaButton": "ログインして始める",
+    "footerTagline": "AIでSEO・AEO・GEO対応コンテンツを作成 - 多チャネル、多言語対応。",
+    "footerRights": "無断転載を禁じます。",
+    "integrationsLabel": "そのまま公開"
+  },
+  "ko": {
+    "metaTitle": "AI로 SEO, AEO, GEO 콘텐츠 작성 - 어디에나, 어떤 언어로든 발행",
+    "metaDescription": "키워드를 조사하고 SEO/AEO/GEO에 최적화된 글을 작성 및 개선하며 자동으로 점수를 매기고 WordPress, Wix, Shopify, Haravan, Sapo, Google Sheet에 바로 발행하는 AI 플랫폼 - 10개 언어 지원.",
+    "login": "로그인",
+    "skipToContent": "본문으로 건너뛰기",
+    "langLabel": "언어",
+    "heroBadge": "AI 콘텐츠 플랫폼 · SEO · AEO · GEO",
+    "heroTitle": "하나의 AI 플랫폼: AI가 인용하는 콘텐츠를 분석하고 기획하고 작성하세요",
+    "heroSubtitle": "소셜·이커머스 리포트, 영상 스크립트 분석, AI 인용에 최적화된 글쓰기, 그리고 자동 internal link와 backlink까지——모두 한곳에서.",
+    "heroCtaPrimary": "로그인하고 시작하기",
+    "heroCtaSecondary": "기능 살펴보기",
+    "heroNote": "여러분의 AI API key를 사용하세요 - 비용을 직접 관리하고, 종속되지 않습니다.",
+    "problemTitle": "이런 고민, 익숙하지 않으신가요?",
+    "problems": [
+      {
+        "title": "SEO 글쓰기에 시간이 너무 오래 걸립니다",
+        "desc": "키워드 조사, 개요 작성, 제목·메타·헤딩 최적화, 링크 추가... 글 하나마다 몇 시간씩 잡아먹습니다."
+      },
+      {
+        "title": "여러분의 글이 AI에 전혀 인용되지 않습니다",
+        "desc": "ChatGPT, Perplexity, Google AI Overviews가 검색을 재편하고 있습니다 - GEO에 최적화되지 않은 콘텐츠는 뒤처집니다."
+      },
+      {
+        "title": "다채널·다국어 관리가 뒤죽박죽입니다",
+        "desc": "여러 CMS에 일일이 발행하고, 글마다 번역하고, 성과를 추적하고... 반복 작업이 너무 많습니다."
+      }
+    ],
+    "featuresTitle": "필요한 모든 것을 하나의 플랫폼에",
+    "featuresSubtitle": "Google과 AI 답변 속에서 모두 이기는 6가지 핵심 역량.",
+    "features": [
+      {
+        "title": "멀티 플랫폼 소셜 리포트",
+        "desc": "Facebook, TikTok, YouTube, Instagram을 스캔——AI가 콘텐츠, 참여도, 경쟁사 전략을 낱낱이 분석합니다."
+      },
+      {
+        "title": "이커머스 스토어 분석",
+        "desc": "Shopee, TikTok Shop, Lazada 리포트: 제품, 리뷰, 가격, 시장 기회."
+      },
+      {
+        "title": "영상 스크립트 분석",
+        "desc": "TikTok/YouTube/Facebook 링크만 붙여넣으세요——AI가 hook, 공식, 초 단위 타임라인, 바이럴 이유까지 해부합니다."
+      },
+      {
+        "title": "SEO · GEO 최적화 글쓰기",
+        "desc": "Google 상위 노출과 AI 인용을 모두 잡도록 최적화된 콘텐츠: ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "자동 internal link & backlink",
+        "desc": "AI가 관련 글을 찾아 사이트 내부와 사이트 간에 연결——정말로 관련 있는 콘텐츠만 이어줍니다."
+      },
+      {
+        "title": "분석, 기획, 작성",
+        "desc": "키워드 리서치부터 콘텐츠 기획, 완성된 글까지——모두 AI로, 하나의 흐름 안에서."
+      }
+    ],
+    "audienceTitle": "누구를 위한 것인가요?",
+    "audience": [
+      {
+        "title": "매장 운영자 및 사업자",
+        "desc": "전담 SEO 팀 없이도 웹사이트 콘텐츠를 직접 소유하고 검색을 통해 고객을 끌어오세요."
+      },
+      {
+        "title": "SEO 에이전시 및 프리랜서",
+        "desc": "여러 고객사를 위해 여러 언어로 양질의 결과물을 짧은 시간에 확장하세요."
+      },
+      {
+        "title": "사내 마케팅 팀",
+        "desc": "작성 - 최적화 - 검토 - 발행 워크플로를 표준화하고 하나의 플랫폼에서 협업하세요."
+      },
+      {
+        "title": "콘텐츠 크리에이터",
+        "desc": "아이디어를 SEO/GEO에 최적화된 글로 빠르게 바꾸고, 수작업 대신 품질에 집중하세요."
+      }
+    ],
+    "howTitle": "이용 방법",
+    "steps": [
+      {
+        "title": "연결",
+        "desc": "AI API key를 추가하고 웹사이트(WordPress, Wix, Shopify...)를 연결하세요."
+      },
+      {
+        "title": "조사 및 계획",
+        "desc": "키워드를 찾고 주제 클러스터별로 콘텐츠 계획을 세우세요."
+      },
+      {
+        "title": "작성 및 최적화",
+        "desc": "AI가 초안을 작성하도록 하고, SEO/AEO/GEO 점수를 매긴 뒤 팁을 따라 점수를 높이세요."
+      },
+      {
+        "title": "발행 및 측정",
+        "desc": "여러 채널에 발행하고 token, 비용, AI 인용을 추적하세요."
+      }
+    ],
+    "savingsTitle": "시간과 비용을 절약하세요",
+    "savingsSubtitle": "전체 워크플로를 단 몇 분 만에 완료합니다.",
+    "savings": [
+      {
+        "value": "몇 분",
+        "label": "몇 시간이 아닌, SEO에 최적화된 글 한 편을"
+      },
+      {
+        "value": "3-in-1",
+        "label": "SEO + AEO + GEO를 한 번에"
+      },
+      {
+        "value": "10개 언어",
+        "label": "모든 시장에 맞춰 현지화"
+      },
+      {
+        "value": "다채널",
+        "label": "복사·붙여넣기 없이 여러 CMS에 발행"
+      }
+    ],
+    "faqTitle": "자주 묻는 질문",
+    "faqs": [
+      {
+        "q": "SEO, AEO, GEO는 어떻게 다른가요?",
+        "a": "SEO는 Google에서 노출되도록 최적화합니다. AEO는 직접 답변(추천 스니펫, People Also Ask)으로 선택되도록 최적화합니다. GEO는 ChatGPT, Perplexity, Google AI Overviews 같은 AI 엔진이 여러분의 콘텐츠를 인용하도록 최적화합니다."
+      },
+      {
+        "q": "기술 지식이 필요한가요?",
+        "a": "아니요. 주제만 입력하면 플랫폼이 조사, 작성, 최적화, 점수화를 모두 처리합니다. 초보자를 위한 상세 가이드와 튜토리얼도 제공됩니다."
+      },
+      {
+        "q": "어떤 AI를 사용하나요?",
+        "a": "Claude, OpenAI, Gemini, DeepSeek와 함께 여러분의 API key를 사용합니다 - 비용과 한도를 직접 관리하며 token 단위로 투명합니다."
+      },
+      {
+        "q": "어디에 발행할 수 있나요?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo, Google Sheet입니다. 기존 글을 수정해 다시 발행하면 올바른 글이 업데이트되며 중복이 생기지 않습니다."
+      },
+      {
+        "q": "여러 언어를 지원하나요?",
+        "a": "네. 인터페이스와 콘텐츠 모두 10개 언어를 지원하며, 각 시장의 키워드에 맞춰 글을 현지화할 수 있습니다."
+      },
+      {
+        "q": "어떻게 시작하나요?",
+        "a": "로그인하고 AI API key를 추가한 뒤 웹사이트를 연결하고 첫 글을 작성하세요 - 단 몇 단계면 됩니다."
+      }
+    ],
+    "ctaTitle": "여러분의 콘텐츠가 발견되고 인용될 준비가 되셨나요?",
+    "ctaSubtitle": "지금 로그인하고 SEO, AEO, GEO에 최적화된 첫 글을 만들어 보세요.",
+    "ctaButton": "로그인하고 시작하기",
+    "footerTagline": "AI로 SEO, AEO, GEO 콘텐츠 작성 - 다채널, 다국어.",
+    "footerRights": "모든 권리 보유.",
+    "integrationsLabel": "바로 게시"
+  },
+  "fr": {
+    "metaTitle": "Rédigez du contenu SEO, AEO et GEO avec l'IA - publiez partout, dans toutes les langues",
+    "metaDescription": "Une plateforme IA pour rechercher des mots-clés, rédiger et optimiser des articles prêts pour le SEO/AEO/GEO, les noter automatiquement et les publier directement sur WordPress, Wix, Shopify, Haravan, Sapo ou Google Sheet - en 10 langues.",
+    "login": "Se connecter",
+    "skipToContent": "Aller au contenu principal",
+    "langLabel": "Langue",
+    "heroBadge": "Plateforme de contenu IA · SEO · AEO · GEO",
+    "heroTitle": "Une seule plateforme IA : analysez, planifiez et rédigez du contenu que l'IA cite",
+    "heroSubtitle": "Rapports social et e-commerce, analyse de scripts vidéo, rédaction optimisée pour être citée par l'IA, et internal link + backlink automatiques——le tout au même endroit.",
+    "heroCtaPrimary": "Connectez-vous pour commencer",
+    "heroCtaSecondary": "Voir les fonctionnalités",
+    "heroNote": "Utilisez votre propre clé API d'IA - gardez le contrôle des coûts, sans dépendance.",
+    "problemTitle": "Ces problèmes vous semblent familiers ?",
+    "problems": [
+      {
+        "title": "La rédaction SEO prend trop de temps",
+        "desc": "Recherche de mots-clés, plan, optimisation du titre, de la meta et des titres, ajout de liens... chaque article dévore des heures."
+      },
+      {
+        "title": "Vos articles ne sont jamais cités par l'IA",
+        "desc": "ChatGPT, Perplexity et Google AI Overviews redéfinissent la recherche - le contenu qui n'est pas optimisé pour le GEO est laissé de côté."
+      },
+      {
+        "title": "Le multicanal et le multilingue tournent au casse-tête",
+        "desc": "Publier manuellement sur plusieurs CMS, traduire chaque article, suivre les résultats... beaucoup trop de tâches répétitives."
+      }
+    ],
+    "featuresTitle": "Tout ce dont vous avez besoin, sur une seule plateforme",
+    "featuresSubtitle": "Six capacités clés pour gagner sur Google comme dans les réponses de l'IA.",
+    "features": [
+      {
+        "title": "Rapports social multiplateformes",
+        "desc": "Analysez Facebook, TikTok, YouTube, Instagram——l'IA dissèque le contenu, l'engagement et la stratégie des concurrents."
+      },
+      {
+        "title": "Analyse de boutiques e-commerce",
+        "desc": "Rapports Shopee, TikTok Shop et Lazada : produits, avis, prix et opportunités de marché."
+      },
+      {
+        "title": "Analyse de scripts vidéo",
+        "desc": "Collez un lien TikTok/YouTube/Facebook——l'IA décortique le hook, la formule, la timeline seconde par seconde et les raisons du buzz."
+      },
+      {
+        "title": "Rédaction SEO · GEO",
+        "desc": "Un contenu optimisé pour se classer sur Google et être cité par l'IA : ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "Internal links et backlinks automatiques",
+        "desc": "L'IA trouve les articles connexes et les relie en interne et entre les sites——uniquement du contenu réellement pertinent."
+      },
+      {
+        "title": "Analyser, planifier, rédiger",
+        "desc": "De la recherche de mots-clés au plan de contenu jusqu'à l'article finalisé——tout avec l'IA, en un seul flux."
+      }
+    ],
+    "audienceTitle": "À qui s'adresse-t-elle ?",
+    "audience": [
+      {
+        "title": "Commerçants et entreprises",
+        "desc": "Maîtrisez le contenu de votre site et attirez des clients depuis la recherche, sans équipe SEO dédiée."
+      },
+      {
+        "title": "Agences SEO et freelances",
+        "desc": "Produisez à grande échelle un travail de qualité pour de nombreux clients, en plusieurs langues, en peu de temps."
+      },
+      {
+        "title": "Équipes marketing internes",
+        "desc": "Standardisez le flux rédiger - optimiser - relire - publier et collaborez sur une seule plateforme."
+      },
+      {
+        "title": "Créateurs de contenu",
+        "desc": "Transformez vos idées en articles prêts pour le SEO/GEO rapidement, et concentrez-vous sur la qualité plutôt que sur les tâches manuelles."
+      }
+    ],
+    "howTitle": "Comment ça marche",
+    "steps": [
+      {
+        "title": "Connecter",
+        "desc": "Ajoutez votre clé API d'IA et connectez un site web (WordPress, Wix, Shopify...)."
+      },
+      {
+        "title": "Rechercher et planifier",
+        "desc": "Trouvez des mots-clés et construisez un plan de contenu par cluster thématique."
+      },
+      {
+        "title": "Rédiger et optimiser",
+        "desc": "Laissez l'IA rédiger, notez le résultat pour le SEO/AEO/GEO, puis suivez les conseils pour augmenter le score."
+      },
+      {
+        "title": "Publier et mesurer",
+        "desc": "Publiez sur tous les canaux et suivez les tokens, les coûts et les citations par l'IA."
+      }
+    ],
+    "savingsTitle": "Gagnez du temps et de l'argent",
+    "savingsSubtitle": "Tout un flux de travail réalisé en quelques minutes seulement.",
+    "savings": [
+      {
+        "value": "Minutes",
+        "label": "pour un article prêt pour le SEO, au lieu de plusieurs heures"
+      },
+      {
+        "value": "3-en-1",
+        "label": "SEO + AEO + GEO en un seul passage"
+      },
+      {
+        "value": "10 langues",
+        "label": "localisées pour chaque marché"
+      },
+      {
+        "value": "Multicanal",
+        "label": "publiez sur plusieurs CMS, sans copier-coller"
+      }
+    ],
+    "faqTitle": "Questions fréquentes",
+    "faqs": [
+      {
+        "q": "Quelle est la différence entre le SEO, l'AEO et le GEO ?",
+        "a": "Le SEO optimise pour se classer sur Google. L'AEO optimise pour être choisi comme réponse directe (extrait optimisé, People Also Ask). Le GEO optimise pour que les moteurs d'IA comme ChatGPT, Perplexity et Google AI Overviews citent votre contenu."
+      },
+      {
+        "q": "Ai-je besoin de compétences techniques ?",
+        "a": "Non. Il vous suffit de saisir un sujet ; la plateforme s'occupe de la recherche, de la rédaction, de l'optimisation et de la notation. Un guide détaillé et un tutoriel sont disponibles pour les débutants."
+      },
+      {
+        "q": "Quelle IA utilise-t-elle ?",
+        "a": "Vous utilisez votre propre clé API avec Claude, OpenAI, Gemini ou DeepSeek - vous contrôlez les coûts et les limites, en toute transparence par token."
+      },
+      {
+        "q": "Où puis-je publier ?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo et Google Sheet. Modifier un ancien article et le republier met à jour le bon article, sans doublon."
+      },
+      {
+        "q": "Prend-elle en charge plusieurs langues ?",
+        "a": "Oui. L'interface et le contenu prennent en charge 10 langues, avec la possibilité de localiser les articles selon les mots-clés de chaque marché."
+      },
+      {
+        "q": "Comment démarrer ?",
+        "a": "Connectez-vous, ajoutez votre clé API d'IA, connectez un site web et rédigez votre premier article - en quelques étapes seulement."
+      }
+    ],
+    "ctaTitle": "Prêt à ce que votre contenu soit trouvé - et cité ?",
+    "ctaSubtitle": "Connectez-vous et créez dès aujourd'hui votre premier article prêt pour le SEO, l'AEO et le GEO.",
+    "ctaButton": "Connectez-vous pour commencer",
+    "footerTagline": "Rédigez du contenu SEO, AEO et GEO avec l'IA - multicanal, multilingue.",
+    "footerRights": "Tous droits réservés.",
+    "integrationsLabel": "Publiez directement sur"
+  },
+  "de": {
+    "metaTitle": "SEO-, AEO- & GEO-Inhalte mit KI schreiben - uberall veroffentlichen, in jeder Sprache",
+    "metaDescription": "Eine KI-Plattform, um Keywords zu recherchieren, SEO-/AEO-/GEO-fertige Artikel zu schreiben und zu optimieren, sie automatisch zu bewerten und direkt auf WordPress, Wix, Shopify, Haravan, Sapo oder Google Sheet zu veroffentlichen - in 10 Sprachen.",
+    "login": "Anmelden",
+    "skipToContent": "Zum Hauptinhalt springen",
+    "langLabel": "Sprache",
+    "heroBadge": "KI-Content-Plattform · SEO · AEO · GEO",
+    "heroTitle": "Eine KI-Plattform: analysieren, planen und Inhalte schreiben, die die KI zitiert",
+    "heroSubtitle": "Social- und E-Commerce-Reports, Analyse von Videoskripten, für KI-Zitate optimiertes Schreiben sowie automatische internal links und backlinks——alles an einem Ort.",
+    "heroCtaPrimary": "Anmelden und loslegen",
+    "heroCtaSecondary": "Funktionen ansehen",
+    "heroNote": "Nutzen Sie Ihren eigenen KI-API-Schlussel - behalten Sie die Kontrolle uber die Kosten, ohne Lock-in.",
+    "problemTitle": "Kommen Ihnen diese Probleme bekannt vor?",
+    "problems": [
+      {
+        "title": "SEO-Texten dauert viel zu lange",
+        "desc": "Keyword-Recherche, Gliederung, Optimierung von Titel, Meta und Uberschriften, Links einfugen... jeder Artikel verschlingt Stunden."
+      },
+      {
+        "title": "Ihre Artikel werden nie von KI zitiert",
+        "desc": "ChatGPT, Perplexity und Google AI Overviews verandern die Suche grundlegend - Inhalte, die nicht GEO-optimiert sind, bleiben auf der Strecke."
+      },
+      {
+        "title": "Multichannel und mehrsprachig ist ein Chaos",
+        "desc": "Manuelles Veroffentlichen auf mehreren CMS, jeden Artikel ubersetzen, Ergebnisse nachverfolgen... viel zu viel repetitive Arbeit."
+      }
+    ],
+    "featuresTitle": "Alles, was Sie brauchen, in einer Plattform",
+    "featuresSubtitle": "Sechs zentrale Fähigkeiten, um bei Google und in KI-Antworten zu gewinnen.",
+    "features": [
+      {
+        "title": "Plattformübergreifende Social-Reports",
+        "desc": "Scannen Sie Facebook, TikTok, YouTube, Instagram——die KI seziert Inhalte, Engagement und die Strategie der Wettbewerber."
+      },
+      {
+        "title": "E-Commerce-Shop-Analyse",
+        "desc": "Reports zu Shopee, TikTok Shop und Lazada: Produkte, Bewertungen, Preise und Marktchancen."
+      },
+      {
+        "title": "Analyse von Videoskripten",
+        "desc": "Fügen Sie einen TikTok-/YouTube-/Facebook-Link ein——die KI zerlegt den Hook, die Formel, die sekundengenaue Timeline und den Grund für den viralen Erfolg."
+      },
+      {
+        "title": "SEO · GEO-gerechtes Schreiben",
+        "desc": "Inhalte, die so optimiert sind, dass sie bei Google ranken und von der KI zitiert werden: ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "Automatische internal links & backlinks",
+        "desc": "Die KI findet verwandte Beiträge und verlinkt sie intern und über Websites hinweg——nur wirklich relevante Inhalte."
+      },
+      {
+        "title": "Analysieren, planen, schreiben",
+        "desc": "Von der Keyword-Recherche über den Content-Plan bis zum fertigen Artikel——alles mit KI, in einem Ablauf."
+      }
+    ],
+    "audienceTitle": "Fur wen ist das gedacht?",
+    "audience": [
+      {
+        "title": "Shop-Betreiber & Unternehmen",
+        "desc": "Besitzen Sie Ihre Website-Inhalte und gewinnen Sie Kunden aus der Suche, ohne ein eigenes SEO-Team."
+      },
+      {
+        "title": "SEO-Agenturen & Freelancer",
+        "desc": "Skalieren Sie hochwertigen Output fur viele Kunden, in vielen Sprachen, in kurzer Zeit."
+      },
+      {
+        "title": "Interne Marketing-Teams",
+        "desc": "Standardisieren Sie den Workflow aus Schreiben, Optimieren, Prufen und Veroffentlichen und arbeiten Sie auf einer Plattform zusammen."
+      },
+      {
+        "title": "Content-Creator",
+        "desc": "Verwandeln Sie Ideen schnell in SEO-/GEO-fertige Artikel und konzentrieren Sie sich auf Qualitat statt auf manuelle Arbeit."
+      }
+    ],
+    "howTitle": "So funktioniert es",
+    "steps": [
+      {
+        "title": "Verbinden",
+        "desc": "Fugen Sie Ihren KI-API-Schlussel hinzu und verbinden Sie eine Website (WordPress, Wix, Shopify...)."
+      },
+      {
+        "title": "Recherchieren & planen",
+        "desc": "Finden Sie Keywords und erstellen Sie einen Content-Plan nach Themen-Cluster."
+      },
+      {
+        "title": "Schreiben & optimieren",
+        "desc": "Lassen Sie die KI einen Entwurf erstellen, bewerten Sie ihn fur SEO/AEO/GEO und folgen Sie den Tipps, um den Score zu steigern."
+      },
+      {
+        "title": "Veroffentlichen & messen",
+        "desc": "Veroffentlichen Sie kanalubergreifend und verfolgen Sie Token, Kosten und KI-Zitate."
+      }
+    ],
+    "savingsTitle": "Sparen Sie Zeit und Geld",
+    "savingsSubtitle": "Ein kompletter Workflow in nur wenigen Minuten erledigt.",
+    "savings": [
+      {
+        "value": "Minuten",
+        "label": "fur einen SEO-fertigen Artikel statt Stunden"
+      },
+      {
+        "value": "3-in-1",
+        "label": "SEO + AEO + GEO in einem Durchgang"
+      },
+      {
+        "value": "10 Sprachen",
+        "label": "lokalisiert fur jeden Markt"
+      },
+      {
+        "value": "Multichannel",
+        "label": "auf vielen CMS veroffentlichen, kein Copy-Paste"
+      }
+    ],
+    "faqTitle": "Haufig gestellte Fragen",
+    "faqs": [
+      {
+        "q": "Worin unterscheiden sich SEO, AEO und GEO?",
+        "a": "SEO optimiert das Ranking bei Google. AEO optimiert dafur, als direkte Antwort ausgewahlt zu werden (Featured Snippet, People Also Ask). GEO optimiert dafur, dass KI-Engines wie ChatGPT, Perplexity und Google AI Overviews Ihre Inhalte zitieren."
+      },
+      {
+        "q": "Brauche ich technische Kenntnisse?",
+        "a": "Nein. Sie geben einfach ein Thema ein; die Plattform ubernimmt Recherche, Schreiben, Optimierung und Bewertung. Es gibt eine ausfuhrliche Anleitung und ein Tutorial fur Einsteiger."
+      },
+      {
+        "q": "Welche KI wird verwendet?",
+        "a": "Sie nutzen Ihren eigenen API-Schlussel mit Claude, OpenAI, Gemini oder DeepSeek - Sie steuern Kosten und Limits, transparent pro Token."
+      },
+      {
+        "q": "Wo kann ich veroffentlichen?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo und Google Sheet. Wenn Sie einen alten Artikel bearbeiten und erneut veroffentlichen, wird der richtige Beitrag aktualisiert, ohne Duplikate."
+      },
+      {
+        "q": "Werden mehrere Sprachen unterstutzt?",
+        "a": "Ja. Oberflache und Inhalte unterstutzen 10 Sprachen, mit der Moglichkeit, Artikel fur die Keywords jedes Marktes zu lokalisieren."
+      },
+      {
+        "q": "Wie fange ich an?",
+        "a": "Melden Sie sich an, fugen Sie Ihren KI-API-Schlussel hinzu, verbinden Sie eine Website und schreiben Sie Ihren ersten Artikel - nur wenige Schritte."
+      }
+    ],
+    "ctaTitle": "Bereit, dass Ihre Inhalte gefunden - und zitiert werden?",
+    "ctaSubtitle": "Melden Sie sich an und erstellen Sie noch heute Ihren ersten SEO-, AEO- und GEO-fertigen Artikel.",
+    "ctaButton": "Anmelden und loslegen",
+    "footerTagline": "SEO-, AEO- & GEO-Inhalte mit KI schreiben - multichannel, mehrsprachig.",
+    "footerRights": "Alle Rechte vorbehalten.",
+    "integrationsLabel": "Direkt veröffentlichen auf"
+  },
+  "id": {
+    "metaTitle": "Tulis konten SEO, AEO & GEO dengan AI - publikasikan ke mana saja, dalam bahasa apa pun",
+    "metaDescription": "Platform AI untuk riset kata kunci, menulis dan mengoptimalkan artikel siap SEO/AEO/GEO, menilainya secara otomatis, dan mempublikasikan langsung ke WordPress, Wix, Shopify, Haravan, Sapo, atau Google Sheet - dalam 10 bahasa.",
+    "login": "Masuk",
+    "skipToContent": "Lewati ke konten utama",
+    "langLabel": "Bahasa",
+    "heroBadge": "Platform konten AI · SEO · AEO · GEO",
+    "heroTitle": "Satu platform AI: menganalisis, merencanakan, dan menulis konten yang dikutip AI",
+    "heroSubtitle": "Laporan social & e-commerce, analisis skrip video, penulisan yang dioptimalkan agar dikutip AI, serta internal link + backlink otomatis——semua dalam satu tempat.",
+    "heroCtaPrimary": "Masuk untuk memulai",
+    "heroCtaSecondary": "Lihat fitur",
+    "heroNote": "Gunakan API key AI Anda sendiri - kendalikan biaya sepenuhnya, tanpa terkunci vendor.",
+    "problemTitle": "Apakah masalah-masalah ini terasa familiar?",
+    "problems": [
+      {
+        "title": "Menulis SEO memakan terlalu banyak waktu",
+        "desc": "Riset kata kunci, membuat kerangka, mengoptimalkan judul, meta, dan heading, menambahkan tautan... setiap artikel menghabiskan berjam-jam."
+      },
+      {
+        "title": "Artikel Anda tidak pernah dikutip AI",
+        "desc": "ChatGPT, Perplexity, dan Google AI Overviews mengubah cara pencarian bekerja - konten yang tidak dioptimalkan untuk GEO akan tertinggal."
+      },
+      {
+        "title": "Multi-channel dan multi-bahasa jadi berantakan",
+        "desc": "Mempublikasikan manual ke beberapa CMS, menerjemahkan setiap artikel, melacak hasil... terlalu banyak pekerjaan yang berulang."
+      }
+    ],
+    "featuresTitle": "Semua yang Anda butuhkan, dalam satu platform",
+    "featuresSubtitle": "Enam kemampuan inti untuk menang di Google sekaligus di jawaban AI.",
+    "features": [
+      {
+        "title": "Laporan social multiplatform",
+        "desc": "Pindai Facebook, TikTok, YouTube, Instagram——AI membedah konten, engagement, dan strategi kompetitor."
+      },
+      {
+        "title": "Analisis toko e-commerce",
+        "desc": "Laporan Shopee, TikTok Shop, dan Lazada: produk, ulasan, harga, dan peluang pasar."
+      },
+      {
+        "title": "Analisis skrip video",
+        "desc": "Tempel link TikTok/YouTube/Facebook——AI membedah hook, formula, timeline per detik, dan alasan konten viral."
+      },
+      {
+        "title": "Penulisan SEO · GEO",
+        "desc": "Konten yang dioptimalkan agar peringkat di Google dan dikutip AI: ChatGPT, Gemini, AI Overviews."
+      },
+      {
+        "title": "Internal link & backlink otomatis",
+        "desc": "AI menemukan artikel terkait dan menautkannya secara internal maupun antarsitus——hanya konten yang benar-benar relevan."
+      },
+      {
+        "title": "Analisis, rencana, tulis",
+        "desc": "Dari riset kata kunci hingga rencana konten dan artikel jadi——semua dengan AI, dalam satu alur."
+      }
+    ],
+    "audienceTitle": "Untuk siapa ini?",
+    "audience": [
+      {
+        "title": "Pemilik toko & bisnis",
+        "desc": "Miliki konten situs web Anda sendiri dan tarik pelanggan dari pencarian tanpa tim SEO khusus."
+      },
+      {
+        "title": "Agensi SEO & freelancer",
+        "desc": "Skalakan output berkualitas untuk banyak klien, dalam banyak bahasa, dalam waktu singkat."
+      },
+      {
+        "title": "Tim marketing in-house",
+        "desc": "Standarkan alur kerja tulis - optimalkan - tinjau - publikasikan dan berkolaborasi dalam satu platform."
+      },
+      {
+        "title": "Kreator konten",
+        "desc": "Ubah ide menjadi artikel siap SEO/GEO dengan cepat, dan fokus pada kualitas alih-alih pekerjaan manual."
+      }
+    ],
+    "howTitle": "Cara kerjanya",
+    "steps": [
+      {
+        "title": "Hubungkan",
+        "desc": "Tambahkan API key AI Anda dan hubungkan situs web (WordPress, Wix, Shopify...)."
+      },
+      {
+        "title": "Riset & rencanakan",
+        "desc": "Temukan kata kunci dan bangun rencana konten berdasarkan klaster topik."
+      },
+      {
+        "title": "Tulis & optimalkan",
+        "desc": "Biarkan AI membuat draf, nilai untuk SEO/AEO/GEO, lalu ikuti tips untuk menaikkan skor."
+      },
+      {
+        "title": "Publikasikan & ukur",
+        "desc": "Publikasikan di berbagai channel dan lacak token, biaya, serta kutipan AI."
+      }
+    ],
+    "savingsTitle": "Hemat waktu dan biaya",
+    "savingsSubtitle": "Seluruh alur kerja selesai hanya dalam beberapa menit.",
+    "savings": [
+      {
+        "value": "Menit",
+        "label": "untuk artikel siap SEO alih-alih berjam-jam"
+      },
+      {
+        "value": "3-dalam-1",
+        "label": "SEO + AEO + GEO dalam satu proses"
+      },
+      {
+        "value": "10 bahasa",
+        "label": "dilokalkan untuk setiap pasar"
+      },
+      {
+        "value": "Multi-channel",
+        "label": "publikasikan ke banyak CMS, tanpa salin-tempel"
+      }
+    ],
+    "faqTitle": "Pertanyaan yang sering diajukan",
+    "faqs": [
+      {
+        "q": "Apa perbedaan SEO, AEO, dan GEO?",
+        "a": "SEO mengoptimalkan agar peringkat di Google. AEO mengoptimalkan agar dipilih sebagai jawaban langsung (featured snippet, People Also Ask). GEO mengoptimalkan agar mesin AI seperti ChatGPT, Perplexity, dan Google AI Overviews mengutip konten Anda."
+      },
+      {
+        "q": "Apakah saya butuh keahlian teknis?",
+        "a": "Tidak. Anda cukup memasukkan topik; platform menangani riset, penulisan, optimasi, dan penilaian. Tersedia panduan lengkap dan tutorial untuk pemula."
+      },
+      {
+        "q": "AI apa yang digunakan?",
+        "a": "Anda menggunakan API key Anda sendiri dengan Claude, OpenAI, Gemini, atau DeepSeek - Anda mengendalikan biaya dan batasan, transparan per token."
+      },
+      {
+        "q": "Di mana saya bisa mempublikasikan?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo, dan Google Sheet. Mengedit artikel lama dan mempublikasikan ulang akan memperbarui postingan yang tepat, tanpa duplikat."
+      },
+      {
+        "q": "Apakah mendukung banyak bahasa?",
+        "a": "Ya. Antarmuka dan konten mendukung 10 bahasa, dengan kemampuan melokalkan artikel untuk kata kunci setiap pasar."
+      },
+      {
+        "q": "Bagaimana cara memulai?",
+        "a": "Masuk, tambahkan API key AI Anda, hubungkan situs web, dan tulis artikel pertama Anda - hanya beberapa langkah."
+      }
+    ],
+    "ctaTitle": "Siap agar konten Anda ditemukan - dan dikutip?",
+    "ctaSubtitle": "Masuk dan buat artikel siap SEO, AEO, dan GEO pertama Anda hari ini.",
+    "ctaButton": "Masuk untuk memulai",
+    "footerTagline": "Tulis konten SEO, AEO & GEO dengan AI - multi-channel, multibahasa.",
+    "footerRights": "Semua hak dilindungi.",
+    "integrationsLabel": "Terbitkan langsung ke"
+  },
+  "hi": {
+    "metaTitle": "AI से SEO, AEO और GEO कंटेंट लिखें - हर जगह, हर भाषा में पब्लिश करें",
+    "metaDescription": "कीवर्ड रिसर्च करने, SEO/AEO/GEO-रेडी आर्टिकल लिखने और ऑप्टिमाइज़ करने, उन्हें अपने-आप स्कोर देने, और सीधे WordPress, Wix, Shopify, Haravan, Sapo या Google Sheet पर पब्लिश करने के लिए एक AI प्लेटफ़ॉर्म - 10 भाषाओं में।",
+    "login": "लॉग इन करें",
+    "skipToContent": "मुख्य कंटेंट पर जाएं",
+    "langLabel": "भाषा",
+    "heroBadge": "AI कंटेंट प्लेटफ़ॉर्म · SEO · AEO · GEO",
+    "heroTitle": "एक ही AI प्लेटफ़ॉर्म: ऐसा कंटेंट एनालाइज़ करें, प्लान करें और लिखें जिसे AI उद्धृत करे",
+    "heroSubtitle": "Social और e-commerce रिपोर्ट, वीडियो स्क्रिप्ट विश्लेषण, AI द्वारा उद्धृत होने के लिए ऑप्टिमाइज़्ड लेखन, और स्वचालित internal link + backlink——सब कुछ एक ही जगह।",
+    "heroCtaPrimary": "शुरू करने के लिए लॉग इन करें",
+    "heroCtaSecondary": "फ़ीचर देखें",
+    "heroNote": "अपनी खुद की AI API key इस्तेमाल करें - लागत पर आपका नियंत्रण, कोई लॉक-इन नहीं।",
+    "problemTitle": "क्या ये समस्याएं जानी-पहचानी लगती हैं?",
+    "problems": [
+      {
+        "title": "SEO लिखने में बहुत समय लगता है",
+        "desc": "कीवर्ड रिसर्च, आउटलाइन बनाना, टाइटल, मेटा और हेडिंग ऑप्टिमाइज़ करना, लिंक जोड़ना... हर आर्टिकल घंटों खा जाता है।"
+      },
+      {
+        "title": "आपके आर्टिकल को AI कभी उद्धृत नहीं करता",
+        "desc": "ChatGPT, Perplexity और Google AI Overviews सर्च को नए सिरे से बदल रहे हैं - जो कंटेंट GEO-ऑप्टिमाइज़्ड नहीं है वह पीछे रह जाता है।"
+      },
+      {
+        "title": "मल्टी-चैनल, मल्टी-भाषा एक झंझट है",
+        "desc": "कई CMS पर मैन्युअली पब्लिश करना, हर आर्टिकल का अनुवाद करना, नतीजे ट्रैक करना... बहुत ज़्यादा दोहराव वाला काम।"
+      }
+    ],
+    "featuresTitle": "आपकी हर ज़रूरत, एक ही प्लेटफ़ॉर्म में",
+    "featuresSubtitle": "Google पर और AI के जवाबों में जीतने के लिए छह मुख्य क्षमताएँ।",
+    "features": [
+      {
+        "title": "मल्टी-प्लेटफ़ॉर्म Social रिपोर्ट",
+        "desc": "Facebook, TikTok, YouTube, Instagram को स्कैन करें——AI कंटेंट, एंगेजमेंट और प्रतिस्पर्धी रणनीति का गहन विश्लेषण करता है।"
+      },
+      {
+        "title": "E-commerce शॉप विश्लेषण",
+        "desc": "Shopee, TikTok Shop और Lazada रिपोर्ट: प्रोडक्ट, रिव्यू, कीमत और बाज़ार के अवसर।"
+      },
+      {
+        "title": "वीडियो स्क्रिप्ट विश्लेषण",
+        "desc": "TikTok/YouTube/Facebook लिंक पेस्ट करें——AI hook, फ़ॉर्मूला, सेकंड-दर-सेकंड टाइमलाइन और वायरल होने की वजह को खोलकर रखता है।"
+      },
+      {
+        "title": "SEO · GEO के अनुरूप लेखन",
+        "desc": "ऐसा कंटेंट जो Google पर रैंक करने और AI द्वारा उद्धृत होने के लिए ऑप्टिमाइज़्ड है: ChatGPT, Gemini, AI Overviews।"
+      },
+      {
+        "title": "स्वचालित internal link & backlink",
+        "desc": "AI संबंधित पोस्ट ढूँढता है और उन्हें साइट के भीतर व साइटों के बीच लिंक करता है——केवल वास्तव में संबंधित कंटेंट।"
+      },
+      {
+        "title": "एनालाइज़ करें, प्लान करें, लिखें",
+        "desc": "कीवर्ड रिसर्च से लेकर कंटेंट प्लान और तैयार लेख तक——सब कुछ AI के साथ, एक ही प्रवाह में।"
+      }
+    ],
+    "audienceTitle": "यह किसके लिए है?",
+    "audience": [
+      {
+        "title": "स्टोर मालिक और व्यवसाय",
+        "desc": "अपनी वेबसाइट के कंटेंट के मालिक बनें और बिना समर्पित SEO टीम के सर्च से ग्राहक खींचें।"
+      },
+      {
+        "title": "SEO एजेंसियां और फ्रीलांसर",
+        "desc": "कई क्लाइंट के लिए, कई भाषाओं में, कम समय में क्वालिटी आउटपुट स्केल करें।"
+      },
+      {
+        "title": "इन-हाउस मार्केटिंग टीम",
+        "desc": "लिखें - ऑप्टिमाइज़ करें - समीक्षा करें - पब्लिश करें वर्कफ़्लो को मानकीकृत करें और एक ही प्लेटफ़ॉर्म पर मिलकर काम करें।"
+      },
+      {
+        "title": "कंटेंट क्रिएटर",
+        "desc": "आइडिया को तेज़ी से SEO/GEO-रेडी आर्टिकल में बदलें, और मैन्युअल काम की जगह क्वालिटी पर ध्यान दें।"
+      }
+    ],
+    "howTitle": "यह कैसे काम करता है",
+    "steps": [
+      {
+        "title": "कनेक्ट करें",
+        "desc": "अपनी AI API key जोड़ें और एक वेबसाइट कनेक्ट करें (WordPress, Wix, Shopify...)।"
+      },
+      {
+        "title": "रिसर्च और प्लान",
+        "desc": "कीवर्ड खोजें और टॉपिक क्लस्टर के हिसाब से कंटेंट प्लान बनाएं।"
+      },
+      {
+        "title": "लिखें और ऑप्टिमाइज़ करें",
+        "desc": "AI से ड्राफ़्ट कराएं, SEO/AEO/GEO के लिए स्कोर दें, फिर स्कोर बढ़ाने के लिए सुझावों का पालन करें।"
+      },
+      {
+        "title": "पब्लिश करें और मापें",
+        "desc": "सभी चैनलों पर पब्लिश करें और token, लागत और AI उद्धरण ट्रैक करें।"
+      }
+    ],
+    "savingsTitle": "समय और पैसा बचाएं",
+    "savingsSubtitle": "पूरा वर्कफ़्लो सिर्फ़ कुछ ही मिनटों में पूरा।",
+    "savings": [
+      {
+        "value": "मिनटों में",
+        "label": "घंटों के बजाय एक SEO-रेडी आर्टिकल के लिए"
+      },
+      {
+        "value": "3-इन-1",
+        "label": "एक ही बार में SEO + AEO + GEO"
+      },
+      {
+        "value": "10 भाषाएं",
+        "label": "हर बाज़ार के लिए स्थानीय"
+      },
+      {
+        "value": "मल्टी-चैनल",
+        "label": "कई CMS पर पब्लिश, कोई कॉपी-पेस्ट नहीं"
+      }
+    ],
+    "faqTitle": "अक्सर पूछे जाने वाले सवाल",
+    "faqs": [
+      {
+        "q": "SEO, AEO और GEO में क्या अंतर है?",
+        "a": "SEO Google पर रैंक करने के लिए ऑप्टिमाइज़ करता है। AEO सीधे जवाब के रूप में चुने जाने के लिए ऑप्टिमाइज़ करता है (फ़ीचर्ड स्निपेट, People Also Ask)। GEO ऐसा ऑप्टिमाइज़ करता है कि ChatGPT, Perplexity और Google AI Overviews जैसे AI इंजन आपके कंटेंट को उद्धृत करें।"
+      },
+      {
+        "q": "क्या मुझे तकनीकी कौशल चाहिए?",
+        "a": "नहीं। आप बस एक टॉपिक दर्ज करते हैं; प्लेटफ़ॉर्म रिसर्च, लेखन, ऑप्टिमाइज़ेशन और स्कोरिंग संभाल लेता है। नए लोगों के लिए एक विस्तृत गाइड और ट्यूटोरियल भी है।"
+      },
+      {
+        "q": "यह किस AI का इस्तेमाल करता है?",
+        "a": "आप Claude, OpenAI, Gemini या DeepSeek के साथ अपनी खुद की API key इस्तेमाल करते हैं - लागत और लिमिट पर आपका नियंत्रण, हर token पारदर्शी।"
+      },
+      {
+        "q": "मैं कहां पब्लिश कर सकता हूं?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo और Google Sheet। पुराने आर्टिकल को एडिट करके दोबारा पब्लिश करने पर सही पोस्ट अपडेट होती है, बिना किसी डुप्लिकेट के।"
+      },
+      {
+        "q": "क्या यह कई भाषाओं को सपोर्ट करता है?",
+        "a": "हां। इंटरफ़ेस और कंटेंट 10 भाषाओं को सपोर्ट करते हैं, और हर बाज़ार के कीवर्ड के लिए आर्टिकल को स्थानीय बनाने की सुविधा के साथ।"
+      },
+      {
+        "q": "मैं कैसे शुरू करूं?",
+        "a": "लॉग इन करें, अपनी AI API key जोड़ें, एक वेबसाइट कनेक्ट करें और अपना पहला आर्टिकल लिखें - बस कुछ ही चरण।"
+      }
+    ],
+    "ctaTitle": "क्या आपका कंटेंट खोजे जाने - और उद्धृत होने - के लिए तैयार है?",
+    "ctaSubtitle": "आज ही लॉग इन करें और अपना पहला SEO, AEO और GEO-रेडी आर्टिकल बनाएं।",
+    "ctaButton": "शुरू करने के लिए लॉग इन करें",
+    "footerTagline": "AI से SEO, AEO और GEO कंटेंट लिखें - मल्टी-चैनल, बहुभाषी।",
+    "footerRights": "सर्वाधिकार सुरक्षित।",
+    "integrationsLabel": "सीधे प्रकाशित करें"
+  },
+  "th": {
+    "metaTitle": "เขียนคอนเทนต์ SEO, AEO และ GEO ด้วย AI - เผยแพร่ได้ทุกที่ ทุกภาษา",
+    "metaDescription": "แพลตฟอร์ม AI สำหรับวิจัยคีย์เวิร์ด เขียนและปรับแต่งบทความให้พร้อม SEO/AEO/GEO ให้คะแนนอัตโนมัติ และเผยแพร่ตรงสู่ WordPress, Wix, Shopify, Haravan, Sapo หรือ Google Sheet - รองรับ 10 ภาษา",
+    "login": "เข้าสู่ระบบ",
+    "skipToContent": "ข้ามไปยังเนื้อหาหลัก",
+    "langLabel": "ภาษา",
+    "heroBadge": "แพลตฟอร์มคอนเทนต์ AI · SEO · AEO · GEO",
+    "heroTitle": "แพลตฟอร์ม AI เดียว: วิเคราะห์ วางแผน และเขียนคอนเทนต์ที่ AI นำไปอ้างอิง",
+    "heroSubtitle": "รายงาน Social และ e-commerce วิเคราะห์สคริปต์วิดีโอ เขียนคอนเทนต์ที่ปรับให้ AI นำไปอ้างอิง และทำ internal link + backlink อัตโนมัติ——ครบในที่เดียว",
+    "heroCtaPrimary": "เข้าสู่ระบบเพื่อเริ่ม",
+    "heroCtaSecondary": "ดูฟีเจอร์",
+    "heroNote": "ใช้ API key ของ AI ของคุณเอง - ควบคุมค่าใช้จ่ายได้เต็มที่ ไม่ผูกมัด",
+    "problemTitle": "ปัญหาเหล่านี้ฟังดูคุ้นไหม?",
+    "problems": [
+      {
+        "title": "การเขียน SEO ใช้เวลานานเกินไป",
+        "desc": "วิจัยคีย์เวิร์ด วางโครงเรื่อง ปรับ title, meta และหัวข้อ ใส่ลิงก์... แต่ละบทความกินเวลาหลายชั่วโมง"
+      },
+      {
+        "title": "บทความของคุณไม่เคยถูก AI อ้างอิง",
+        "desc": "ChatGPT, Perplexity และ Google AI Overviews กำลังเปลี่ยนโฉมการค้นหา - คอนเทนต์ที่ไม่ปรับแต่ง GEO จะถูกทิ้งไว้ข้างหลัง"
+      },
+      {
+        "title": "หลายช่องทาง หลายภาษา วุ่นวายไปหมด",
+        "desc": "เผยแพร่ไปยังหลาย CMS ด้วยมือ แปลทีละบทความ ตามผลลัพธ์... งานซ้ำซากมากเกินไป"
+      }
+    ],
+    "featuresTitle": "ทุกอย่างที่คุณต้องการ ในแพลตฟอร์มเดียว",
+    "featuresSubtitle": "หกความสามารถหลักที่ช่วยให้คุณชนะทั้งบน Google และในคำตอบของ AI",
+    "features": [
+      {
+        "title": "รายงาน Social หลายแพลตฟอร์ม",
+        "desc": "สแกน Facebook, TikTok, YouTube, Instagram——AI ผ่าคอนเทนต์ การมีส่วนร่วม และกลยุทธ์ของคู่แข่ง"
+      },
+      {
+        "title": "วิเคราะห์ร้านค้า e-commerce",
+        "desc": "รายงาน Shopee, TikTok Shop และ Lazada: สินค้า รีวิว ราคา และโอกาสทางการตลาด"
+      },
+      {
+        "title": "วิเคราะห์สคริปต์วิดีโอ",
+        "desc": "วางลิงก์ TikTok/YouTube/Facebook——AI แกะ hook สูตร ไทม์ไลน์ทีละวินาที และเหตุผลที่ทำให้ไวรัล"
+      },
+      {
+        "title": "เขียนตามมาตรฐาน SEO · GEO",
+        "desc": "คอนเทนต์ที่ปรับให้ติดอันดับบน Google และถูก AI นำไปอ้างอิง: ChatGPT, Gemini, AI Overviews"
+      },
+      {
+        "title": "internal link & backlink อัตโนมัติ",
+        "desc": "AI ค้นหาบทความที่เกี่ยวข้องและเชื่อมโยงทั้งภายในและข้ามเว็บไซต์——เฉพาะคอนเทนต์ที่เกี่ยวข้องกันจริงเท่านั้น"
+      },
+      {
+        "title": "วิเคราะห์ วางแผน เขียน",
+        "desc": "ตั้งแต่การวิจัยคีย์เวิร์ดไปจนถึงแผนคอนเทนต์และบทความที่เสร็จสมบูรณ์——ทั้งหมดด้วย AI ในกระบวนการเดียว"
+      }
+    ],
+    "audienceTitle": "เหมาะกับใคร?",
+    "audience": [
+      {
+        "title": "เจ้าของร้านและธุรกิจ",
+        "desc": "เป็นเจ้าของคอนเทนต์เว็บไซต์ของคุณเอง และดึงลูกค้าจากการค้นหาโดยไม่ต้องมีทีม SEO เฉพาะทาง"
+      },
+      {
+        "title": "เอเจนซี SEO และฟรีแลนซ์",
+        "desc": "ขยายผลงานคุณภาพให้ลูกค้าหลายราย หลายภาษา ภายในเวลาอันสั้น"
+      },
+      {
+        "title": "ทีมการตลาดภายในองค์กร",
+        "desc": "มาตรฐานเวิร์กโฟลว์ เขียน - ปรับแต่ง - ตรวจทาน - เผยแพร่ และทำงานร่วมกันบนแพลตฟอร์มเดียว"
+      },
+      {
+        "title": "ครีเอเตอร์คอนเทนต์",
+        "desc": "เปลี่ยนไอเดียเป็นบทความพร้อม SEO/GEO ได้อย่างรวดเร็ว และโฟกัสที่คุณภาพแทนงานที่ต้องทำด้วยมือ"
+      }
+    ],
+    "howTitle": "วิธีการทำงาน",
+    "steps": [
+      {
+        "title": "เชื่อมต่อ",
+        "desc": "เพิ่ม API key ของ AI และเชื่อมต่อเว็บไซต์ (WordPress, Wix, Shopify...)"
+      },
+      {
+        "title": "วิจัยและวางแผน",
+        "desc": "ค้นหาคีย์เวิร์ดและสร้างแผนคอนเทนต์ตามคลัสเตอร์หัวข้อ"
+      },
+      {
+        "title": "เขียนและปรับแต่ง",
+        "desc": "ให้ AI ร่างบทความ ให้คะแนน SEO/AEO/GEO แล้วทำตามคำแนะนำเพื่อเพิ่มคะแนน"
+      },
+      {
+        "title": "เผยแพร่และวัดผล",
+        "desc": "เผยแพร่ข้ามช่องทางและติดตาม token ค่าใช้จ่าย และการอ้างอิงจาก AI"
+      }
+    ],
+    "savingsTitle": "ประหยัดทั้งเวลาและเงิน",
+    "savingsSubtitle": "เวิร์กโฟลว์ทั้งกระบวนการเสร็จในไม่กี่นาที",
+    "savings": [
+      {
+        "value": "ไม่กี่นาที",
+        "label": "สำหรับบทความพร้อม SEO แทนที่จะใช้หลายชั่วโมง"
+      },
+      {
+        "value": "3-in-1",
+        "label": "SEO + AEO + GEO ในครั้งเดียว"
+      },
+      {
+        "value": "10 ภาษา",
+        "label": "ปรับให้เข้ากับทุกตลาด"
+      },
+      {
+        "value": "หลายช่องทาง",
+        "label": "เผยแพร่ไปยังหลาย CMS โดยไม่ต้องคัดลอกวาง"
+      }
+    ],
+    "faqTitle": "คำถามที่พบบ่อย",
+    "faqs": [
+      {
+        "q": "SEO, AEO และ GEO ต่างกันอย่างไร?",
+        "a": "SEO ปรับแต่งเพื่อติดอันดับบน Google, AEO ปรับแต่งเพื่อให้ถูกเลือกเป็นคำตอบโดยตรง (featured snippet, People Also Ask), GEO ปรับแต่งเพื่อให้เครื่องมือ AI อย่าง ChatGPT, Perplexity และ Google AI Overviews นำคอนเทนต์ของคุณไปอ้างอิง"
+      },
+      {
+        "q": "ต้องมีทักษะทางเทคนิคไหม?",
+        "a": "ไม่ต้อง คุณเพียงป้อนหัวข้อ แพลตฟอร์มจะจัดการวิจัย เขียน ปรับแต่ง และให้คะแนนเอง มีคู่มือละเอียดและบทเรียนสำหรับผู้เริ่มต้น"
+      },
+      {
+        "q": "ใช้ AI ตัวไหน?",
+        "a": "คุณใช้ API key ของคุณเองกับ Claude, OpenAI, Gemini หรือ DeepSeek - คุณควบคุมค่าใช้จ่ายและขีดจำกัด โปร่งใสต่อ token"
+      },
+      {
+        "q": "เผยแพร่ได้ที่ไหนบ้าง?",
+        "a": "WordPress, Wix, Shopify, Haravan, Sapo และ Google Sheet การแก้ไขบทความเก่าและเผยแพร่ซ้ำจะอัปเดตโพสต์ที่ถูกต้อง โดยไม่ซ้ำซ้อน"
+      },
+      {
+        "q": "รองรับหลายภาษาไหม?",
+        "a": "รองรับ ทั้งอินเทอร์เฟซและคอนเทนต์รองรับ 10 ภาษา พร้อมความสามารถในการปรับบทความให้เข้ากับท้องถิ่นตามคีย์เวิร์ดของแต่ละตลาด"
+      },
+      {
+        "q": "เริ่มต้นใช้งานอย่างไร?",
+        "a": "เข้าสู่ระบบ เพิ่ม API key ของ AI เชื่อมต่อเว็บไซต์ และเขียนบทความแรกของคุณ - เพียงไม่กี่ขั้นตอน"
+      }
+    ],
+    "ctaTitle": "พร้อมให้คอนเทนต์ของคุณถูกค้นพบ - และถูกอ้างอิงแล้วหรือยัง?",
+    "ctaSubtitle": "เข้าสู่ระบบและสร้างบทความพร้อม SEO, AEO และ GEO บทความแรกของคุณวันนี้",
+    "ctaButton": "เข้าสู่ระบบเพื่อเริ่ม",
+    "footerTagline": "เขียนคอนเทนต์ SEO, AEO และ GEO ด้วย AI - หลายช่องทาง หลายภาษา",
+    "footerRights": "สงวนลิขสิทธิ์ทั้งหมด",
+    "integrationsLabel": "เผยแพร่ตรงไปยัง"
+  }
+}

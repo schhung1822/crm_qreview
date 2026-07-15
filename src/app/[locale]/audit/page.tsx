@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Card,
-  Checkbox,
   DataTable,
   InlineGrid,
   InlineStack,
@@ -19,6 +18,7 @@ import {
   TextField,
 } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
+import { MagicIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { AiWorking, ScoreRing } from '@/components/ui';
 import { markdownToHtml } from '@/lib/content/markdown';
@@ -254,7 +254,8 @@ export default function AuditPage() {
               placeholder="https://example.com"
               type="url"
             />
-            <InlineGrid columns={{ xs: 2, md: '1fr 1fr 1fr auto' }} gap="300" alignItems="end">
+            {/* Tham số quét: 2 select ngắn cùng hàng, "Đo tốc độ" (giá trị dài) full-width trên mobile. */}
+            <InlineGrid columns={{ xs: 2, md: 3 }} gap="300" alignItems="start">
               <Select
                 label={t('pagesLabel')}
                 options={['5', '12', '20', '25'].map((n) => ({ label: t('pagesN', { n }), value: n }))}
@@ -272,11 +273,21 @@ export default function AuditPage() {
                 value={quality}
                 onChange={setQuality}
               />
-              <Checkbox label={t('perfLabel')} checked={perf} onChange={setPerf} helpText={t('perfHint')} />
+              <div className="col-span-full-xs">
+                <Select
+                  label={t('perfLabel')}
+                  options={[
+                    { label: t('perfOff'), value: '0' },
+                    { label: t('perfOn'), value: '1' },
+                  ]}
+                  value={perf ? '1' : '0'}
+                  onChange={(v) => setPerf(v === '1')}
+                />
+              </div>
             </InlineGrid>
 
             <BlockStack gap="100">
-              <InlineGrid columns={{ xs: 2, md: '1fr 1fr auto' }} gap="300" alignItems="end">
+              <InlineGrid columns={{ xs: 1, md: '1fr 1fr auto' }} gap="300" alignItems="end">
                 <Select
                   label={t('aiLabel')}
                   options={[
@@ -297,7 +308,7 @@ export default function AuditPage() {
                   value={aiModel}
                   onChange={setAiModel}
                 />
-                <Button variant="primary" loading={busy} disabled={busy} onClick={run}>
+                <Button variant="primary" icon={MagicIcon} loading={busy} disabled={busy} onClick={run}>
                   {busy ? t('running') : t('run')}
                 </Button>
               </InlineGrid>
@@ -438,7 +449,7 @@ export default function AuditPage() {
                         {t('guideAiOff')}
                       </Text>
                     ) : g?.loading ? (
-                      <AiWorking text={t('guideLoading')} />
+                      <AiWorking text={t('guideLoading')} progress="indeterminate" />
                     ) : g?.text ? (
                       <div
                         className="md-guide"
@@ -450,7 +461,7 @@ export default function AuditPage() {
                         <Text as="span" variant="bodySm" tone="critical">
                           {t('guideError')}
                         </Text>
-                        <Button variant="plain" onClick={() => void loadGuide(fixModal, true)}>
+                        <Button variant="plain" icon={MagicIcon} onClick={() => void loadGuide(fixModal, true)}>
                           {t('retry')}
                         </Button>
                       </InlineStack>
@@ -470,7 +481,7 @@ export default function AuditPage() {
         open={notConnOpen}
         onClose={() => setNotConnOpen(false)}
         title={t('notConnectedTitle')}
-        primaryAction={{ content: t('goConnect'), url: `/${locale}/connections` }}
+        primaryAction={{ content: t('goConnect'), url: `/${locale}/settings` }}
         secondaryActions={[{ content: t('close'), onAction: () => setNotConnOpen(false) }]}
       >
         <Modal.Section>
@@ -588,7 +599,12 @@ function PagesTable({
       // Bọc link để cắt gọn URL dài (ellipsis) → cột Trang không đẩy bảng quá rộng.
       <div
         key="link"
-        style={{ maxWidth: 440, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{
+          maxWidth: 'min(440px, calc(100vw - 96px))',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
       >
         <a
           href={p.url}
@@ -662,6 +678,7 @@ function CheckRow({ check, onDetail }: { check: AuditCheck; onDetail: (item: Fix
             <div style={{ flex: 'none' }}>
               <Button
                 size="slim"
+                icon={MagicIcon}
                 onClick={() =>
                   onDetail({
                     key: `check:${check.id}`,
@@ -787,6 +804,7 @@ function PerfReport({
                         </div>
                         <Button
                           variant="plain"
+                          icon={MagicIcon}
                           onClick={() =>
                             onDetail({
                               key: `perf:${tab === 0 ? 'm' : 'd'}:${k}`,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyReplacements } from '@/lib/content/replace';
+import { applyReplacements, applyReplacementsCounted } from '@/lib/content/replace';
 
 describe('applyReplacements', () => {
   it('thay ký tự đơn giản (— → -)', () => {
@@ -40,5 +40,21 @@ describe('applyReplacements', () => {
         { from: 'ai', to: 'AI', wholeWord: true },
       ]),
     ).toBe('AI - ok');
+  });
+});
+
+describe('applyReplacementsCounted', () => {
+  it('đếm đúng tổng số chỗ đã thay qua nhiều rule', () => {
+    const { text, count } = applyReplacementsCounted('A — B — ai', [
+      { from: '—', to: '-' },
+      { from: 'ai', to: 'AI', wholeWord: true },
+    ]);
+    expect(text).toBe('A - B - AI');
+    expect(count).toBe(3); // 2 dấu gạch + 1 "ai"
+  });
+
+  it('count = 0 khi không có gì để thay', () => {
+    expect(applyReplacementsCounted('abc', [{ from: 'xyz', to: 'q' }]).count).toBe(0);
+    expect(applyReplacementsCounted('abc', []).count).toBe(0);
   });
 });

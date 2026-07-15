@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { localizeArticle } from '@/lib/ai/content';
 import { aiReady } from '@/lib/ai/providers';
 import { locales, type Locale } from '@/i18n/config';
@@ -26,6 +27,15 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
+
+  // Chống lạm dụng token AI: giới hạn tần suất gọi (dùng chung 1 quỹ cho các route sinh nội dung AI).
+  const rl = rateLimit(`ai:${clientIp(req)}`, 20, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `Quá nhiều yêu cầu AI. Thử lại sau ${rl.retryAfter}s.` },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    );
+  }
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

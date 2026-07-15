@@ -12,16 +12,30 @@ const EN_STOP = new Set([
   'this', 'that', 'your', 'you', 'how', 'what', 'why', 'it', 'as', 'at', 'by', 'from', 'we',
   'our', 'can', 'will', 'guide', 'article', 'best', 'top', 'complete', 'about',
 ]);
+// Nhiễu từ URL/tên miền (utm_source, domain, đuôi TLD…) — KHÔNG được thành từ khóa. Nhờ đó
+// cụm kiểu "giapducthang com" (tách từ giapducthang.com trong internal link) bị loại.
+const URL_STOP = new Set([
+  'com', 'net', 'org', 'www', 'http', 'https', 'html', 'htm', 'php', 'utm', 'source',
+  'vn', 'io', 'co', 'info', 'biz', 'dev', 'app', 'xyz', 'shop', 'blog', 'href', 'url',
+]);
+
+// Bỏ URL/tên miền khỏi văn bản trước khi trích (giữ lại anchor/alt của link/ảnh).
+function stripUrls(s: string): string {
+  return s
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, ' $1 ') // [anchor](url) / ![alt](src) → anchor/alt
+    .replace(/https?:\/\/\S+/gi, ' ') // URL thô
+    .replace(/\b[\w-]+\.(?:com|net|org|io|co|vn|info|biz|dev|app|xyz|shop|blog)\b\S*/gi, ' '); // domain trần
+}
 
 function tokenize(s: string): string[] {
-  return s
+  return stripUrls(s)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(Boolean);
 }
 
-const isStop = (w: string) => VI_STOP.has(w) || EN_STOP.has(w);
+const isStop = (w: string) => VI_STOP.has(w) || EN_STOP.has(w) || URL_STOP.has(w);
 const badWord = (w: string) => w.length < 2 || isStop(w) || /^\d+$/.test(w);
 
 // Sinh danh sách cụm từ ỨNG VIÊN làm target keyword (2–4 từ, có nghĩa, ưu tiên cụm

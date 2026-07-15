@@ -1,6 +1,6 @@
 // Kho content plan - lưu file .data/plans.json. Server-only.
 import { randomBytes } from 'node:crypto';
-import path from 'node:path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 export interface PlanItem {
@@ -23,10 +23,10 @@ export interface PlanRecord {
   createdAt: string;
 }
 
-const FILE = path.join(process.cwd(), '.data', 'plans.json');
+const NAME = 'plans.json'; // CÔ LẬP THEO BIZ
 
 async function readAll(): Promise<PlanRecord[]> {
-  return readJson<PlanRecord[]>(FILE, []);
+  return readJson<PlanRecord[]>(bizFile(NAME), []);
 }
 
 export async function savePlan(input: {
@@ -41,7 +41,7 @@ export async function savePlan(input: {
     createdAt: new Date().toISOString(),
     ...input,
   };
-  return mutateJson<PlanRecord[], PlanRecord>(FILE, [], (rows) => [[...rows, record], record]);
+  return mutateJson<PlanRecord[], PlanRecord>(bizFile(NAME), [], (rows) => [[...rows, record], record]);
 }
 
 export async function getPlan(id: string): Promise<PlanRecord | null> {
@@ -57,7 +57,7 @@ export async function latestPlan(): Promise<PlanRecord | null> {
 }
 
 export async function deletePlan(id: string): Promise<void> {
-  await mutateJson<PlanRecord[], void>(FILE, [], (rows) => [
+  await mutateJson<PlanRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((r) => r.id !== id),
     undefined,
   ]);

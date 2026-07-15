@@ -77,7 +77,9 @@ export function countKeyword(text: string, kw: string): number {
 
 // Đếm internal link: link markdown [text](/path) hoặc (#anchor) - KHÔNG tính ảnh ![]().
 function countInternalLinks(md: string): number {
-  const matches = md.match(/(^|[^!])\[[^\]]+\]\((\/[^)]*|#[^)]*)\)/g);
+  // Lookbehind (?<!!) để không tính ảnh ![](...) mà KHÔNG nuốt ký tự phía trước → 2 link
+  // dán liền nhau [a](/x)[b](/y) vẫn đếm đủ 2.
+  const matches = md.match(/(?<!!)\[[^\]]+\]\((\/[^)]*|#[^)]*)\)/g);
   return matches ? matches.length : 0;
 }
 

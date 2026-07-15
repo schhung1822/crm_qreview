@@ -2,8 +2,9 @@
 // chữ/emoji làm logo. WordPress dùng logomark chính thức (vòng tròn chữ W); Wix dùng
 // wordmark chữ "Wix" đen (đúng nhận diện Wix); Shopify dùng chip xanh + túi mua sắm trắng.
 import type { CSSProperties } from 'react';
+import { HARAVAN_SVG, SAPO_ICON_DATA_URI } from './cms-brand-assets';
 
-export type BrandProvider = 'wordpress' | 'wix' | 'shopify';
+export type BrandProvider = 'wordpress' | 'wix' | 'shopify' | 'haravan' | 'sapo';
 
 // Đường dẫn logomark WordPress chính thức (vòng tròn + chữ W), viewBox 24×24.
 const WORDPRESS_PATH =
@@ -46,6 +47,29 @@ export function BrandLogo({ provider, size = 38 }: { provider: BrandProvider; si
             Wix
           </text>
         </svg>
+      </div>
+    );
+  }
+
+  if (provider === 'haravan') {
+    // Haravan - glyph SVG chính thức (nhúng inline), nền trắng.
+    const g = Math.round(size * 0.74);
+    const svg = HARAVAN_SVG.replace('<svg ', `<svg width="${g}" height="${g}" role="img" aria-label="Haravan" `);
+    return (
+      <div
+        style={{ ...box, background: '#fff', border: '1px solid var(--p-color-border)' }}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+    );
+  }
+
+  if (provider === 'sapo') {
+    // Sapo - favicon chính thức (data URI nhúng), nền trắng.
+    const g = Math.round(size * 0.72);
+    return (
+      <div style={{ ...box, background: '#fff', border: '1px solid var(--p-color-border)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={SAPO_ICON_DATA_URI} alt="Sapo" width={g} height={g} style={{ objectFit: 'contain' }} />
       </div>
     );
   }

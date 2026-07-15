@@ -3,7 +3,7 @@
 //  • Theo dõi: mỗi lần đăng (ngay/lịch) đều có bản ghi trạng thái + log + retry.
 // Server-only.
 import { randomBytes } from 'node:crypto';
-import path from 'node:path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 import type { PublishArticle } from '../publish/run';
 
@@ -26,11 +26,11 @@ export interface PublishJob {
   updatedAt: string;
 }
 
-const FILE = path.join(process.cwd(), '.data', 'publish-jobs.json');
+const NAME = 'publish-jobs.json'; // CÔ LẬP THEO BIZ
 const MAX_JOBS = 1000; // giữ N job gần nhất (tránh phình file)
 
 async function readAll(): Promise<PublishJob[]> {
-  return readJson<PublishJob[]>(FILE, []);
+  return readJson<PublishJob[]>(bizFile(NAME), []);
 }
 
 export async function listJobs(filter?: { status?: PublishJobStatus }): Promise<PublishJob[]> {
@@ -60,15 +60,22 @@ export async function createJob(
     createdAt: now,
     updatedAt: now,
   };
-  await mutateJson<PublishJob[], void>(FILE, [], (rows) => {
-    const next = [...rows, job].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-    return [next.slice(0, MAX_JOBS), undefined];
+  const desc = (a: PublishJob, b: PublishJob) => (a.createdAt < b.createdAt ? 1 : -1);
+  await mutateJson<PublishJob[], void>(bizFile(NAME), [], (rows) => {
+    const all = [...rows, job];
+    if (all.length <= MAX_JOBS) return [all.sort(desc), undefined];
+    // Cắt bớt để tránh phình file, NHƯNG không bao giờ bỏ job CHƯA XONG (scheduled/pending/running)
+    // — nếu không, một job lịch tương lai tạo sớm có thể bị xóa trước khi tới giờ chạy.
+    const active = all.filter((j) => j.status === 'scheduled' || j.status === 'pending' || j.status === 'running');
+    const finished = all.filter((j) => j.status === 'done' || j.status === 'error').sort(desc);
+    const keepFinished = finished.slice(0, Math.max(0, MAX_JOBS - active.length));
+    return [[...active, ...keepFinished].sort(desc), undefined];
   });
   return job;
 }
 
 export async function updateJob(id: string, patch: Partial<PublishJob>): Promise<void> {
-  await mutateJson<PublishJob[], void>(FILE, [], (rows) => {
+  await mutateJson<PublishJob[], void>(bizFile(NAME), [], (rows) => {
     const j = rows.find((r) => r.id === id);
     if (j) Object.assign(j, patch, { updatedAt: new Date().toISOString() });
     return [rows, undefined];
@@ -76,16 +83,42 @@ export async function updateJob(id: string, patch: Partial<PublishJob>): Promise
 }
 
 export async function deleteJob(id: string): Promise<void> {
-  await mutateJson<PublishJob[], void>(FILE, [], (rows) => [rows.filter((r) => r.id !== id), undefined]);
+  await mutateJson<PublishJob[], void>(bizFile(NAME), [], (rows) => [rows.filter((r) => r.id !== id), undefined]);
 }
 
-// Các job ĐẾN HẠN: trạng thái scheduled/pending/error (chưa hết lượt) và (không có runAt
-// hoặc runAt <= mốc now). Dùng bởi worker để biết job nào cần chạy.
+// Chiếm job để chạy MỘT CÁCH NGUYÊN TỬ (mutateJson khóa đọc-sửa-ghi). Chống ĐĂNG TRÙNG khi 2 lần
+// quét chạy song song / cron chồng lịch: chỉ chuyển 'running' nếu job VẪN đến hạn tại nowIso. Trả
+// job đã chiếm (attempts đã +1) hoặc null nếu worker khác đã chiếm trước / job không còn đến hạn.
+export async function claimJob(id: string, nowIso: string): Promise<PublishJob | null> {
+  return mutateJson<PublishJob[], PublishJob | null>(bizFile(NAME), [], (rows) => {
+    const j = rows.find((r) => r.id === id);
+    if (!j || dueJobs([j], nowIso).length !== 1) return [rows, null];
+    Object.assign(j, {
+      status: 'running' as PublishJobStatus,
+      attempts: j.attempts + 1,
+      updatedAt: new Date().toISOString(),
+    });
+    return [rows, { ...j }];
+  });
+}
+
+// Ngưỡng coi job 'running' là KẸT: tiến trình serverless bị cắt giữa chừng (timeout/deploy/OOM)
+// sau khi set 'running' nhưng trước khi set 'done'/'pending' → job đứng mãi. Quá ngưỡng này thì
+// cho quét lại (attempts đã tăng nên vẫn bị chặn bởi maxAttempts, không lặp vô hạn).
+const STALE_RUNNING_MS = 10 * 60 * 1000;
+
+// Các job ĐẾN HẠN: scheduled/pending/error (chưa hết lượt), HOẶC running bị kẹt quá lâu; và
+// (không có runAt hoặc runAt <= mốc now). Dùng bởi worker để biết job nào cần chạy.
 export function dueJobs(jobs: PublishJob[], nowIso: string): PublishJob[] {
-  return jobs.filter(
-    (j) =>
-      (j.status === 'scheduled' || j.status === 'pending' || j.status === 'error') &&
-      j.attempts < j.maxAttempts &&
-      (!j.runAt || j.runAt <= nowIso),
-  );
+  const nowMs = Date.parse(nowIso);
+  return jobs.filter((j) => {
+    if (j.attempts >= j.maxAttempts) return false;
+    if (j.runAt && j.runAt > nowIso) return false;
+    if (j.status === 'scheduled' || j.status === 'pending' || j.status === 'error') return true;
+    if (j.status === 'running') {
+      const upd = Date.parse(j.updatedAt);
+      return Number.isFinite(upd) && Number.isFinite(nowMs) && nowMs - upd > STALE_RUNNING_MS;
+    }
+    return false;
+  });
 }

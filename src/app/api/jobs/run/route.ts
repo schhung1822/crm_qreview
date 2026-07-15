@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { guard } from '@/lib/auth/current';
 import { runDueJobs, runDueJobsAllBiz } from '@/lib/publish/runner';
+import { runDueGenJobsAllBiz } from '@/lib/gen/runner';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +24,7 @@ export async function POST(req: Request) {
   // Cron/worker: KHÔNG có ngữ cảnh biz → phải quét job của MỌI biz (nếu không sẽ đọc file .data
   // gốc rỗng và bỏ sót toàn bộ job hẹn giờ của các tenant).
   const result = await runDueJobsAllBiz({ limit: 25 });
-  return NextResponse.json(result);
+  // Đồng thời rút hàng đợi TẠO BÀI hàng loạt (mỗi biz vài job/lần quét để không chạy quá lâu).
+  const gen = await runDueGenJobsAllBiz(3);
+  return NextResponse.json({ ...result, gen });
 }

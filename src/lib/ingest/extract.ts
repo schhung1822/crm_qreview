@@ -2,6 +2,7 @@
 //  • File: txt/md/csv/json/html (đọc trực tiếp), pdf (pdf-parse), docx (mammoth).
 //  • URL: tải qua safeFetch (chặn SSRF + giới hạn dung lượng) → bóc text.
 // Server-only. Trả { text, title? }. Cắt độ dài để không nhồi quá nhiều vào AI.
+import { dedash } from '../content/dedash';
 import { safeFetchBuffer } from '../security/safe-fetch';
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB
@@ -14,7 +15,7 @@ export interface Extracted {
 }
 
 function clip(s: string): string {
-  const t = s
+  const t = dedash(s) // gạch dài "—/–" → "-" ngay khi import (dán/file/URL)
     .split(NBSP)
     .join(' ')
     .replace(/[ \t]+\n/g, '\n')
@@ -43,7 +44,7 @@ function htmlTitle(html: string): string | undefined {
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) ||
     html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (!m) return undefined;
-  const t = decodeEntities(m[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+  const t = dedash(decodeEntities(m[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim());
   return t ? t.slice(0, 200) : undefined;
 }
 

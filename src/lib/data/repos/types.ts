@@ -77,6 +77,4 @@ export interface Repositories {
   config: ConfigRepo;
 }
 
-// Hằng key cho ConfigRepo (cấu hình singleton).
-export const CONFIG_KEYS = { imageConfig: 'image-config' } as const;
 export type { ImageConfig };

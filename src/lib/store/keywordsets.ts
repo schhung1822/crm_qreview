@@ -1,6 +1,6 @@
 // Kho bộ từ khóa - lưu file .data/keywordsets.json. Server-only.
 import { randomBytes } from 'node:crypto';
-import path from 'node:path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 export interface StoredKeyword {
@@ -26,10 +26,10 @@ export interface KeywordSetRecord {
   createdAt: string;
 }
 
-const FILE = path.join(process.cwd(), '.data', 'keywordsets.json');
+const NAME = 'keywordsets.json'; // CÔ LẬP THEO BIZ
 
 async function readAll(): Promise<KeywordSetRecord[]> {
-  return readJson<KeywordSetRecord[]>(FILE, []);
+  return readJson<KeywordSetRecord[]>(bizFile(NAME), []);
 }
 
 export async function saveKeywordSet(input: {
@@ -44,7 +44,7 @@ export async function saveKeywordSet(input: {
     createdAt: new Date().toISOString(),
     ...input,
   };
-  return mutateJson<KeywordSetRecord[], KeywordSetRecord>(FILE, [], (rows) => [
+  return mutateJson<KeywordSetRecord[], KeywordSetRecord>(bizFile(NAME), [], (rows) => [
     [...rows, record],
     record,
   ]);
@@ -59,7 +59,7 @@ export async function listKeywordSets(): Promise<KeywordSetRecord[]> {
 }
 
 export async function deleteKeywordSet(id: string): Promise<void> {
-  await mutateJson<KeywordSetRecord[], void>(FILE, [], (rows) => [
+  await mutateJson<KeywordSetRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((r) => r.id !== id),
     undefined,
   ]);

@@ -1,5 +1,7 @@
 // Factory tạo adapter CMS theo provider của Connection.
 import type { CmsAdapter, CmsConnectionConfig, CmsProvider } from './types';
+import { HaravanAdapter } from './haravan';
+import { SapoAdapter } from './sapo';
 import { ShopifyAdapter } from './shopify';
 import { WordPressAdapter } from './wordpress';
 import { WixAdapter } from './wix';
@@ -15,6 +17,10 @@ export function getCmsAdapter(
       return new WixAdapter(config);
     case 'shopify':
       return new ShopifyAdapter(config);
+    case 'haravan':
+      return new HaravanAdapter(config);
+    case 'sapo':
+      return new SapoAdapter(config);
   }
 }
 

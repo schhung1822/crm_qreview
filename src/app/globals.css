@@ -1,16 +1,27 @@
+/* Font cờ quốc gia: Windows KHÔNG có glyph cờ trong emoji hệ thống nên emoji cờ bị mất.
+   Nhờ unicode-range, font này CHỈ áp cho các mã ký tự cờ (regional indicator), chữ
+   thường vẫn dùng Inter. Đặt trước Inter trong font-stack để trình duyệt ưu tiên cho cờ. */
+@font-face {
+  font-family: 'Twemoji Country Flags';
+  src: url('/fonts/TwemojiCountryFlags.woff2') format('woff2');
+  font-display: swap;
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E007F;
+}
+
 /* Ép font Inter cho toàn app, kể cả token font của Polaris. */
 :root {
-  --p-font-family-sans: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --p-font-family-sans: 'Twemoji Country Flags', var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 html,
 body {
-  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Twemoji Country Flags', var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
 }
 
 /* Tiện ích nhỏ dùng trong vài chỗ tùy biến ngoài Polaris. */
 .flag {
+  font-family: 'Twemoji Country Flags', var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1;
 }
@@ -254,8 +265,96 @@ body {
   .ai-working__bar-indet { left: 0; width: 100%; }
 }
 
+/* Lưới thumbnail ảnh (ảnh bìa / minh họa trong editor): 2 cột desktop, 1 cột di động. */
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+/* Quy tắc thay thế: desktop dạng bảng, mobile dạng thẻ có nhãn. Toggle theo breakpoint. */
+.rules-mobile { display: none; }
+
+/* Tiện ích ẩn/hiện theo breakpoint (vd bảng trên desktop ↔ danh sách thẻ trên mobile). */
+.hide-desktop { display: none; }
+
+/* Bảng bài vệ tinh (Content Plan): ép độ rộng cột cân đối (tiêu đề rộng nhất, target hẹp hơn
+   và tự xuống dòng). min-width đảm bảo bảng đủ rộng — màn hẹp thì CUỘN NGANG thay vì nhồi cột
+   khiến nút "Viết bằng AI" vỡ từng chữ. */
+.satellite-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.satellite-table table { table-layout: fixed; width: 100%; min-width: 860px; }
+.satellite-table th:nth-child(1), .satellite-table td:nth-child(1) { width: 30%; }
+.satellite-table th:nth-child(2), .satellite-table td:nth-child(2) { width: 16%; }
+.satellite-table th:nth-child(3), .satellite-table td:nth-child(3) { width: 14%; }
+.satellite-table th:nth-child(4), .satellite-table td:nth-child(4) { width: 12%; }
+.satellite-table th:nth-child(5), .satellite-table td:nth-child(5) { width: 13%; }
+.satellite-table th:nth-child(6), .satellite-table td:nth-child(6) { width: 15%; }
+/* Tiêu đề, target, cụm: cho xuống dòng (chữ dài). */
+.satellite-table th,
+.satellite-table td {
+  white-space: normal;
+  word-break: break-word;
+  vertical-align: top;
+}
+/* Ưu tiên, trạng thái, hành động: badge/nút giữ 1 hàng (không vỡ chữ), bảng cuộn ngang nếu chật. */
+.satellite-table th:nth-child(4), .satellite-table td:nth-child(4),
+.satellite-table th:nth-child(5), .satellite-table td:nth-child(5),
+.satellite-table th:nth-child(6), .satellite-table td:nth-child(6) {
+  white-space: nowrap;
+  word-break: normal;
+}
+
+/* Khung soạn thảo Markdown: mặc định chỉ ~10 dòng đầu (cuộn dọc trong khung).
+   Bấm "Mở rộng" bỏ class này → Polaris tự giãn textarea theo nội dung (KHÔNG cuộn dọc). */
+.md-editor-collapsed .Polaris-TextField__Input {
+  max-height: 240px;
+  overflow-y: auto !important;
+}
+/* Mở rộng: giãn hết theo nội dung, KHÔNG cuộn dọc trong khung (tránh khó thao tác). */
+.md-editor-expanded .Polaris-TextField__Input {
+  max-height: none !important;
+  overflow-y: hidden !important;
+}
+/* Ảnh trong khung xem trước bài: bấm để phóng to (lightbox) → gợi ý con trỏ zoom. */
+.article-preview img {
+  cursor: zoom-in;
+}
+
+/* Nút "Tải file HTML lên" (Kiểm tra Landing): to hơn thành ô upload rõ ràng, cân đối với
+   hàng điều khiển + vùng mã bên dưới. Viền nét đứt gợi ý vùng thả file. */
+.landing-upload .Polaris-Button {
+  min-height: 84px;
+  border-style: dashed;
+  font-size: 15px;
+}
+
+/* ===== Popup (Polaris Modal) căn giữa theo VÙNG NỘI DUNG, không phải cả màn hình =====
+   Modal render qua portal ở cấp <body> nên mặc định căn giữa viewport (đè cả lên menu trái).
+   Trên desktop (menu hiển thị từ 48em, rộng --pg-navigation-width = 15rem), thu khung định vị
+   của Modal về đúng vùng .Polaris-Frame__Content (từ 15rem tới mép phải) → phần căn giữa bên
+   trong tự trùng tâm vùng nội dung. Mobile giữ nguyên (menu ẩn nên không dịch). */
+@media (min-width: 48em) {
+  .Polaris-Modal-Dialog__Container {
+    left: var(--pg-navigation-width, 15rem);
+  }
+}
+
 /* ===== Tối ưu hiển thị trên di động (Polaris breakpoint sm = 490px) ===== */
 @media (max-width: 489px) {
+  /* Thumbnail ảnh: xếp 1 cột để ảnh + nhãn đủ lớn, dễ chạm */
+  .thumb-grid { grid-template-columns: 1fr; }
+
+  /* Quy tắc thay thế: ẩn bảng, hiện thẻ có nhãn */
+  .rules-desktop { display: none; }
+  .rules-mobile { display: block; }
+
+  /* Ô trong lưới cần chiếm trọn 1 hàng trên mobile (vd select giá trị dài) */
+  .col-span-full-xs { grid-column: 1 / -1; }
+
+  /* Ẩn/hiện theo breakpoint */
+  .hide-mobile { display: none; }
+  .hide-desktop { display: block; }
+
   /* Vòng điểm SEO/AEO/GEO nhỏ lại để card không chiếm quá nhiều chiều cao */
   .score-ring { width: 66px; height: 66px; }
   .score-ring::after { width: 50px; height: 50px; }
@@ -289,3 +388,792 @@ body {
 
 /* Cuộn ngang mượt trên cảm ứng cho các khu vực rộng (lịch, bảng…) */
 [style*='overflow-x'] { -webkit-overflow-scrolling: touch; }
+
+/* (Đã gỡ) Trước đây ô Search bị dịch phải nửa cột nav để căn ô TÌM KIẾM theo tâm nội dung. Nay
+   slot này chứa THANH THÔNG BÁO chạy full chiều ngang - dịch phải sẽ đẩy chữ đè lên cụm ngôn ngữ,
+   nên bỏ transform. Bố cục cột do rule ở khối .announce-ticker phía dưới quản. */
+
+/* Tên user/biz BẤM ĐƯỢC trong Quản trị (mở chi tiết). Trông như text, có con trỏ tay + hover nhẹ. */
+.admin-entity-link {
+  display: inline-block;
+  max-width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+.admin-entity-link:hover { background: var(--p-color-bg-surface-hover); }
+.admin-entity-link:focus-visible { outline: 2px solid var(--p-color-border-focus); outline-offset: -2px; }
+.admin-entity-link--inline { padding: 0; margin: 0; border-radius: 4px; }
+.admin-entity-link--inline:hover { background: none; text-decoration: underline; }
+
+/* Dòng đơn hàng BẤM ĐƯỢC (mở popup chi tiết) trong tab Biz. */
+.admin-order-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--p-color-bg-surface-secondary);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.admin-order-row:hover { background: var(--p-color-bg-surface-hover); }
+.admin-order-row:focus-visible { outline: 2px solid var(--p-color-border-focus); outline-offset: -2px; }
+
+/* Bảng gói cước: thẻ tự dựng (không dùng Polaris Card) để kiểm soát chiều cao. InlineGrid kéo các
+   thẻ cao BẰNG NHAU (align-items:stretch mặc định); .plan-card là flex-column height:100% nên
+   __body co giãn còn __foot (nút Nâng cấp) ghim đáy → mọi nút THẲNG HÀNG. */
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--p-color-bg-surface, #fff);
+  border: 1px solid var(--p-color-border, #e3e3e3);
+  border-radius: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.plan-card--current {
+  background: var(--p-color-bg-surface-selected, #edf7f2);
+}
+.plan-card__body {
+  flex: 1 1 auto;
+}
+.plan-card__foot {
+  margin-top: 16px;
+}
+
+/* Dải thông báo CHẠY ở giữa header (thay ô tìm kiếm - đã chuyển xuống sidebar). Cuộn ngang,
+   mờ dần 2 mép, rê chuột để tạm dừng. Tôn trọng prefers-reduced-motion (tắt animation). */
+.header-ticker {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.header-ticker__track {
+  display: inline-block;
+  padding-left: 100%;
+  font-size: 13px;
+  color: var(--p-color-text-secondary, #4a4a4a);
+  animation: header-ticker-scroll 32s linear infinite;
+}
+.header-ticker:hover .header-ticker__track {
+  animation-play-state: paused;
+}
+.header-ticker__empty {
+  font-size: 13px;
+  color: var(--p-color-text-subdued, #8a8a8a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes header-ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-ticker__track {
+    animation: none;
+    padding-left: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+}
+
+/* Bộ chuyển biz INLINE trong drawer điều hướng - CHỈ hiện ở mobile (desktop dùng bản ở header). */
+.biz-switcher-mobile { display: block; padding: 8px 12px 12px; }
+@media (min-width: 48em) { .biz-switcher-mobile { display: none; } }
+.biz-switcher-mobile__head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; }
+.biz-switcher-mobile__logo { height: 24px; width: auto; flex-shrink: 0; }
+.biz-switcher-mobile__name {
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.biz-switcher-mobile__gear {
+  margin-left: auto; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border: none; background: transparent; border-radius: 8px; cursor: pointer;
+}
+.biz-switcher-mobile__list { display: flex; flex-direction: column; gap: 2px; }
+.biz-switcher-mobile__item,
+.biz-switcher-mobile__create {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 9px 10px; border: none; background: transparent; border-radius: 8px; cursor: pointer;
+  font: inherit; color: var(--p-color-text);
+}
+.biz-switcher-mobile__item:active,
+.biz-switcher-mobile__item:hover,
+.biz-switcher-mobile__create:active,
+.biz-switcher-mobile__create:hover,
+.biz-switcher-mobile__gear:hover { background: var(--p-color-bg-surface-hover); }
+.biz-switcher-mobile__item.is-active { background: var(--p-color-bg-surface-selected); font-weight: 600; }
+.biz-switcher-mobile__item .dot { color: var(--p-color-text-subdued); font-size: 10px; flex-shrink: 0; }
+.biz-switcher-mobile__item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.biz-switcher-mobile__create {
+  margin-top: 6px; padding-top: 12px; border-top: var(--p-border-width-025) solid var(--p-color-border);
+  border-radius: 0;
+}
+.biz-switcher-mobile__create .icn { line-height: 0; flex-shrink: 0; }
+
+/* Khối đáy Navigation (tài khoản + tín dụng) ghim xuống cuối (PrimaryNav là flex-column). */
+.nav-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 0; }
+
+/* TÀI KHOẢN xếp DỌC: hàng 1 [avatar][tên][đăng xuất]; rồi 2 hàng token vào / token ra. */
+.nav-account {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--p-color-border); border-radius: 8px;
+}
+.nav-account__head { display: flex; align-items: center; gap: 8px; }
+.nav-account__id {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+  padding: 0; border: none; background: transparent; cursor: pointer; font: inherit; color: inherit; text-align: left;
+}
+.nav-account__id:hover .nav-account__name { text-decoration: underline; }
+.nav-account__avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
+.nav-account__name { min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-account__logout {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border: 1px solid var(--p-color-border); border-radius: 8px; background: transparent; cursor: pointer;
+}
+.nav-account__logout:hover { background: var(--p-color-bg-surface-hover); }
+.nav-account__tokens { display: flex; flex-direction: column; gap: 3px; }
+.nav-account__token {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px;
+}
+.nav-account__token .lbl { color: var(--p-color-text-subdued); white-space: nowrap; }
+.nav-account__token b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Tín dụng "by: noti.vn" (trong .nav-bottom, dưới cùng). */
+.nav-credit { padding: 6px 4px 12px; text-align: center; }
+.nav-credit a {
+  color: var(--p-color-text-subdued);
+  font-size: 12px;
+  text-decoration: none;
+}
+.nav-credit a:hover { text-decoration: underline; color: var(--p-color-text); }
+
+/* Mobile: chỉ hiện cờ, ẩn tên ngôn ngữ ở header cho đỡ chật (bấm vào vẫn ra menu đủ tên). */
+@media (max-width: 40em) {
+  .topbar-lang-name { display: none; }
+}
+
+/* ─── Thanh THÔNG BÁO CHẠY ở giữa header (marquee) ─────────────────────────────────────────────
+   Track chứa 2 bộ nội dung giống nhau; dịch -50% = đúng một bộ → cuộn liền mạch, lặp vô hạn.
+   Thời lượng animation do JS đặt (animationDuration) để tốc độ đều bất kể độ dài. Rê chuột = dừng. */
+.announce-ticker {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+.announce-ticker__track {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  will-change: transform;
+  animation: announce-scroll linear infinite;
+}
+.announce-ticker__set {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.announce-ticker:hover .announce-ticker__track { animation-play-state: paused; }
+.announce-ticker__cell {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--p-color-text); /* mặc định: nền sáng (ô Xem trước trong Quản trị) */
+  text-decoration: none;
+}
+a.announce-ticker__cell { color: var(--p-color-text-emphasis, #2c6ecb); }
+a.announce-ticker__cell:hover { text-decoration: underline; }
+.announce-ticker__cell::before {
+  content: '•';
+  margin: 0 22px;
+  color: var(--p-color-text-subdued);
+  font-size: 11px;
+}
+@keyframes announce-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(var(--announce-shift, 50%) * -1)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .announce-ticker__track { animation: none; }
+}
+
+/* ── Bản trong HEADER (bên trong ô Search của TopBar) ────────────────────────────────────────
+   1) Nới cột GIỮA của TopBar để thanh chạy HẾT bề ngang: từ ngay sau bộ chuyển/cài đặt biz (trái)
+      tới ngay trước chuông thông báo (phải). Polaris băm tên class nên dùng bộ chọn chứa chuỗi.
+   2) Nền header là màu TỐI (bg-inverse) → chữ phải SÁNG cho dễ đọc. */
+@media (min-width: 48em) {
+  /* Trái = bộ chuyển biz (auto), giữa = thanh chạy lấp phần còn lại (co được về 0), phải = chuông +
+     ngôn ngữ LUÔN giữ đủ chỗ (max-content) nên KHÔNG bao giờ bị chữ đè lên. !important để chắc
+     chắn thắng rule gốc của Polaris (cùng độ đặc hiệu). */
+  [class*='Polaris-TopBar__Container'] {
+    grid-template-columns: auto minmax(0, 1fr) max-content !important;
+    gap: var(--p-space-400);
+  }
+  /* Cho ô giữa co nhỏ (grid item mặc định min-width:auto sẽ tràn sang cột bên phải). */
+  [class*='Polaris-TopBar__Search'] {
+    min-width: 0 !important;
+  }
+}
+[class*='Polaris-TopBar__Search'] .announce-ticker { width: 100%; }
+[class*='Polaris-TopBar__Search'] .announce-ticker__cell { color: var(--p-color-text-inverse); }
+[class*='Polaris-TopBar__Search'] a.announce-ticker__cell {
+  color: var(--p-color-text-inverse);
+  text-decoration: underline;
+}
+[class*='Polaris-TopBar__Search'] .announce-ticker__cell::before {
+  color: var(--p-color-text-inverse);
+  opacity: 0.5;
+}
+/* Header quá hẹp (mobile): ẩn thanh chạy Ở HEADER cho đỡ chật. Ô Xem trước trong Quản trị vẫn hiện. */
+@media (max-width: 48em) {
+  [class*='Polaris-TopBar__Search'] .announce-ticker { display: none; }
+}
+
+/* Màn hình rộng: nới khối nội dung (Polaris-Page) để lấp khoảng trống hai bên và CO GIÃN theo màn
+   hình. Sàn = đúng max-width mặc định của Polaris (tính qua chính biến của nó → KHÔNG bao giờ hẹp
+   hơn mặc định); trần = min(94vw, 1680px) cho khỏi giãn quá cỡ trên màn siêu rộng. Không đụng trang
+   cố ý hẹp (--narrowWidth) hay full-width. Các lưới responsive bên trong (InlineGrid/InlineStack
+   wrap) tự trải thêm cột để lấp chỗ trống. */
+@media (min-width: 48em) {
+  .Polaris-Page:not(.Polaris-Page--fullWidth):not(.Polaris-Page--narrowWidth) {
+    max-width: max(
+      calc(
+        var(--pg-layout-width-primary-max) + var(--pg-layout-width-secondary-max) +
+          var(--pg-layout-width-inner-spacing-base)
+      ),
+      min(94vw, 1680px)
+    );
+  }
+}
+
+/* Trang Nén ảnh: 2 thẻ CAO BẰNG NHAU (InlineGrid stretch); DropZone giữ kích thước tự nhiên và
+   CĂN GIỮA theo chiều dọc trong thẻ (không dính đỉnh, không kéo dashed to trống trải). Chỉ >=md. */
+@media (min-width: 48em) {
+  .compress-uploader { display: flex; }
+  .compress-uploader > .Polaris-ShadowBevel { flex: 1; display: flex; flex-direction: column; }
+  .compress-uploader > .Polaris-ShadowBevel > .Polaris-Box {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+  }
+  /* DropZone kéo HẾT chiều rộng thẻ (bằng khung đỏ) - flex column làm con co lại nếu không ép. */
+  .compress-uploader > .Polaris-ShadowBevel > .Polaris-Box > .Polaris-BlockStack,
+  .compress-uploader .Polaris-Labelled--hidden,
+  .compress-uploader .Polaris-DropZone { width: 100%; }
+}
+
+/* ===== Trang đăng nhập: hero giới thiệu sản phẩm + form, đa ngôn ngữ =====
+   Phong cách CÔNG NGHỆ: hero tối + glow + lưới chấm. Accent = brand token Polaris
+   (--p-color-bg-fill-brand, do buildBrandThemeCss set từ colorPrimary) → đổi màu trong Admin là đổi theo. */
+.login-shell { min-height: 100vh; display: grid; grid-template-columns: 1.05fr 1fr; --lg-accent: var(--p-color-bg-fill-brand); }
+.login-hero {
+  position: relative; overflow: hidden; color: #eaeef5; padding: 56px 56px; display: flex; align-items: center;
+  background:
+    radial-gradient(680px 420px at 10% -12%, color-mix(in srgb, var(--lg-accent) 42%, transparent), transparent 60%),
+    radial-gradient(560px 440px at 112% 108%, rgba(70, 110, 210, 0.18), transparent 55%),
+    linear-gradient(155deg, #12151c 0%, #0b0d12 58%, #070809 100%);
+}
+/* lưới chấm mờ dần */
+.login-hero::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 95% 70% at 22% 0%, #000 40%, transparent 78%);
+  mask-image: radial-gradient(ellipse 95% 70% at 22% 0%, #000 40%, transparent 78%);
+}
+/* aurora conic xoay chậm (theo accent) — futuristic */
+.login-hero::after {
+  content: ''; position: absolute; width: 560px; height: 560px; right: -180px; top: -180px; border-radius: 50%; z-index: 0;
+  background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--lg-accent) 40%, transparent), transparent 42%, rgba(70, 110, 210, 0.28) 66%, transparent 82%);
+  -webkit-mask-image: radial-gradient(closest-side, #000 6%, transparent 70%); mask-image: radial-gradient(closest-side, #000 6%, transparent 70%);
+  filter: blur(6px); opacity: 0.75; animation: login-spin 30s linear infinite;
+}
+@keyframes login-spin { to { transform: rotate(360deg); } }
+.login-hero__inner { position: relative; z-index: 1; max-width: 460px; margin: 0 auto; animation: login-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes login-rise { from { opacity: 0; transform: translateY(16px); } }
+.login-hero__logo { height: 38px; width: auto; margin-bottom: 28px; }
+.login-hero__tag {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: rgba(226, 232, 242, 0.72); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 6px 12px; border-radius: 999px;
+}
+.login-hero__title {
+  margin: 18px 0 14px; font-size: 35px; line-height: 1.14; font-weight: 800; letter-spacing: -0.02em;
+  background: linear-gradient(180deg, #ffffff 35%, #aeb9cc); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.login-hero__sub { margin: 0 0 30px; font-size: 15px; line-height: 1.66; color: rgba(226, 232, 242, 0.7); }
+.login-usps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 15px; }
+.login-usp { display: flex; gap: 13px; animation: login-usp-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.login-usp:nth-child(1) { animation-delay: 0.15s; }
+.login-usp:nth-child(2) { animation-delay: 0.25s; }
+.login-usp:nth-child(3) { animation-delay: 0.35s; }
+.login-usp:nth-child(4) { animation-delay: 0.45s; }
+.login-usp:nth-child(5) { animation-delay: 0.55s; }
+@keyframes login-usp-in { from { opacity: 0; transform: translateX(-10px); } }
+.login-usp__check {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--lg-accent) 88%, #fff), var(--lg-accent));
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--lg-accent) 42%, transparent);
+}
+.login-usp__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.login-usp__text strong { font-weight: 700; font-size: 14.5px; color: #f2f5f9; }
+.login-usp__text span { font-size: 13px; color: rgba(226, 232, 242, 0.66); line-height: 1.5; }
+.login-hero__foot { display: inline-block; margin-top: 34px; font-size: 12px; color: rgba(255, 255, 255, 0.6); text-decoration: none; }
+.login-hero__foot:hover { color: #fff; }
+
+.login-main {
+  position: relative; display: flex; align-items: center; justify-content: center; background: #f6f6f7; padding: 24px;
+}
+.login-topbar { position: absolute; top: 18px; right: 20px; z-index: 5; }
+.login-lang {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--p-color-border); background: var(--p-color-bg-surface); cursor: pointer;
+  font: inherit; color: inherit; white-space: nowrap;
+}
+.login-lang:hover { background: var(--p-color-bg-surface-hover); }
+.login-lang__name { font-size: 13px; }
+
+.login-card-wrap { width: 100%; max-width: 400px; }
+.login-brand-mobile { display: none; }
+.login-card {
+  background: #fff; border-radius: 14px; padding: 28px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; gap: 16px;
+}
+.login-card__title { margin: 0; font-size: 22px; font-weight: 700; }
+.login-card__note { margin: -6px 0 0; font-size: 13px; color: var(--p-color-text-subdued); line-height: 1.5; }
+.login-links {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; color: var(--p-color-text-subdued);
+}
+/* Nút CTA chính của form ăn theo accent hero (--lg-accent = colorHome||colorPrimary) để đồng bộ với
+   hero; khi admin chưa đặt màu riêng, --lg-accent = brand token Polaris nên giữ nguyên như mặc định. */
+.login-card .Polaris-Button--variantPrimary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lg-accent) 90%, #fff), var(--lg-accent)) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--lg-accent) 32%, transparent) !important;
+}
+.login-card .Polaris-Button--variantPrimary:hover {
+  background: var(--lg-accent) !important;
+}
+
+/* Màn hẹp: ẩn hero, hiện thương hiệu thu gọn trên form. */
+@media (max-width: 56.25em) {
+  .login-shell { grid-template-columns: 1fr; }
+  .login-hero { display: none; }
+  .login-brand-mobile { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .login-brand-mobile img { height: 40px; width: auto; }
+  .login-brand-mobile span { font-size: 13px; color: var(--p-color-text-subdued); text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-hero::after, .login-hero__inner, .login-usp { animation: none !important; }
+}
+
+/* ── Admin: DÍNH thanh Tabs khi cuộn ──────────────────────────────────────────────────────────
+   Cấu trúc Polaris Tabs: .Polaris-Tabs__Outer (overflow:hidden) chứa 2 anh em — Box (thanh tab) và
+   .Polaris-Tabs__Panel (nội dung). Card bọc ngoài là .Polaris-ShadowBevel (overflow:clip). Cả hai
+   overflow này CHẶN position:sticky → phải gỡ. Rồi cho DÍNH chính Box chứa thanh tab (cha nó là
+   Outer cao, chứa cả panel → có "chỗ" để dính). Nằm dưới TopBar cố định (--pc-frame-offset = 3.5rem)
+   + một khoảng --p-space-500 (1.25rem). Chỉ áp trong trang Quản trị nền tảng. */
+.admin-sticky-tabs > .Polaris-ShadowBevel { overflow: visible; }
+.admin-sticky-tabs .Polaris-Tabs__Outer { overflow: visible; }
+.admin-sticky-tabs .Polaris-Tabs__Outer > .Polaris-Box {
+  position: sticky;
+  top: calc(3.5rem + 20px); /* 3.5rem = chiều cao TopBar Polaris; +20px cho thoáng */
+  z-index: 11;
+  background: var(--p-color-bg-surface);
+  /* Lấp khoảng hở 20px giữa thanh tab và TopBar bằng MÀU NỀN trang (--p-color-bg) qua BOX-SHADOW
+     (không bị overflow:hidden cắt như ::before → hiện ĐỒNG NHẤT ở MỌI tab, không chỉ Tổng quan),
+     kèm viền dưới + đổ bóng nhẹ. Thứ tự: dải nền phía trên → viền → bóng. */
+  box-shadow:
+    0 -20px 0 var(--p-color-bg),
+    0 1px 0 var(--p-color-border),
+    0 4px 6px -6px rgba(0, 0, 0, 0.18);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BẢNG TIN cột phải (news-feed). Cột cố định dưới TopBar, thu gọn thành dải mảnh.
+   --nf-top = chiều cao TopBar Polaris (3.5rem). --nf-w = bề rộng panel mở.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root { --nf-top: 3.5rem; --nf-w: 340px; --nf-strip: 48px; }
+
+/* Đẩy vùng nội dung chính chừa chỗ cho cột phải (chỉ desktop). */
+@media (min-width: 1024px) {
+  html[data-news="open"] .Polaris-Frame__Main { padding-inline-end: var(--nf-w); }
+  html[data-news="closed"] .Polaris-Frame__Main { padding-inline-end: var(--nf-strip); }
+  .Polaris-Frame__Main { transition: padding-inline-end 0.18s ease; }
+}
+
+/* Panel (mở): trượt từ phải vào. */
+.newsfeed-panel {
+  position: fixed;
+  top: var(--nf-top);
+  right: 0;
+  bottom: 0;
+  width: var(--nf-w);
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--p-color-bg-surface);
+  border-inline-start: 1px solid var(--p-color-border);
+  box-shadow: -2px 0 8px -6px rgba(0, 0, 0, 0.25);
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 100;
+}
+.newsfeed-panel.is-open { transform: translateX(0); }
+
+.newsfeed-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 10px 16px;
+  border-bottom: 1px solid var(--p-color-border);
+}
+.newsfeed-panel__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 15px;
+}
+.newsfeed-panel__title .Polaris-Icon { width: 18px; height: 18px; margin: 0; }
+.newsfeed-panel__collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.newsfeed-panel__collapse:hover { background: var(--p-color-bg-surface-hover); }
+
+/* Tabs phân loại. */
+.newsfeed-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--p-color-border);
+  scrollbar-width: thin;
+}
+.newsfeed-tab {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid var(--p-color-border);
+  border-radius: 999px;
+  background: var(--p-color-bg-surface);
+  color: var(--p-color-text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.newsfeed-tab:hover { background: var(--p-color-bg-surface-hover); }
+.newsfeed-tab.is-active {
+  background: var(--p-color-bg-fill-brand, #1a1a1a);
+  border-color: var(--p-color-bg-fill-brand, #1a1a1a);
+  color: var(--p-color-text-brand-on-bg-fill, #fff);
+}
+
+/* Nút "Đánh dấu tất cả đã đọc" (dòng gọn dưới tabs). */
+.newsfeed-markall {
+  flex: 0 0 auto;
+  width: 100%;
+  text-align: center;
+  border: none;
+  border-bottom: 1px solid var(--p-color-border);
+  background: var(--p-color-bg-surface);
+  color: var(--p-color-text-emphasis, #1d6fe0);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.newsfeed-markall:hover { background: var(--p-color-bg-surface-hover); }
+
+/* Nút (i) giải thích field (InfoHint) + nội dung popover. */
+.info-hint__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: help;
+  line-height: 0;
+  vertical-align: middle;
+  border-radius: 50%;
+}
+.info-hint__btn:hover { background: var(--p-color-bg-surface-hover); }
+.info-hint__btn svg { width: 15px; height: 15px; }
+.info-hint__body {
+  max-width: 300px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--p-color-text);
+  white-space: pre-line;
+}
+
+/* Danh sách tin. */
+.newsfeed-list { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+.newsfeed-empty { padding: 24px 12px; text-align: center; color: var(--p-color-text-subdued); font-size: 13px; }
+.newsfeed-item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.newsfeed-item:hover { background: var(--p-color-bg-surface-hover); }
+.newsfeed-item + .newsfeed-item { border-top: 1px solid var(--p-color-border-secondary, #ececec); }
+.newsfeed-item__thumb {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--p-color-bg-surface-secondary);
+}
+.newsfeed-item__thumb--ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.newsfeed-item__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.newsfeed-item__top { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.newsfeed-item__title {
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--p-color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.newsfeed-item__date { font-size: 12px; color: var(--p-color-text-subdued); }
+/* Tag "Mới" cho tin CHƯA ĐỌC (mất đi khi đã mở đọc tin đó). */
+.newsfeed-new-tag {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--p-color-bg-fill-critical, #d72c0d);
+  padding: 3px 7px;
+  border-radius: 5px;
+  text-transform: uppercase;
+}
+/* Nhấn nhẹ tin chưa đọc: tiêu đề đậm hơn + dải mốc bên trái. */
+.newsfeed-item.is-unread { position: relative; }
+.newsfeed-item.is-unread::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--p-color-bg-fill-critical, #d72c0d);
+}
+.newsfeed-item.is-unread .newsfeed-item__title { font-weight: 700; }
+
+/* Dải thu gọn (desktop). */
+.newsfeed-strip {
+  position: fixed;
+  top: var(--nf-top);
+  right: 0;
+  bottom: 0;
+  width: var(--nf-strip);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-inline-start: 1px solid var(--p-color-border);
+  background: var(--p-color-bg-surface);
+  cursor: pointer;
+  z-index: 100;
+}
+.newsfeed-strip:hover { background: var(--p-color-bg-surface-hover); }
+.newsfeed-strip__bell { position: relative; display: inline-flex; }
+.newsfeed-strip__label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--p-color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+/* Badge số tin mới (dùng chung cho dải + nút nổi). */
+.newsfeed-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--p-color-bg-fill-critical, #d72c0d);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Nút nổi (mobile) + nền mờ. */
+.newsfeed-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 46px;
+  height: 46px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--p-color-bg-surface);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  z-index: 101;
+}
+.newsfeed-backdrop {
+  position: fixed;
+  inset: var(--nf-top) 0 0 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 99;
+}
+
+/* Mobile: cột đẩy nội dung không hợp lý → dùng nút nổi + overlay. */
+@media (max-width: 1023px) {
+  .newsfeed-strip { display: none; }
+  .newsfeed-fab { display: inline-flex; }
+  .newsfeed-panel { width: 360px; }
+}
+@media (min-width: 1024px) {
+  .newsfeed-fab { display: none; }
+  .newsfeed-backdrop { display: none; }
+}
+
+/* Ảnh + nội dung trong popup chi tiết. */
+.newsfeed-detail { display: flex; flex-direction: column; gap: 14px; }
+.newsfeed-detail__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--p-color-border);
+}
+.newsfeed-detail__date { font-size: 13px; color: var(--p-color-text-subdued); }
+.newsfeed-detail__img {
+  width: 100%;
+  border-radius: 12px;
+  max-height: 340px;
+  object-fit: cover;
+  border: 1px solid var(--p-color-border);
+}
+.newsfeed-detail__body { font-size: 14.5px; line-height: 1.65; color: var(--p-color-text); }
+.newsfeed-detail__body > :first-child { margin-top: 0; }
+.newsfeed-detail__body > :last-child { margin-bottom: 0; }
+.newsfeed-detail__body img { max-width: 100%; border-radius: 8px; }
+.newsfeed-detail__body h1 { font-size: 20px; }
+.newsfeed-detail__body h2 { font-size: 17px; }
+.newsfeed-detail__body h3 { font-size: 15px; }
+.newsfeed-detail__body h1, .newsfeed-detail__body h2, .newsfeed-detail__body h3 {
+  margin: 16px 0 6px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.newsfeed-detail__body p { margin: 0 0 10px; }
+.newsfeed-detail__body strong { font-weight: 700; }
+.newsfeed-detail__body ul, .newsfeed-detail__body ol { margin: 0 0 10px; padding-inline-start: 22px; }
+.newsfeed-detail__body li { margin: 2px 0; }
+.newsfeed-detail__body blockquote {
+  margin: 0 0 10px;
+  padding: 4px 12px;
+  border-inline-start: 3px solid var(--p-color-border-emphasis, #8a8a8a);
+  color: var(--p-color-text-secondary);
+}
+/* Liên kết: MÀU XANH rõ để nhận biết + gạch chân nhẹ. */
+.newsfeed-detail__body a {
+  color: #1d6fe0;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.newsfeed-detail__body a:hover { color: #1657b3; }
+.newsfeed-detail__body code {
+  background: var(--p-color-bg-surface-secondary);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+.newsfeed-detail__body pre {
+  background: var(--p-color-bg-surface-secondary);
+  padding: 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+/* Khung xem trước trong trình soạn (admin): giới hạn cao, cuộn nếu dài. */
+.newsfeed-md-preview { max-height: 260px; overflow-y: auto; font-size: 13.5px; }
+
+/* Popup chi tiết TIN TỨC: căn CHÍNH GIỮA TOÀN MÀN HÌNH (dọc + ngang).
+   Khác các modal khác (căn theo vùng nội dung, left=15rem) - popup tin tức phủ full viewport
+   nên phải RESET left/right về 0 (ghi đè rule .Polaris-Modal-Dialog__Container{left:15rem}),
+   nếu không sẽ lệch phải do panel Bảng tin. Chỉ tác động đúng popup có .newsfeed-detail nhờ :has(). */
+.Polaris-Modal-Dialog__Container:has(.newsfeed-detail) {
+  left: 0;
+  right: 0;
+  justify-content: center;
+  align-items: center;
+}
+/* Nền mờ của popup tin tức cũng phủ TOÀN màn hình (đồng bộ với modal căn full-viewport). */
+body:has(.newsfeed-detail) .Polaris-Backdrop {
+  left: 0;
+  right: 0;
+}
+.Polaris-Modal-Dialog__Container:has(.newsfeed-detail) .Polaris-Modal-Dialog__Modal {
+  position: relative;
+  inset: auto;
+  bottom: auto;
+  margin: auto;
+  max-width: min(38.75rem, calc(100vw - 2rem));
+}

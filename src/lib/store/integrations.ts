@@ -1,8 +1,8 @@
 // Khóa API tích hợp NGOÀI AI (PageSpeed…) - gom vào trang "API Keys & AI" cho gọn.
 // Lưu mã hóa AES-256-GCM ở .data/integrations.json (không bao giờ trả key thô ra client).
 // Ưu tiên key đã nhập ở UI; fallback biến môi trường. Server-only.
-import path from 'node:path';
 import { decrypt, encrypt } from '../crypto';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 export interface IntegrationMeta {
@@ -12,17 +12,19 @@ export interface IntegrationMeta {
   hintKey: string; // khóa i18n mô tả ngắn: settings.intHint.<id>
 }
 
-// Danh sách khóa tích hợp (thêm key mới chỉ cần thêm 1 dòng + i18n hint).
+// Danh sách khóa tích hợp ĐƠN (thêm key mới chỉ cần thêm 1 dòng + i18n hint).
+// LƯU Ý: Apify KHÔNG ở đây - nó dùng POOL NHIỀU KEY riêng (src/lib/social/apify-keys.ts), quản lý
+// ở modal riêng trong Quản lý kết nối. Key store cũ + env APIFY_API_TOKEN vẫn được pool đọc làm fallback.
 export const INTEGRATIONS: IntegrationMeta[] = [
   { id: 'pagespeed', label: 'Google PageSpeed Insights', env: 'PAGESPEED_API_KEY', hintKey: 'pagespeed' },
   { id: 'perplexity', label: 'Perplexity (đo Lượt AI trích dẫn)', env: 'PERPLEXITY_API_KEY', hintKey: 'perplexity' },
 ];
 
 type Store = Record<string, string>; // id -> chuỗi đã mã hóa
-const FILE = path.join(process.cwd(), '.data', 'integrations.json');
+const NAME = 'integrations.json'; // CÔ LẬP THEO BIZ
 
 async function readAll(): Promise<Store> {
-  return readJson<Store>(FILE, {});
+  return readJson<Store>(bizFile(NAME), {});
 }
 
 function mask(k: string): string {
@@ -48,15 +50,26 @@ export async function getIntegrationKey(id: string): Promise<string | undefined>
   return undefined;
 }
 
+// Chỉ lấy key ĐÃ LƯU trong store (KHÔNG fallback env) - dùng để migrate key đơn cũ sang pool.
+export async function getStoredIntegrationKey(id: string): Promise<string | undefined> {
+  const enc = (await readAll())[id];
+  if (!enc) return undefined;
+  try {
+    return decrypt(enc);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function setIntegrationKey(id: string, value: string): Promise<void> {
-  await mutateJson<Store, void>(FILE, {}, (cur) => {
+  await mutateJson<Store, void>(bizFile(NAME), {}, (cur) => {
     cur[id] = encrypt(value.trim());
     return [cur, undefined];
   });
 }
 
 export async function deleteIntegrationKey(id: string): Promise<void> {
-  await mutateJson<Store, void>(FILE, {}, (cur) => {
+  await mutateJson<Store, void>(bizFile(NAME), {}, (cur) => {
     delete cur[id];
     return [cur, undefined];
   });

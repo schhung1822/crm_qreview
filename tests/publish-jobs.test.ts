@@ -39,4 +39,16 @@ describe('dueJobs', () => {
   it('job không có runAt → đến hạn ngay', () => {
     expect(dueJobs([job({ id: 'n', runAt: undefined })], NOW).map((j) => j.id)).toEqual(['n']);
   });
+
+  it('phục hồi job running bị KẸT (updatedAt quá cũ) nhưng bỏ qua running mới', () => {
+    const stuck = job({ id: 'stuck', status: 'running', attempts: 1, updatedAt: '2026-06-30T11:40:00.000Z' }); // ~20 phút trước
+    const fresh = job({ id: 'fresh', status: 'running', attempts: 1, updatedAt: '2026-06-30T11:58:00.000Z' }); // ~2 phút trước
+    const ids = dueJobs([stuck, fresh], NOW).map((j) => j.id);
+    expect(ids).toEqual(['stuck']);
+  });
+
+  it('không phục hồi running kẹt đã hết lượt (attempts >= maxAttempts)', () => {
+    const dead = job({ id: 'dead', status: 'running', attempts: 3, maxAttempts: 3, updatedAt: '2026-06-30T10:00:00.000Z' });
+    expect(dueJobs([dead], NOW)).toEqual([]);
+  });
 });

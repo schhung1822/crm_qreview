@@ -11,7 +11,8 @@ export interface LocaleMarkers {
 
 // Ghép pattern + luôn nối thêm tiếng Anh.
 const EN_QUICK = 'in short|quick answer|tl;dr|in summary|key takeaway|bottom line';
-const EN_ENTITY = 'is an?|are an?|refers to|is defined as|stands for|means';
+// Có ranh giới từ \b để KHÔNG khớp chuỗi con ("ax·is an·d", "de·means·") gây dương-tính-giả.
+const EN_ENTITY = '\\bis an?\\b|\\bare an?\\b|\\brefers to\\b|\\bis defined as\\b|\\bstands for\\b|\\bmeans\\b';
 const EN_UPDATE = 'updated|last updated';
 const EN_Q = 'how|what|why|when|which|who|where|should';
 

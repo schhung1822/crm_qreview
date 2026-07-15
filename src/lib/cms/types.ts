@@ -1,5 +1,5 @@
 // Interface chung cho mọi CMS. WordPress, Wix & Shopify đều implement interface này.
-export type CmsProvider = 'wordpress' | 'wix' | 'shopify';
+export type CmsProvider = 'wordpress' | 'wix' | 'shopify' | 'haravan' | 'sapo';
 
 export interface CmsPost {
   id: string;
@@ -24,6 +24,9 @@ export interface ListPostsOpts {
   before?: string; // ISO - bài đăng TRƯỚC mốc này
   all?: boolean; // true → lấy TẤT CẢ bài (phân trang hết)
   status?: 'publish' | 'draft' | 'any'; // mặc định: published
+  // Chỉ lấy field NHẸ (id/slug/title/ngày/link) - KHÔNG lấy nội dung. Dùng cho danh sách quét:
+  // tránh CMS chậm (WordPress dựng content + yoast_head_json rất tốn thời gian trên host yếu).
+  summary?: boolean;
 }
 
 export interface CmsPostInput {
@@ -39,6 +42,9 @@ export interface CmsPostInput {
   tags?: string[];
   // hreflang: các bản dịch khác trong cùng TranslationGroup
   alternates?: Array<{ locale: string; url: string }>;
+  // JSON-LD (chuỗi JSON) cho provider mà <script> bị strip khỏi content (Wix → gắn qua seoData).
+  // WordPress/Shopify nhúng thẳng vào content nên bỏ qua field này.
+  jsonLd?: string;
 }
 
 export interface CmsCredentials {
@@ -60,8 +66,10 @@ export interface CmsAdapter {
   getPost(id: string): Promise<CmsPost>;
   createPost(input: CmsPostInput): Promise<CmsPost>;
   updatePost(id: string, input: Partial<CmsPostInput>): Promise<CmsPost>;
+  // Upload ảnh lên CMS, trả về URL công khai. Cấp `data` (bytes) hoặc `url` (ảnh công khai sẵn).
+  // Publish sẽ thử hàm này trước; lỗi (thiếu quyền...) mới fallback sang {APP_URL}/generated/... .
   uploadMedia(file: { url?: string; data?: Buffer; filename: string }): Promise<{
-    id: string;
+    id?: string;
     url: string;
   }>;
   // Taxonomy có sẵn trên site (chỉ WordPress hỗ trợ đầy đủ). Optional.

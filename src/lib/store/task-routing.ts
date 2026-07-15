@@ -1,9 +1,9 @@
 // Định tuyến tác vụ: AI + model MẶC ĐỊNH cho từng tác vụ người dùng (viết bài, nghiên
 // cứu từ khóa, content plan). Lưu .data/task-routing.json. Các trang tác vụ đọc cấu hình
 // này để hiển thị sẵn AI/model - người dùng dùng luôn hoặc đổi. provider '' = Tự động.
-import path from 'node:path';
 import type { AiOverride } from '../ai/providers';
 import type { AiProviderId } from '../secrets/store';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 // Tác vụ người dùng có ô chọn AI riêng:
@@ -26,10 +26,10 @@ export const DEFAULT_TASK_ROUTING: TaskRouting = {
   keywords: { ...EMPTY },
 };
 
-const FILE = path.join(process.cwd(), '.data', 'task-routing.json');
+const NAME = 'task-routing.json'; // CÔ LẬP THEO BIZ
 
 export async function getTaskRouting(): Promise<TaskRouting> {
-  const saved = await readJson<Partial<TaskRouting>>(FILE, {});
+  const saved = await readJson<Partial<TaskRouting>>(bizFile(NAME), {});
   const out = { ...DEFAULT_TASK_ROUTING };
   for (const k of AI_TASK_KEYS) {
     const v = saved[k];
@@ -41,7 +41,7 @@ export async function getTaskRouting(): Promise<TaskRouting> {
 }
 
 export async function saveTaskRouting(patch: Partial<TaskRouting>): Promise<TaskRouting> {
-  return mutateJson<Partial<TaskRouting>, TaskRouting>(FILE, {}, (cur) => {
+  return mutateJson<Partial<TaskRouting>, TaskRouting>(bizFile(NAME), {}, (cur) => {
     const merged = { ...DEFAULT_TASK_ROUTING, ...cur, ...patch };
     const next: TaskRouting = {
       blueprint: merged.blueprint ?? { ...EMPTY },

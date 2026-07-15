@@ -24,8 +24,8 @@ viết lại 27 store sang bảng quan hệ. Đã triển khai xong + verify (ty
 # 0) Dựng Postgres (vd docker compose up -d db) và đặt DATABASE_URL.
 export DATABASE_URL=postgresql://user:pass@host:5432/seogeo
 
-# 1) Tạo bảng (gồm JsonBlob). Lần đầu:
-npx prisma migrate dev --name init      # hoặc: npx prisma db push  (không tạo file migration)
+# 1) Tạo bảng (gồm JsonBlob). Migration baseline đã commit sẵn (prisma/migrations/0_init) → dùng:
+npx prisma migrate deploy               # áp migration đã commit lên DB trống (an toàn, có phiên bản)
 
 # 2) Nạp dữ liệu .data → JsonBlob (idempotent, đối chiếu số bản ghi). Thử trước bằng --dry-run:
 node scripts/migrate-to-postgres.mjs --dry-run

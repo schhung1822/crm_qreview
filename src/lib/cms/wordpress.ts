@@ -10,6 +10,12 @@ import type {
   ListPostsOpts,
 } from './types';
 
+// Timeout cao hơn mặc định cho THAO TÁC ĐỌC (list/get): host WordPress yếu có thể mất 30-60s để
+// dựng REST (content + Yoast). Tránh 502 do timeout quá sớm.
+const WP_READ_TIMEOUT = 60_000;
+// Field nhẹ cho danh sách quét (KHÔNG có content → không kích hoạt dựng nội dung/Yoast tốn thời gian).
+const LIST_FIELDS = 'id,slug,link,status,date,date_gmt,title';
+
 // Đọc body lỗi để LOG phía server (chẩn đoán) nhưng KHÔNG ném ra client (tránh lộ
 // nội dung nội bộ / chi tiết CMS). Client chỉ nhận thông báo chung + mã trạng thái.
 async function cmsError(res: Response, label: string): Promise<Error> {
@@ -20,7 +26,34 @@ async function cmsError(res: Response, label: string): Promise<Error> {
     /* bỏ qua */
   }
   console.error(`[WordPress] ${label} ${res.status}: ${detail}`);
-  return new Error(`${label} lỗi (HTTP ${res.status})`);
+  return new Error(wpErrorMessage(res.status, label));
+}
+
+// Thông báo lỗi WordPress RÕ NGUYÊN NHÂN + cách khắc phục (hiện cho người dùng khi quét/đăng bài).
+function wpErrorMessage(status: number, label: string): string {
+  if (status === 401) {
+    return 'Xác thực thất bại (401). Kiểm tra Username và Application Password: dùng đúng tài khoản, ' +
+      'tạo lại tại WordPress → Users → Profile → Application Passwords (KHÔNG dùng mật khẩu đăng nhập; ' +
+      'dán cả khoảng trắng như WordPress hiển thị).';
+  }
+  if (status === 403) {
+    return 'Bị chặn (403). Thường do plugin bảo mật (Wordfence, iThemes...) chặn REST API, hoặc tài khoản ' +
+      'thiếu quyền. Hãy cho phép truy cập REST /wp-json, hoặc dùng tài khoản có quyền Editor/Admin.';
+  }
+  if (status === 404) {
+    return 'Không tìm thấy REST API (404). Vào WordPress → Settings → Permalinks đổi sang "Post name" (không để ' +
+      '"Plain"), và đảm bảo REST API (/wp-json) không bị tắt bởi plugin.';
+  }
+  if (status === 400) {
+    return 'Tham số không hợp lệ (400). Thử lại với khoảng thời gian/từ khóa khác, hoặc chọn "Bài gần đây".';
+  }
+  if (status === 429) {
+    return 'Bị giới hạn tần suất (429). Chờ một lát rồi quét lại.';
+  }
+  if (status >= 500) {
+    return `Máy chủ WordPress lỗi (HTTP ${status}). Thử lại sau; nếu lặp lại, kiểm tra host/website.`;
+  }
+  return `${label} lỗi (HTTP ${status}). Kiểm tra lại URL site và thông tin đăng nhập.`;
 }
 
 export class WordPressAdapter implements CmsAdapter {
@@ -44,7 +77,8 @@ export class WordPressAdapter implements CmsAdapter {
 
   async testConnection(): Promise<boolean> {
     const res = await safeFetch(`${this.base}/users/me`, { headers: this.headers(false) });
-    return res.ok;
+    if (res.ok) return true;
+    throw new Error(wpErrorMessage(res.status, 'testConnection'));
   }
 
   async listPosts(opts?: ListPostsOpts): Promise<CmsPost[]> {
@@ -55,14 +89,22 @@ export class WordPressAdapter implements CmsAdapter {
     // Lọc trạng thái (cần auth để xem nháp). Mặc định: published.
     if (opts?.status === 'draft') common.status = 'draft';
     else if (opts?.status === 'any') common.status = 'publish,draft,future,pending,private';
+    // DANH SÁCH QUÉT: chỉ lấy field nhẹ → BỎ `content` (và không kích hoạt yoast_head_json) để không
+    // bị timeout trên host WordPress chậm. Nội dung đầy đủ được tải riêng khi phân tích (getPost).
+    if (opts?.summary) common._fields = LIST_FIELDS;
 
     // Toàn bộ bài → phân trang per_page=100 cho tới khi hết (chặn 50 trang ~ 5000 bài).
     if (opts?.all) {
       const acc: WpPost[] = [];
       for (let page = 1; page <= 50; page++) {
         const params = new URLSearchParams({ ...common, per_page: '100', page: String(page) });
-        const res = await safeFetch(`${this.base}/posts?${params}`, { headers: this.headers(false) });
-        if (!res.ok) break; // hết trang → WP trả 400
+        const res = await safeFetch(`${this.base}/posts?${params}`, { headers: this.headers(false), timeoutMs: WP_READ_TIMEOUT });
+        if (!res.ok) {
+          // WP trả 400 khi vượt số trang = HẾT bài (kết thúc bình thường). 429/5xx là lỗi TẠM →
+          // KHÔNG coi là hết (tránh trả danh sách thiếu, khiến audit kết luận sai "bài chưa có").
+          if (res.status === 400) break;
+          throw new Error(wpErrorMessage(res.status, 'listPosts'));
+        }
         const batch = (await res.json()) as WpPost[];
         acc.push(...batch);
         if (batch.length < 100) break;
@@ -75,7 +117,7 @@ export class WordPressAdapter implements CmsAdapter {
       per_page: String(Math.min(100, opts?.perPage ?? 20)),
       page: String(opts?.page ?? 1),
     });
-    const res = await safeFetch(`${this.base}/posts?${params}`, { headers: this.headers(false) });
+    const res = await safeFetch(`${this.base}/posts?${params}`, { headers: this.headers(false), timeoutMs: WP_READ_TIMEOUT });
     if (!res.ok) throw await cmsError(res, 'listPosts');
     const data = (await res.json()) as WpPost[];
     return data.map(toCmsPost);
@@ -85,7 +127,7 @@ export class WordPressAdapter implements CmsAdapter {
     // _embed=wp:term → kèm TÊN category/tag (để giữ nguyên khi nhập về sửa & đăng lại).
     const res = await safeFetch(
       `${this.base}/posts/${encodeURIComponent(id)}?context=edit&_embed=wp:term`,
-      { headers: this.headers(false) },
+      { headers: this.headers(false), timeoutMs: WP_READ_TIMEOUT },
     );
     if (!res.ok) throw await cmsError(res, 'getPost');
     return toCmsPost((await res.json()) as WpPost);
@@ -265,8 +307,9 @@ interface WpPost {
   status: string;
   date?: string;
   date_gmt?: string;
-  title: { rendered?: string; raw?: string };
-  content: { rendered?: string; raw?: string };
+  // title/content có thể VẮNG khi lấy danh sách nhẹ bằng _fields.
+  title?: { rendered?: string; raw?: string };
+  content?: { rendered?: string; raw?: string };
   excerpt?: { rendered?: string; raw?: string };
   categories?: number[]; // ID chuyên mục đã gán
   tags?: number[]; // ID tag đã gán
@@ -326,9 +369,10 @@ export function metaDescriptionOf(p: {
 function toCmsPost(p: WpPost): CmsPost {
   return {
     id: String(p.id),
-    title: p.title.raw ?? p.title.rendered ?? '',
+    // Null-safe: chế độ danh sách nhẹ (_fields) có thể thiếu title/content.
+    title: p.title?.raw ?? p.title?.rendered ?? '',
     slug: p.slug,
-    contentHtml: p.content.raw ?? p.content.rendered ?? '',
+    contentHtml: p.content?.raw ?? p.content?.rendered ?? '',
     excerpt: p.excerpt?.raw ?? p.excerpt?.rendered,
     metaDescription: metaDescriptionOf(p),
     status: p.status === 'publish' ? 'publish' : 'draft',

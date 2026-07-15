@@ -23,14 +23,22 @@ export interface UserRecord {
   salt: string;
   active: boolean;
   createdAt: string;
+  // Đã xác thực email chưa. VẮNG MẶT = đã xác thực (tài khoản cũ trước tính năng, hoặc do admin
+  // tạo). Chỉ false khi tự đăng ký và chưa bấm link kích hoạt → chưa đăng nhập được.
+  emailVerified?: boolean;
   // Quyền tùy chỉnh (ghi đè mặc định vai trò). Vắng mặt = dùng mặc định của vai trò.
   permissions?: Permission[];
 }
 
 export type PublicUser = Pick<
   UserRecord,
-  'id' | 'email' | 'name' | 'role' | 'active' | 'createdAt' | 'permissions'
+  'id' | 'email' | 'name' | 'role' | 'active' | 'createdAt' | 'emailVerified' | 'permissions'
 >;
+
+// Vắng mặt = đã xác thực (tương thích ngược với user tạo trước tính năng xác thực email).
+export function isEmailVerified(u: Pick<UserRecord, 'emailVerified'>): boolean {
+  return u.emailVerified !== false;
+}
 
 const FILE = path.join(process.cwd(), '.data', 'users.json');
 
@@ -76,6 +84,9 @@ export async function createUser(input: {
   // Đóng race "2 owner": trước đây route đọc userCount() ngoài lock nên 2 request đồng thời đều
   // thấy count=0 và đều thành owner.
   firstIsOwner?: boolean;
+  // false = tài khoản phải kích hoạt qua email trước khi đăng nhập (luồng tự đăng ký).
+  // Vắng mặt/true = đã xác thực (admin tạo, setup, hoặc email nền tảng chưa bật).
+  emailVerified?: boolean;
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
   const salt = randomBytes(16).toString('hex');
@@ -93,6 +104,8 @@ export async function createUser(input: {
     passwordHash: await hashPassword(input.password, salt),
     active: true,
     createdAt: new Date().toISOString(),
+    // Chỉ ghi cờ khi CHƯA xác thực - user đã xác thực không mang field (như user cũ).
+    ...(input.emailVerified === false ? { emailVerified: false } : {}),
     ...(custom ? { permissions: custom } : {}),
   };
   // Kiểm tra trùng email + quyết định owner-đầu-tiên + ghi trong CÙNG một lock → không còn race
@@ -104,6 +117,9 @@ export async function createUser(input: {
     if (input.firstIsOwner && rows.length === 0) {
       record.role = 'owner';
       delete record.permissions; // owner toàn quyền, không dùng tùy chỉnh
+      // Tài khoản ĐẦU TIÊN (bootstrap chủ nền tảng) luôn kích hoạt sẵn: lúc này SMTP nền tảng
+      // chưa thể cấu hình (chưa có ai vào /admin) nên không thể bắt xác thực email.
+      delete record.emailVerified;
     }
     return [[...rows, record], toPublic(record)];
   });
@@ -185,6 +201,17 @@ export async function setPassword(id: string, newPassword: string): Promise<Publ
     if (!u) return [rows, undefined];
     u.salt = salt;
     u.passwordHash = passwordHash;
+    return [rows, toPublic(u)];
+  });
+}
+
+// Kích hoạt tài khoản sau khi bấm link xác thực email. Trả thông tin công khai (để tạo phiên +
+// gửi email chào mừng), undefined nếu user không tồn tại.
+export async function markEmailVerified(id: string): Promise<PublicUser | undefined> {
+  return mutateJson<UserRecord[], PublicUser | undefined>(FILE, [], (rows) => {
+    const u = rows.find((x) => x.id === id);
+    if (!u) return [rows, undefined];
+    delete u.emailVerified; // vắng mặt = đã xác thực (đồng nhất với user cũ)
     return [rows, toPublic(u)];
   });
 }

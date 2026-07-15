@@ -18,7 +18,8 @@ function subheadings(md: string): string[] {
 
 // Có internal link tương đối [text](/path | #anchor) - không tính ảnh.
 function internalLinkCount(md: string): number {
-  const m = md.match(/(^|[^!])\[[^\]]+\]\((\/[^)]*|#[^)]*)\)/g);
+  // Lookbehind (?<!!) tránh ảnh mà không nuốt ký tự trước → đếm đủ khi 2 link dán liền nhau.
+  const m = md.match(/(?<!!)\[[^\]]+\]\((\/[^)]*|#[^)]*)\)/g);
   return m ? m.length : 0;
 }
 
@@ -32,7 +33,9 @@ export function scoreSeo(a: ArticleInput): ScoreResult {
   const kw = fold((a.targetKeyword ?? '').trim());
   const md = a.markdown;
   const mdFold = fold(md);
-  const first100 = mdFold.split(/\s+/).slice(0, 100).join(' ');
+  // Bỏ ký tự markup (#, *, _, `, ~, >, [, ]) trước khi lấy 100 từ đầu → keyword nhiều từ dính markup
+  // (vd "**cà** phê") vẫn khớp, không bị trượt check "keyword trong 100 từ đầu".
+  const first100 = mdFold.replace(/[#*_`~>[\]]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 100).join(' ');
   const meta = a.metaDescription ?? '';
   const metaFold = fold(meta);
   const titleFold = fold(a.title);

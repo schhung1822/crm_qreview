@@ -2,6 +2,7 @@
 // worker hoặc cron). Cập nhật trạng thái job + bản nháp local sau khi đăng. Server-only.
 import { runPublish } from './run';
 import {
+  claimJob,
   dueJobs,
   listJobs,
   updateJob,
@@ -29,51 +30,52 @@ export async function runDueJobs(opts?: { limit?: number; nowIso?: string }): Pr
   const result: RunDueResult = { ran: 0, done: 0, failed: 0, jobs: [] };
 
   for (const job of due) {
+    // CHIẾM job nguyên tử trước khi chạy → nếu lần quét khác đã chiếm, bỏ qua (không đăng trùng).
+    const claimed = await claimJob(job.id, now);
+    if (!claimed) continue;
     result.ran++;
-    await updateJob(job.id, { status: 'running', attempts: job.attempts + 1 });
     try {
       // Lịch đăng: khi đến giờ thì ĐĂNG thật (không gửi 'scheduled' xuống CMS).
       const article = {
-        ...job.article,
-        status: job.article.status === 'scheduled' ? ('publish' as const) : job.article.status,
+        ...claimed.article,
+        status: claimed.article.status === 'scheduled' ? ('publish' as const) : claimed.article.status,
         scheduledAt: undefined,
       };
       const { post } = await runPublish({
-        connectionId: job.connectionId,
+        connectionId: claimed.connectionId,
         article,
-        alternates: job.alternates,
+        alternates: claimed.alternates,
       });
-      await updateJob(job.id, {
+      await updateJob(claimed.id, {
         status: 'done',
         lastError: undefined,
         resultPostId: post.id,
         resultUrl: post.url,
       });
       // Cập nhật bản nháp local → đã đăng (giữ nguyên locale/title của bản ghi).
-      if (job.articleId) {
-        const existing = await getArticle(job.articleId);
+      if (claimed.articleId) {
+        const existing = await getArticle(claimed.articleId);
         if (existing) {
           await upsertArticle({
             id: existing.id,
             title: existing.title,
             locale: existing.locale,
             status: 'published',
-            connectionId: job.connectionId,
+            connectionId: claimed.connectionId,
             cmsPostId: post.id,
             publishedUrl: post.url,
           });
         }
       }
       result.done++;
-      result.jobs.push({ id: job.id, status: 'done' });
+      result.jobs.push({ id: claimed.id, status: 'done' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Lỗi đăng';
-      const attempts = job.attempts + 1;
-      // Hết lượt → 'error' (dừng); còn lượt → 'pending' (lần quét sau thử lại).
-      const status = attempts >= job.maxAttempts ? 'error' : 'pending';
-      await updateJob(job.id, { status, lastError: msg });
+      // attempts đã +1 trong claimJob. Hết lượt → 'error' (dừng); còn lượt → 'pending' (quét sau thử lại).
+      const status = claimed.attempts >= claimed.maxAttempts ? 'error' : 'pending';
+      await updateJob(claimed.id, { status, lastError: msg });
       result.failed++;
-      result.jobs.push({ id: job.id, status, error: msg });
+      result.jobs.push({ id: claimed.id, status, error: msg });
     }
   }
 

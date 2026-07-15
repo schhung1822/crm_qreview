@@ -1,9 +1,17 @@
 // Render Markdown ↔ HTML. Dùng cho: xem trước trong editor, HTML gửi lên CMS,
 // và chuyển bài CMS (HTML) về markdown để chấm điểm/sửa.
 // An toàn XSS: inline() escape < > & trước khi chèn thẻ do ta tự dựng.
+import { decodeEntities } from './dedash';
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // PHẢI escape cả " và ' - nếu không, URL ảnh/link chèn vào thuộc tính (src="...", href="...")
+  // có thể thoát khỏi attribute và bơm onerror/onclick (XSS lưu trữ). Đây là chokepoint chung.
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function isHttpUrl(u: string): boolean {
@@ -44,7 +52,9 @@ export function coverImageHtml(src: string, alt = 'cover'): string {
 }
 
 function inline(s: string): string {
-  let out = escapeHtml(s);
+  // decodeEntities: đổi &#8230; &hellip;… → ký tự thật TRƯỚC khi escape, để không bị escape hai
+  // lần thành literal "&#8230;" trên trang. Bỏ qua < > & " nên KHÔNG mở lỗ XSS.
+  let out = escapeHtml(decodeEntities(s));
   out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => imageHtml(alt, src));
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, t, u) =>
     `<a href="${safeLinkHref(u)}" target="_blank" rel="noreferrer">${t}</a>`,
@@ -123,13 +133,15 @@ export function markdownToHtml(md: string): string {
       continue;
     }
 
-    // Bảng: dòng |..| và dòng kế là |---|
-    if (/^\|.*\|$/.test(trimmed) && i + 1 < lines.length && /^\|[\s:|-]+\|$/.test(lines[i + 1].trim())) {
+    // Bảng GFM: dòng có "|" và dòng kế là dòng phân cách (---). Chấp nhận CẢ bảng KHÔNG có "|" ở
+    // biên ("Cột A | Cột B" + "--- | ---") — khớp với cách chấm điểm hasTable, tránh lệch hiển thị/điểm.
+    const isSep = (l: string) => /^[\s:|-]+$/.test(l) && l.includes('-') && l.includes('|');
+    if (trimmed.includes('|') && i + 1 < lines.length && isSep(lines[i + 1].trim())) {
       flushParagraph(para);
       const headerCells = splitRow(trimmed);
       i += 2; // bỏ header + separator
       const bodyRows: string[][] = [];
-      while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) {
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|')) {
         bodyRows.push(splitRow(lines[i].trim()));
         i++;
       }
@@ -183,6 +195,8 @@ export function htmlToMarkdown(html: string): string {
   s = s.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, '**$2**');
   s = s.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, '*$2*');
   s = s.replace(/<img[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*>/gi, '![$1]($2)');
+  // src ĐỨNG TRƯỚC alt (WordPress/Wix hay xuất kiểu này) — vẫn phải giữ alt, đừng bỏ.
+  s = s.replace(/<img[^>]*src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/gi, '![$2]($1)');
   s = s.replace(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi, '![]($1)');
   s = s.replace(/<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_m, href, t) => `[${stripTags(t).trim()}](${href})`);
   // BLOCK sau (lúc này nội dung bên trong đã là Markdown, stripTags không phá link/đậm).

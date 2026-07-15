@@ -100,8 +100,8 @@ export default function ReportsPage() {
     >
       <BlockStack gap="400">
         <Card>
-          <InlineStack align="space-between" blockAlign="center">
-            <Box width="70%">
+          <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+            <Box>
               <Text as="p" tone="subdued" variant="bodySm">
                 {t('note')}
               </Text>

@@ -2,6 +2,7 @@
 // Không có key → các hàm gọi sẽ fallback sang mock ở tầng trên.
 import Anthropic from '@anthropic-ai/sdk';
 import { env, hasClaude } from '../env';
+import { extractJson } from './json';
 
 let client: Anthropic | null = null;
 
@@ -10,11 +11,6 @@ export function getClaude(): Anthropic | null {
   if (!client) client = new Anthropic({ apiKey: env.anthropicKey });
   return client;
 }
-
-export const MODELS = {
-  writer: env.claudeWriter, // viết / sửa bài chất lượng cao
-  fast: env.claudeFast, // phân loại / chấm điểm / phân nhóm
-};
 
 // Gọi Claude và ép trả JSON. Trả null nếu không có client (để caller fallback).
 export async function completeJson<T>(opts: {
@@ -38,12 +34,8 @@ export async function completeJson<T>(opts: {
     .map((b) => b.text)
     .join('');
 
-  // Trích khối JSON đầu tiên.
-  const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]) as T;
-  } catch {
-    return null;
-  }
+  // Dùng chung extractJson (cân bằng ngoặc + tự sửa cắt cụt) thay cho regex tham lam — nhất quán
+  // với ai/content.ts và bền hơn khi có prose quanh JSON hoặc output bị cắt.
+  const val = extractJson(text);
+  return val == null ? null : (val as T);
 }

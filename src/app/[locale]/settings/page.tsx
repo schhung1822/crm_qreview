@@ -7,23 +7,28 @@ import {
   Box,
   Button,
   Card,
-  Divider,
   Icon,
   InlineGrid,
   InlineStack,
+  Modal,
   Page,
   Select,
   Spinner,
+  Tabs,
   Text,
   TextField,
 } from '@shopify/polaris';
-import { HideIcon, ViewIcon } from '@shopify/polaris-icons';
-import { useTranslations } from 'next-intl';
+import { DeleteIcon, HideIcon, RefreshIcon, ViewIcon } from '@shopify/polaris-icons';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
+import { AddConnectionModal, PROVIDER_CFG, type CmsProvider } from '@/components/AddConnectionModal';
+import { ApifyKeysModal } from '@/components/ApifyKeysModal';
+import { ProviderLogo } from '@/components/provider-logos';
+import { PlusIcon } from '@/components/icons';
 import { ExtLink } from '@/components/ui';
+import { localeNames } from '@/i18n/config';
 
-type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'deepseek';
-type Task = 'writing' | 'analysis';
+type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'moonshot' | 'qwen' | 'minimax';
 
 interface ProviderStatus {
   id: ProviderId;
@@ -36,651 +41,1054 @@ interface ProviderStatus {
   model: string;
   defaultModel: string;
 }
-
 interface StatusResponse {
   providers: ProviderStatus[];
-  routing: Record<Task, ProviderId>;
+  routing: Record<string, ProviderId>;
+}
+interface IntStatus {
+  id: string;
+  label: string;
+  hintKey: string;
+  hasKey: boolean;
+  source: 'store' | 'env' | 'none';
+  masked?: string;
+}
+interface Conn {
+  id: string;
+  provider: CmsProvider;
+  label: string;
+  baseUrl: string;
+  locale: string;
+  pathStrategy?: string;
+  seoPlugin?: string;
+  status: 'active' | 'error';
 }
 
-export default function SettingsPage() {
+// Phân loại: CMS · AI · Khác (tích hợp/khác).
+type Cat = 'cms' | 'ai' | 'other';
+const AI_PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'deepseek', 'moonshot', 'qwen', 'minimax'];
+const CMS_PROVIDERS: CmsProvider[] = ['wordpress', 'wix', 'shopify', 'haravan', 'sapo'];
+const CATS: Array<Cat | 'all'> = ['all', 'cms', 'ai', 'other'];
+// Nhóm cho từng integration: Perplexity là engine AI (đo Lượt AI trích dẫn) → nhóm AI; còn lại → Khác.
+const intCat = (id: string): Cat => (id === 'perplexity' ? 'ai' : 'other');
+
+type AddTarget =
+  | { kind: 'cms'; provider?: CmsProvider }
+  | { kind: 'ai'; provider: ProviderId }
+  | { kind: 'integration'; id: string }
+  | { kind: 'dataforseo' }
+  | { kind: 'drive' };
+type DetailTarget =
+  | { kind: 'cms'; id: string }
+  | { kind: 'ai'; id: ProviderId }
+  | { kind: 'integration'; id: string }
+  | { kind: 'dataforseo'; id: string }
+  | { kind: 'drive'; id: string };
+
+export default function ConnectionsHubPage() {
   const t = useTranslations('settings');
+  const locale = useLocale();
+
   const [data, setData] = useState<StatusResponse | null>(null);
-  const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [test, setTest] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
-  const [models, setModels] = useState<
-    Record<string, { loading: boolean; options: string[]; error?: string }>
-  >({});
-  // Hiển thị / che / sửa khóa trong ô API key.
-  const [editKey, setEditKey] = useState<Record<string, boolean>>({});
-  const [revealKey, setRevealKey] = useState<Record<string, boolean>>({});
-  const [fullKey, setFullKey] = useState<Record<string, string>>({});
-
-  // Báo cáo khả dụng: kết nối CMS.
-  const [connections, setConnections] = useState<
-    Array<{ id: string; label: string; provider: string; locale: string; status: string }> | null
-  >(null);
-  useEffect(() => {
-    fetch('/api/connections')
-      .then((r) => (r.ok ? r.json() : { connections: [] }))
-      .then((d) => setConnections(d.connections ?? []))
-      .catch(() => setConnections([]));
-  }, []);
-
-  // Mắt: xem full khóa AI provider (tải về khi cần), hoặc che lại.
-  async function toggleRevealProvider(id: ProviderId) {
-    if (revealKey[id]) {
-      setRevealKey((s) => ({ ...s, [id]: false }));
-      return;
-    }
-    if (fullKey[id] == null) {
-      const res = await fetch(`/api/ai-keys/reveal?provider=${id}`);
-      if (!res.ok) return;
-      const d = await res.json();
-      setFullKey((s) => ({ ...s, [id]: d.key as string }));
-    }
-    setRevealKey((s) => ({ ...s, [id]: true }));
-  }
-
-  const load = useCallback(async () => {
-    const res = await fetch('/api/ai-keys');
-    if (res.ok) setData(await res.json());
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // Khóa API tích hợp ngoài AI (PageSpeed…) - gom chung tại đây cho gọn.
-  interface IntStatus {
-    id: string;
-    label: string;
-    hintKey: string;
-    hasKey: boolean;
-    source: 'store' | 'env' | 'none';
-    masked?: string;
-  }
   const [integrations, setIntegrations] = useState<IntStatus[] | null>(null);
-  const [intInputs, setIntInputs] = useState<Record<string, string>>({});
-  const [openGuide, setOpenGuide] = useState<Record<string, boolean>>({});
-  const [intEdit, setIntEdit] = useState<Record<string, boolean>>({});
-  const [intReveal, setIntReveal] = useState<Record<string, boolean>>({});
-  const [intFull, setIntFull] = useState<Record<string, string>>({});
+  const [connections, setConnections] = useState<Conn[] | null>(null);
+  const [drive, setDrive] = useState<DriveStatus | null>(null);
+  const [dfs, setDfs] = useState<DfsStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  async function toggleRevealIntegration(id: string) {
-    if (intReveal[id]) {
-      setIntReveal((s) => ({ ...s, [id]: false }));
-      return;
-    }
-    if (intFull[id] == null) {
-      const res = await fetch(`/api/integration-keys?reveal=${id}`);
-      if (!res.ok) return;
-      const d = await res.json();
-      setIntFull((s) => ({ ...s, [id]: d.key as string }));
-    }
-    setIntReveal((s) => ({ ...s, [id]: true }));
-  }
-  const loadIntegrations = useCallback(async () => {
-    const res = await fetch('/api/integration-keys');
-    if (res.ok) setIntegrations((await res.json()).integrations);
-  }, []);
-  useEffect(() => {
-    void loadIntegrations();
-  }, [loadIntegrations]);
+  const [add, setAdd] = useState<AddTarget | null>(null);
+  const [chooser, setChooser] = useState(false);
+  const [detail, setDetail] = useState<DetailTarget | null>(null);
+  const [tab, setTab] = useState(0); // 0 Tất cả · 1 CMS · 2 AI · 3 Khác
+  // Pool nhiều key Apify (quản lý ở modal riêng, không phải integration key đơn).
+  const [apify, setApify] = useState<{ keys: { id: string; masked: string; addedAt: string }[]; usingFallback: boolean } | null>(null);
+  const [apifyOpen, setApifyOpen] = useState(false);
+  // Xác nhận xóa: phải gõ "DELETE" mới xóa (tránh xóa nhầm kết nối - key/mật khẩu mất là không khôi phục được).
+  const [confirmDel, setConfirmDel] = useState<{ target: DetailTarget; name: string } | null>(null);
+  const [delText, setDelText] = useState('');
 
-  async function saveIntegration(id: string) {
-    const value = intInputs[id]?.trim();
-    if (!value) return;
-    setBusy(`int-${id}`);
-    try {
-      const res = await fetch('/api/integration-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, value }),
-      });
-      if (res.ok) {
-        setIntegrations((await res.json()).integrations);
-        setIntInputs((s) => ({ ...s, [id]: '' }));
-        setIntEdit((s) => ({ ...s, [id]: false }));
-        setIntReveal((s) => ({ ...s, [id]: false }));
-        setIntFull((s) => {
-          const n = { ...s };
-          delete n[id];
-          return n;
-        });
-      }
-    } finally {
-      setBusy(null);
-    }
-  }
-  async function removeIntegration(id: string) {
-    setBusy(`int-del-${id}`);
-    try {
-      const res = await fetch(`/api/integration-keys?id=${id}`, { method: 'DELETE' });
-      if (res.ok) setIntegrations((await res.json()).integrations);
-    } finally {
-      setBusy(null);
-    }
+  // Tile hoạt động như bộ lọc: đặt tab danh mục tương ứng.
+  function selectCat(c: Cat | 'all') {
+    setTab(CATS.indexOf(c));
   }
 
-  // Tải danh sách model thật từ API của provider (dùng key đã lưu hoặc key vừa nhập).
-  const loadModels = useCallback(async (provider: ProviderId, key?: string) => {
-    setModels((s) => ({ ...s, [provider]: { loading: true, options: s[provider]?.options ?? [] } }));
+  const loadAi = useCallback(async () => {
     try {
-      const res = await fetch('/api/ai-keys/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, key }),
-      });
-      const d = await res.json();
-      if (res.ok && Array.isArray(d.models)) {
-        const opts: string[] = d.models;
-        setModels((s) => ({ ...s, [provider]: { loading: false, options: opts } }));
-        // Nếu model đang chọn không có trong danh sách (vd default đã lỗi thời) → tự chọn model hợp lệ.
-        setData((prev) => {
-          if (!prev || !opts.length) return prev;
-          const p = prev.providers.find((x) => x.id === provider);
-          if (p && !opts.includes(p.model)) {
-            const best = opts.find((m) => /flash|mini|sonnet|pro|chat/i.test(m)) ?? opts[0];
-            void fetch('/api/ai-keys', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'model', provider, model: best }),
-            });
-            return updateModel(prev, provider, best);
-          }
-          return prev;
-        });
-      } else {
-        setModels((s) => ({ ...s, [provider]: { loading: false, options: [], error: d.error } }));
-      }
+      const res = await fetch('/api/ai-keys');
+      if (res.ok) setData(await res.json());
+      else setData({ providers: [], routing: {} });
     } catch {
-      setModels((s) => ({ ...s, [provider]: { loading: false, options: [], error: 'network' } }));
+      setData({ providers: [], routing: {} });
     }
   }, []);
+  const loadInt = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integration-keys');
+      setIntegrations(res.ok ? (await res.json()).integrations : []);
+    } catch {
+      setIntegrations([]);
+    }
+  }, []);
+  const loadConns = useCallback(async () => {
+    try {
+      const res = await fetch('/api/connections');
+      setConnections(res.ok ? (await res.json()).connections : []);
+    } catch {
+      setConnections([]);
+    }
+  }, []);
+  const loadDrive = useCallback(async () => {
+    try {
+      const res = await fetch('/api/drive/status');
+      setDrive(res.ok ? await res.json() : { configured: false, connected: false, credSource: 'none' });
+    } catch {
+      setDrive({ configured: false, connected: false, credSource: 'none' });
+    }
+  }, []);
+  const loadDfs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dataforseo/status');
+      setDfs(res.ok ? await res.json() : { configured: false, credSource: 'none' });
+    } catch {
+      setDfs({ configured: false, credSource: 'none' });
+    }
+  }, []);
+  const loadApify = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integration-keys/apify');
+      setApify(res.ok ? await res.json() : { keys: [], usingFallback: false });
+    } catch {
+      setApify({ keys: [], usingFallback: false });
+    }
+  }, []);
+  const reloadAll = useCallback(async () => {
+    await Promise.all([loadAi(), loadInt(), loadConns(), loadDrive(), loadDfs(), loadApify()]);
+  }, [loadAi, loadInt, loadConns, loadDrive, loadDfs, loadApify]);
 
-  // Provider đã có key → tự tải models một lần.
   useEffect(() => {
-    if (!data) return;
-    data.providers.forEach((p) => {
-      if (p.hasKey && !models[p.id]) void loadModels(p.id);
+    void reloadAll();
+  }, [reloadAll]);
+
+  const providers = data?.providers ?? [];
+  const ints = integrations ?? [];
+  const conns = connections ?? [];
+  const loading = data === null || integrations === null || connections === null;
+
+  // ── Đếm cho tiles ──
+  // Perplexity (integration nhóm AI) đếm chung với các provider AI; PageSpeed + Google Drive vào "Khác".
+  const driveConnected = drive?.connected ? 1 : 0;
+  const dfsConfigured = dfs?.configured ? 1 : 0;
+  const apifyConfigured = apify?.keys?.length || apify?.usingFallback ? 1 : 0;
+  const aiCount =
+    providers.filter((p) => p.hasKey).length + ints.filter((i) => i.hasKey && intCat(i.id) === 'ai').length;
+  const intCount =
+    ints.filter((i) => i.hasKey && intCat(i.id) === 'other').length + driveConnected + dfsConfigured + apifyConfigured;
+  const total = aiCount + conns.length + intCount;
+
+  const cat = CATS[tab];
+  const show = (c: Cat) => cat === 'all' || cat === c;
+
+  // ── Danh sách đã cấu hình (gộp) ──
+  const items: Array<{
+    key: string;
+    target: DetailTarget;
+    cat: Cat;
+    name: string;
+    sub: string;
+    logo: React.ReactNode;
+    ok: boolean;
+    statusLabel: string;
+    canDelete: boolean;
+    onView?: () => void; // ghi đè hành động Xem (vd Apify mở popup pool thay vì detail modal)
+  }> = [];
+  for (const c of conns) {
+    items.push({
+      key: `cms-${c.id}`,
+      target: { kind: 'cms', id: c.id },
+      cat: 'cms',
+      name: c.label,
+      sub: `${PROVIDER_CFG[c.provider]?.name ?? c.provider} · ${c.baseUrl}`,
+      logo: <ProviderLogo id={c.provider} size={34} />,
+      ok: c.status === 'active',
+      statusLabel: c.status === 'active' ? t('reportAvailable') : t('reportError'),
+      canDelete: true,
     });
-  }, [data, models, loadModels]);
-
-  async function post(body: unknown, tag: string) {
-    setBusy(tag);
-    try {
-      const res = await fetch('/api/ai-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) setData(await res.json());
-    } finally {
-      setBusy(null);
-    }
   }
-
-  async function saveKey(provider: ProviderId) {
-    const key = inputs[provider]?.trim();
-    if (!key) return;
-    await post({ action: 'setKey', provider, key }, `save-${provider}`);
-    void loadModels(provider, key); // tải models ngay bằng key vừa nhập
-    setInputs((s) => ({ ...s, [provider]: '' }));
-    setEditKey((s) => ({ ...s, [provider]: false }));
-    setRevealKey((s) => ({ ...s, [provider]: false }));
-    setFullKey((s) => {
-      const n = { ...s };
-      delete n[provider];
-      return n;
+  for (const p of providers.filter((x) => x.hasKey)) {
+    items.push({
+      key: `ai-${p.id}`,
+      target: { kind: 'ai', id: p.id },
+      cat: 'ai',
+      name: p.label,
+      sub: `AI · ${p.model}${p.source === 'env' ? ' (env)' : ''}`,
+      logo: <ProviderLogo id={p.id} label={p.label} size={34} />,
+      ok: p.enabled,
+      statusLabel: p.enabled ? t('reportAvailable') : t('reportDisabled'),
+      canDelete: p.source === 'store',
+    });
+  }
+  for (const it of ints.filter((x) => x.hasKey)) {
+    items.push({
+      key: `int-${it.id}`,
+      target: { kind: 'integration', id: it.id },
+      cat: intCat(it.id),
+      name: it.label,
+      sub: `${t('typeIntegration')}${it.source === 'env' ? ' · (env)' : ''}`,
+      logo: <ProviderLogo id={it.id} label={it.label} size={34} />,
+      ok: it.hasKey,
+      statusLabel: t('reportAvailable'),
+      canDelete: it.source === 'store',
+    });
+  }
+  // DataForSEO (số liệu từ khóa/SERP thật) — hiển thị chung danh sách, nhóm Khác.
+  if (dfs?.configured) {
+    items.push({
+      key: 'dataforseo',
+      target: { kind: 'dataforseo', id: 'dataforseo' },
+      cat: 'other',
+      name: 'DataForSEO',
+      sub: `${t('typeIntegration')}${dfs.login ? ` · ${dfs.login}` : ''}${dfs.credSource === 'env' ? ' · (env)' : ''}`,
+      logo: <ProviderLogo id="dataforseo" label="DataForSEO" size={34} />,
+      ok: true,
+      statusLabel: t('reportAvailable'),
+      canDelete: dfs.credSource === 'store',
+    });
+  }
+  // Google Drive (đồng bộ bài viết) — hiển thị chung danh sách khi ĐÃ nhập thông tin, nhóm Khác.
+  if (drive && drive.credSource !== 'none') {
+    items.push({
+      key: 'drive',
+      target: { kind: 'drive', id: 'drive' },
+      cat: 'other',
+      name: 'Google Drive',
+      sub: `${t('typeIntegration')}${drive.email ? ` · ${drive.email}` : ''}${drive.credSource === 'env' ? ' · (env)' : ''}`,
+      logo: <ProviderLogo id="googledrive" label="Google Drive" size={34} />,
+      ok: drive.connected,
+      statusLabel: drive.connected ? t('driveConnected') : t('driveNotConnected'),
+      canDelete: drive.credSource === 'store',
     });
   }
 
-  async function removeKey(provider: ProviderId) {
-    setBusy(`del-${provider}`);
+  // Apify (Báo cáo Social) - POOL nhiều key. Hiện ở danh sách ĐÃ KẾT NỐI khi đã có key (hoặc đang
+  // dùng key môi trường/cũ); bấm Xem → mở popup quản lý pool (thêm 1 hoặc nhiều key).
+  if (apify && (apify.keys.length > 0 || apify.usingFallback)) {
+    items.push({
+      key: 'apify',
+      target: { kind: 'integration', id: 'apify' },
+      cat: 'other',
+      name: 'Apify',
+      sub: `${t('typeIntegration')} · ${apify.keys.length ? t('apify.count', { n: apify.keys.length }) : t('configured')}`,
+      logo: <ProviderLogo id="apify" label="Apify" size={34} />,
+      ok: true,
+      statusLabel: t('reportAvailable'),
+      canDelete: false,
+      onView: () => setApifyOpen(true),
+    });
+  }
+
+  // Tên hiển thị của kết nối (cho popup xác nhận).
+  function nameOfTarget(target: DetailTarget): string {
+    const found = items.find((i) => i.target.kind === target.kind && i.target.id === target.id);
+    if (found) return found.name;
+    if (target.kind === 'dataforseo') return 'DataForSEO';
+    if (target.kind === 'drive') return 'Google Drive';
+    return target.id;
+  }
+
+  // Nhấn xóa → MỞ POPUP XÁC NHẬN (gõ DELETE) thay vì xóa ngay. Áp cho MỌI đường xóa (nút thùng rác
+  // + nút xóa trong modal chi tiết) vì tất cả đều gọi deleteItem.
+  async function deleteItem(target: DetailTarget) {
+    setDelText('');
+    setConfirmDel({ target, name: nameOfTarget(target) });
+  }
+
+  // Xóa THẬT (chỉ chạy sau khi người dùng gõ đúng "DELETE" ở popup xác nhận).
+  async function performDelete(target: DetailTarget) {
+    setBusy(`del-${target.kind}-${target.id}`);
     try {
-      const res = await fetch(`/api/ai-keys?provider=${provider}`, { method: 'DELETE' });
-      if (res.ok) setData(await res.json());
-      setEditKey((s) => ({ ...s, [provider]: false }));
-      setRevealKey((s) => ({ ...s, [provider]: false }));
-      setFullKey((s) => {
-        const n = { ...s };
-        delete n[provider];
-        return n;
-      });
+      if (target.kind === 'cms') await fetch(`/api/connections?id=${target.id}`, { method: 'DELETE' });
+      else if (target.kind === 'ai') await fetch(`/api/ai-keys?provider=${target.id}`, { method: 'DELETE' });
+      else if (target.kind === 'dataforseo') await fetch('/api/dataforseo/config', { method: 'DELETE' });
+      else if (target.kind === 'drive') {
+        // Gỡ hoàn toàn Google Drive: ngắt kết nối (xóa token) + xóa OAuth credential đã lưu.
+        await fetch('/api/drive/disconnect', { method: 'POST' }).catch(() => {});
+        await fetch('/api/drive/config', { method: 'DELETE' });
+      } else await fetch(`/api/integration-keys?id=${target.id}`, { method: 'DELETE' });
+      await reloadAll();
+      setDetail(null);
     } finally {
       setBusy(null);
     }
   }
 
-  async function testKey(provider: ProviderId) {
-    setBusy(`test-${provider}`);
-    setTest((s) => ({ ...s, [provider]: undefined }));
-    try {
-      const res = await fetch('/api/ai-keys/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, key: inputs[provider]?.trim() || undefined }),
-      });
-      const json = await res.json();
-      setTest((s) => ({
-        ...s,
-        [provider]: { ok: Boolean(json.ok), msg: json.ok ? t('testOk') : json.error ?? t('testFail') },
-      }));
-    } finally {
-      setBusy(null);
-    }
+  async function confirmDelete() {
+    if (!confirmDel || delText !== 'DELETE') return;
+    const target = confirmDel.target;
+    setConfirmDel(null);
+    setDelText('');
+    await performDelete(target);
   }
-
-  if (!data) {
-    return (
-      <Page title={t('title')}>
-        <Card>
-          <Text as="p" tone="subdued">
-            {t('loading')}
-          </Text>
-        </Card>
-      </Page>
-    );
-  }
-
 
   return (
-    <Page title={t('title')} subtitle={t('subtitle')}>
+    <Page
+      title={t('title')}
+      subtitle={t('subtitle')}
+      primaryAction={{ content: t('addConnection'), icon: PlusIcon, onAction: () => setChooser(true) }}
+    >
       <BlockStack gap="400">
         <Banner tone="info">{t('securityNote')}</Banner>
 
-        <Banner tone="info">{t('routingMoved')}</Banner>
+        {/* ── Tiles tổng quan — bấm để LỌC (đúng như các tab danh mục) ── */}
+        <InlineGrid columns={{ xs: 2, sm: 4 }} gap="300">
+          <Tile label={t('total')} count={total} strong active={cat === 'all'} onClick={() => selectCat('all')} />
+          <Tile label="CMS" count={conns.length} active={cat === 'cms'} onClick={() => selectCat('cms')} />
+          <Tile label="AI" count={aiCount} active={cat === 'ai'} onClick={() => selectCat('ai')} />
+          <Tile label={t('tabOther')} count={intCount} active={cat === 'other'} onClick={() => selectCat('other')} />
+        </InlineGrid>
 
-        {/* Báo cáo khả dụng: AI nào dùng được + kết nối CMS nào dùng được */}
+        {/* ── Bộ lọc CMS · AI · Khác ── */}
+        <Tabs
+          selected={tab}
+          onSelect={setTab}
+          tabs={[
+            { id: 'all', content: t('tabAll') },
+            { id: 'cms', content: 'CMS' },
+            { id: 'ai', content: 'AI' },
+            { id: 'other', content: t('tabOther') },
+          ]}
+        />
+
+        {/* ── Có thể thêm ── */}
         <Card>
-          <BlockStack gap="400">
+          <BlockStack gap="300">
             <Text as="h2" variant="headingSm">
-              {t('reportTitle')}
+              {t('addableTitle')}
             </Text>
-
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingXs" tone="subdued">
-                {t('reportAi')}
-              </Text>
-              {data.providers.map((p) => (
-                <InlineStack key={p.id} align="space-between" blockAlign="center">
-                  <Text as="span" variant="bodySm">
-                    {p.label}
-                    {p.hasKey ? ` · ${p.model}` : ''}
-                  </Text>
-                  <Badge tone={!p.hasKey ? undefined : p.enabled ? 'success' : 'warning'}>
-                    {!p.hasKey
-                      ? t('reportNotSet')
-                      : p.enabled
-                        ? t('reportAvailable')
-                        : t('reportDisabled')}
-                  </Badge>
-                </InlineStack>
-              ))}
-            </BlockStack>
-
-            {integrations && integrations.length ? (
-              <>
-                <Divider />
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingXs" tone="subdued">
-                    {t('reportInt')}
-                  </Text>
-                  {integrations.map((it) => (
-                    <InlineStack key={it.id} align="space-between" blockAlign="center">
-                      <Text as="span" variant="bodySm">
-                        {it.label}
-                      </Text>
-                      <Badge tone={it.hasKey ? 'success' : undefined}>
-                        {it.hasKey ? t('reportAvailable') : t('reportNotSet')}
-                      </Badge>
-                    </InlineStack>
-                  ))}
-                </BlockStack>
-              </>
-            ) : null}
-
-            <Divider />
-            <BlockStack gap="200">
-              <Text as="h3" variant="headingXs" tone="subdued">
-                {t('reportConn')}
-              </Text>
-              {connections === null ? (
-                <Text as="span" variant="bodySm" tone="subdued">
-                  {t('loading')}
-                </Text>
-              ) : connections.length === 0 ? (
-                <Text as="span" variant="bodySm" tone="subdued">
-                  {t('reportNoConn')}
-                </Text>
-              ) : (
-                connections.map((c) => (
-                  <InlineStack key={c.id} align="space-between" blockAlign="center">
-                    <Text as="span" variant="bodySm">
-                      {`${c.label} · ${c.provider} · ${c.locale}`}
-                    </Text>
-                    <Badge tone={c.status === 'active' ? 'success' : 'critical'}>
-                      {c.status === 'active' ? t('reportAvailable') : t('reportError')}
-                    </Badge>
-                  </InlineStack>
-                ))
-              )}
-            </BlockStack>
+            <InlineGrid columns={{ xs: 2, sm: 3, md: 4 }} gap="300">
+              {show('cms') &&
+                CMS_PROVIDERS.map((p) => (
+                  <AddCard
+                    key={p}
+                    logo={<ProviderLogo id={p} size={30} />}
+                    name={PROVIDER_CFG[p].name}
+                    type="CMS"
+                    cta={t('addNew')}
+                    onClick={() => setAdd({ kind: 'cms', provider: p })}
+                  />
+                ))}
+              {show('ai') &&
+                providers.map((p) => (
+                  <AddCard
+                    key={p.id}
+                    logo={<ProviderLogo id={p.id} label={p.label} size={30} />}
+                    name={p.label}
+                    type="AI"
+                    cta={p.hasKey ? t('configured') : t('addNew')}
+                    onClick={() => (p.hasKey ? setDetail({ kind: 'ai', id: p.id }) : setAdd({ kind: 'ai', provider: p.id }))}
+                  />
+                ))}
+              {ints
+                .filter((it) => show(intCat(it.id)))
+                .map((it) => (
+                  <AddCard
+                    key={it.id}
+                    logo={<ProviderLogo id={it.id} label={it.label} size={30} />}
+                    name={it.label}
+                    type={t('typeIntegration')}
+                    cta={it.hasKey ? t('configured') : t('addNew')}
+                    onClick={() =>
+                      it.hasKey ? setDetail({ kind: 'integration', id: it.id }) : setAdd({ kind: 'integration', id: it.id })
+                    }
+                  />
+                ))}
+              {show('other') ? (
+                <AddCard
+                  logo={<ProviderLogo id="dataforseo" label="DataForSEO" size={30} />}
+                  name="DataForSEO"
+                  type={t('typeIntegration')}
+                  cta={dfs?.configured ? t('configured') : t('addNew')}
+                  onClick={() =>
+                    dfs?.configured ? setDetail({ kind: 'dataforseo', id: 'dataforseo' }) : setAdd({ kind: 'dataforseo' })
+                  }
+                />
+              ) : null}
+              {show('other') ? (
+                <AddCard
+                  logo={<ProviderLogo id="googledrive" label="Google Drive" size={30} />}
+                  name="Google Drive"
+                  type={t('typeIntegration')}
+                  cta={drive?.connected ? t('driveConnected') : drive?.credSource !== 'none' ? t('configured') : t('addNew')}
+                  onClick={() =>
+                    drive && drive.credSource !== 'none'
+                      ? setDetail({ kind: 'drive', id: 'drive' })
+                      : setAdd({ kind: 'drive' })
+                  }
+                />
+              ) : null}
+              {/* Apify (Báo cáo Social): POOL nhiều key - mở modal quản lý riêng (không phải key đơn). */}
+              {show('other') ? (
+                <AddCard
+                  logo={<ProviderLogo id="apify" label="Apify" size={30} />}
+                  name="Apify"
+                  type={t('typeIntegration')}
+                  cta={
+                    apify?.keys?.length
+                      ? t('apify.count', { n: apify.keys.length })
+                      : apify?.usingFallback
+                        ? t('configured')
+                        : t('addNew')
+                  }
+                  onClick={() => setApifyOpen(true)}
+                />
+              ) : null}
+            </InlineGrid>
           </BlockStack>
         </Card>
 
-        {/* Từng provider */}
-        {data.providers.map((p) => (
-          <Card key={p.id}>
-            <BlockStack gap="300">
-              <InlineStack align="space-between" blockAlign="center">
-                <InlineStack gap="200" blockAlign="center">
-                  <Text as="h3" variant="headingSm">
-                    {p.label}
-                  </Text>
-                  {p.hasKey ? (
-                    <Badge tone={p.enabled ? 'success' : undefined}>
-                      {p.enabled
-                        ? `${t('active')} · ${p.masked}${p.source === 'env' ? ' (env)' : ''}`
-                        : t('disabled')}
-                    </Badge>
-                  ) : (
-                    <Badge>{t('noKey')}</Badge>
-                  )}
-                </InlineStack>
-                {p.hasKey ? (
-                  <Button
-                    variant="tertiary"
-                    tone={p.enabled ? 'critical' : undefined}
-                    loading={busy === `en-${p.id}`}
-                    onClick={() => post({ action: 'enable', provider: p.id, enabled: !p.enabled }, `en-${p.id}`)}
-                  >
-                    {p.enabled ? t('disable') : t('enable')}
-                  </Button>
-                ) : null}
-              </InlineStack>
-
-              {(() => {
-                const editing = editKey[p.id] || !p.hasKey;
-                const revealed = !!revealKey[p.id];
-                const ms = models[p.id] ?? { loading: false, options: [] as string[] };
-                const merged = Array.from(new Set([...ms.options, p.model])).filter(Boolean);
-                const modelOptions = p.hasKey
-                  ? merged.map((m) => ({ label: m, value: m }))
-                  : [{ label: t('enterKeyFirst'), value: p.model }];
-                return (
-                  <>
-                    <InlineGrid columns={{ xs: 1, md: '2fr 1fr' }} gap="300" alignItems="end">
-                      <KeyField
-                        label={t('apiKey')}
-                        value={
-                          editing
-                            ? inputs[p.id] ?? ''
-                            : revealed
-                              ? fullKey[p.id] ?? ''
-                              : p.masked ?? ''
-                        }
-                        type={editing ? (revealed ? 'text' : 'password') : 'text'}
-                        readOnly={!editing}
-                        placeholder={editing ? p.keyHint : undefined}
-                        revealed={revealed}
-                        onToggle={() =>
-                          editing
-                            ? setRevealKey((s) => ({ ...s, [p.id]: !s[p.id] }))
-                            : void toggleRevealProvider(p.id)
-                        }
-                        onChange={editing ? (v) => setInputs((s) => ({ ...s, [p.id]: v })) : undefined}
-                      />
-                      <Select
-                        label={t('model')}
-                        options={modelOptions}
-                        value={p.model}
-                        disabled={!p.hasKey || ms.loading}
-                        onChange={(model) => {
-                          setData((d) => d && updateModel(d, p.id, model));
-                          void post({ action: 'model', provider: p.id, model }, `m-${p.id}`);
-                        }}
-                      />
-                    </InlineGrid>
-
-                    {p.hasKey ? (
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text as="span" variant="bodySm" tone="subdued">
-                          {`${t('default')}: ${p.defaultModel}`}
-                        </Text>
-                        {ms.loading ? (
-                          <InlineStack gap="100" blockAlign="center">
-                            <Spinner size="small" />
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              {t('loadingModels')}
-                            </Text>
-                          </InlineStack>
-                        ) : (
-                          <Button variant="plain" onClick={() => loadModels(p.id)}>
-                            {t('reloadModels')}
-                          </Button>
-                        )}
-                        {ms.error ? (
-                          <Text as="span" variant="bodySm" tone="critical">
-                            {t('modelLoadFail')}
-                          </Text>
-                        ) : null}
-                      </InlineStack>
-                    ) : null}
-
-                    <InlineStack gap="200">
-                      {editing ? (
-                        <>
-                          <Button
-                            variant="primary"
-                            disabled={!inputs[p.id]?.trim()}
-                            loading={busy === `save-${p.id}`}
-                            onClick={() => saveKey(p.id)}
-                          >
-                            {t('saveKey')}
-                          </Button>
-                          {p.hasKey ? (
-                            <Button
-                              onClick={() => {
-                                setEditKey((s) => ({ ...s, [p.id]: false }));
-                                setInputs((s) => ({ ...s, [p.id]: '' }));
-                              }}
-                            >
-                              {t('cancel')}
-                            </Button>
-                          ) : null}
-                        </>
-                      ) : (
-                        <Button onClick={() => setEditKey((s) => ({ ...s, [p.id]: true }))}>
-                          {t('replaceKey')}
-                        </Button>
-                      )}
-                      <Button
-                        loading={busy === `test-${p.id}`}
-                        disabled={!p.hasKey && !inputs[p.id]?.trim()}
-                        onClick={() => testKey(p.id)}
-                      >
-                        {t('testConnection')}
-                      </Button>
-                      {p.source === 'store' ? (
-                        <Button
-                          variant="tertiary"
-                          tone="critical"
-                          loading={busy === `del-${p.id}`}
-                          onClick={() => removeKey(p.id)}
-                        >
-                          {t('removeKey')}
-                        </Button>
-                      ) : null}
-                    </InlineStack>
-                  </>
-                );
-              })()}
-
-              {test[p.id] ? (
-                <Box>
-                  <Banner tone={test[p.id]!.ok ? 'success' : 'critical'}>{test[p.id]!.msg}</Banner>
-                </Box>
-              ) : null}
-            </BlockStack>
-          </Card>
-        ))}
-
-        {/* Khóa API tích hợp ngoài AI (PageSpeed…) - gom chung cho gọn */}
-        {integrations && integrations.length ? (
-          <Card>
-            <BlockStack gap="300">
+        {/* ── Danh sách đã kết nối ── */}
+        <Card padding="0">
+          <Box padding="400" borderBlockEndWidth="025" borderColor="border">
+            <InlineStack align="space-between" blockAlign="center">
               <Text as="h2" variant="headingSm">
-                {t('integrationsTitle')}
+                {t('configuredTitle')}
               </Text>
-              <Text as="p" tone="subdued" variant="bodySm">
-                {t('integrationsDesc')}
+              <Button variant="tertiary" icon={RefreshIcon} onClick={() => void reloadAll()} accessibilityLabel={t('refresh')} />
+            </InlineStack>
+          </Box>
+          {loading ? (
+            <Box padding="400">
+              <Spinner size="small" />
+            </Box>
+          ) : items.filter((it) => show(it.cat)).length === 0 ? (
+            <Box padding="400">
+              <Text as="p" tone="subdued">
+                {t('emptyList')}
               </Text>
-              {integrations.map((it) => (
-                <BlockStack key={it.id} gap="200">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Text as="h3" variant="headingSm">
-                      {it.label}
-                    </Text>
-                    {it.hasKey ? (
-                      <Badge tone="success">
-                        {`${t('active')} · ${it.masked ?? ''}${it.source === 'env' ? ' (env)' : ''}`}
-                      </Badge>
+            </Box>
+          ) : (
+            <BlockStack gap="0">
+              {items.filter((it) => show(it.cat)).map((it) => (
+                <Box key={it.key} padding="400" borderBlockEndWidth="025" borderColor="border">
+                  <InlineStack gap="300" blockAlign="center" wrap={false}>
+                    {it.logo}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text as="p" fontWeight="semibold">
+                        {it.name}
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued" truncate>
+                        {it.sub}
+                      </Text>
+                    </div>
+                    <Badge tone={it.ok ? 'success' : 'critical'}>{it.statusLabel}</Badge>
+                    <Button
+                      variant="tertiary"
+                      icon={ViewIcon}
+                      onClick={() => (it.onView ? it.onView() : setDetail(it.target))}
+                      accessibilityLabel={t('viewDetail')}
+                    />
+                    {it.canDelete ? (
+                      <Button
+                        variant="tertiary"
+                        tone="critical"
+                        icon={DeleteIcon}
+                        loading={busy === `del-${it.target.kind}-${it.target.id}`}
+                        onClick={() => deleteItem(it.target)}
+                        accessibilityLabel={t('delete')}
+                      />
                     ) : (
-                      <Badge>{t('noKey')}</Badge>
+                      // Giữ chỗ ĐÚNG kích thước nút xóa (ẩn) để badge + nút Xem thẳng hàng với các dòng khác.
+                      <div aria-hidden style={{ visibility: 'hidden' }}>
+                        <Button variant="tertiary" tone="critical" icon={DeleteIcon} accessibilityLabel="" />
+                      </div>
                     )}
                   </InlineStack>
-                  <Text as="p" tone="subdued" variant="bodySm">
-                    {t(`intHint.${it.hintKey}`)}
-                  </Text>
-
-                  {/* Hướng dẫn chi tiết lấy key - đọc & làm theo ngay trong app */}
-                  <Box>
-                    <Button
-                      variant="plain"
-                      onClick={() => setOpenGuide((s) => ({ ...s, [it.id]: !s[it.id] }))}
-                    >
-                      {openGuide[it.id] ? t('hideGuide') : t('showGuide')}
-                    </Button>
-                  </Box>
-                  {openGuide[it.id] ? (
-                    <Box background="bg-surface-secondary" padding="300" borderRadius="200">
-                      <BlockStack gap="200">
-                        {it.id === 'pagespeed' ? (
-                          <InlineStack gap="300" wrap>
-                            <ExtLink href="https://console.cloud.google.com">
-                              {t('guideOpenConsole')}
-                            </ExtLink>
-                            <ExtLink href="https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com">
-                              {t('guideEnableApi')}
-                            </ExtLink>
-                          </InlineStack>
-                        ) : null}
-                        <div style={{ whiteSpace: 'pre-line' }}>
-                          <Text as="span" variant="bodySm">
-                            {t(`intGuide.${it.hintKey}`)}
-                          </Text>
-                        </div>
-                      </BlockStack>
-                    </Box>
-                  ) : null}
-
-                  {(() => {
-                    const editing = intEdit[it.id] || !it.hasKey;
-                    const revealed = !!intReveal[it.id];
-                    return (
-                      <InlineGrid columns={{ xs: 1, md: '2fr 1fr' }} gap="300" alignItems="end">
-                        <KeyField
-                          label={t('apiKey')}
-                          labelHidden
-                          value={
-                            editing
-                              ? intInputs[it.id] ?? ''
-                              : revealed
-                                ? intFull[it.id] ?? ''
-                                : it.masked ?? ''
-                          }
-                          type={editing ? (revealed ? 'text' : 'password') : 'text'}
-                          readOnly={!editing}
-                          placeholder={editing ? t('apiKey') : undefined}
-                          revealed={revealed}
-                          onToggle={() =>
-                            editing
-                              ? setIntReveal((s) => ({ ...s, [it.id]: !s[it.id] }))
-                              : void toggleRevealIntegration(it.id)
-                          }
-                          onChange={
-                            editing ? (v) => setIntInputs((s) => ({ ...s, [it.id]: v })) : undefined
-                          }
-                        />
-                        <InlineStack gap="200">
-                          {editing ? (
-                            <>
-                              <Button
-                                variant="primary"
-                                disabled={!intInputs[it.id]?.trim()}
-                                loading={busy === `int-${it.id}`}
-                                onClick={() => saveIntegration(it.id)}
-                              >
-                                {t('saveKey')}
-                              </Button>
-                              {it.hasKey ? (
-                                <Button
-                                  onClick={() => {
-                                    setIntEdit((s) => ({ ...s, [it.id]: false }));
-                                    setIntInputs((s) => ({ ...s, [it.id]: '' }));
-                                  }}
-                                >
-                                  {t('cancel')}
-                                </Button>
-                              ) : null}
-                            </>
-                          ) : (
-                            <Button onClick={() => setIntEdit((s) => ({ ...s, [it.id]: true }))}>
-                              {t('replaceKey')}
-                            </Button>
-                          )}
-                          {it.source === 'store' ? (
-                            <Button
-                              variant="tertiary"
-                              tone="critical"
-                              loading={busy === `int-del-${it.id}`}
-                              onClick={() => removeIntegration(it.id)}
-                            >
-                              {t('removeKey')}
-                            </Button>
-                          ) : null}
-                        </InlineStack>
-                      </InlineGrid>
-                    );
-                  })()}
-                </BlockStack>
+                </Box>
               ))}
             </BlockStack>
-          </Card>
-        ) : null}
+          )}
+        </Card>
 
-        <Divider />
         <Text as="p" tone="subdued" variant="bodySm">
           {t('envHint')}
         </Text>
       </BlockStack>
+
+      {/* ── Modal quản lý pool key Apify ── */}
+      <ApifyKeysModal open={apifyOpen} onClose={() => setApifyOpen(false)} onChanged={() => void loadApify()} />
+
+      {/* ── Popup XÁC NHẬN xóa: phải gõ "DELETE" ── */}
+      {confirmDel ? (
+        <Modal
+          open
+          onClose={() => {
+            setConfirmDel(null);
+            setDelText('');
+          }}
+          title={t('deleteConfirmTitle')}
+          primaryAction={{
+            content: t('delete'),
+            destructive: true,
+            disabled: delText !== 'DELETE',
+            loading: busy === `del-${confirmDel.target.kind}-${confirmDel.target.id}`,
+            onAction: () => void confirmDelete(),
+          }}
+          secondaryActions={[
+            {
+              content: t('cancel'),
+              onAction: () => {
+                setConfirmDel(null);
+                setDelText('');
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="300">
+              <Text as="p">{t('deleteConfirmDesc', { name: confirmDel.name })}</Text>
+              <TextField
+                label={t('deleteConfirmLabel')}
+                value={delText}
+                onChange={setDelText}
+                autoComplete="off"
+                placeholder="DELETE"
+              />
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+      ) : null}
+
+      {/* ── Modal chọn loại để thêm ── */}
+      {chooser ? (
+        <Modal open onClose={() => setChooser(false)} title={t('chooserTitle')}>
+          <Modal.Section>
+            <InlineGrid columns={{ xs: 2, sm: 3 }} gap="300">
+              {CMS_PROVIDERS.map((p) => (
+                <AddCard
+                  key={p}
+                  logo={<ProviderLogo id={p} size={30} />}
+                  name={PROVIDER_CFG[p].name}
+                  type="CMS"
+                  cta={t('addNew')}
+                  onClick={() => {
+                    setChooser(false);
+                    setAdd({ kind: 'cms', provider: p });
+                  }}
+                />
+              ))}
+              {AI_PROVIDERS.map((id) => {
+                const p = providers.find((x) => x.id === id);
+                return (
+                  <AddCard
+                    key={id}
+                    logo={<ProviderLogo id={id} label={p?.label ?? id} size={30} />}
+                    name={p?.label ?? id}
+                    type="AI"
+                    cta={t('addNew')}
+                    onClick={() => {
+                      setChooser(false);
+                      setAdd({ kind: 'ai', provider: id });
+                    }}
+                  />
+                );
+              })}
+              {ints.map((it) => (
+                <AddCard
+                  key={it.id}
+                  logo={<ProviderLogo id={it.id} label={it.label} size={30} />}
+                  name={it.label}
+                  type={t('typeIntegration')}
+                  cta={t('addNew')}
+                  onClick={() => {
+                    setChooser(false);
+                    setAdd({ kind: 'integration', id: it.id });
+                  }}
+                />
+              ))}
+              {/* Google Drive: chọn → mở popup nhập OAuth credential / kết nối (nhất quán kết nối khác). */}
+              <AddCard
+                logo={<ProviderLogo id="googledrive" size={30} />}
+                name="Google Drive"
+                type={t('typeIntegration')}
+                cta={t('addNew')}
+                onClick={() => {
+                  setChooser(false);
+                  if (drive && drive.credSource !== 'none') setDetail({ kind: 'drive', id: 'drive' });
+                  else setAdd({ kind: 'drive' });
+                }}
+              />
+              {/* DataForSEO: chọn → mở popup nhập login/password (nhất quán với các kết nối khác). */}
+              <AddCard
+                logo={<ProviderLogo id="dataforseo" size={30} />}
+                name="DataForSEO"
+                type={t('typeIntegration')}
+                cta={t('addNew')}
+                onClick={() => {
+                  setChooser(false);
+                  setAdd({ kind: 'dataforseo' });
+                }}
+              />
+            </InlineGrid>
+          </Modal.Section>
+        </Modal>
+      ) : null}
+
+      {/* ── Modal thêm ── */}
+      {add?.kind === 'cms' ? (
+        <AddConnectionModal
+          locale={locale}
+          presetProvider={add.provider}
+          onClose={() => setAdd(null)}
+          onSaved={async () => {
+            setAdd(null);
+            await loadConns();
+          }}
+        />
+      ) : null}
+      {add?.kind === 'ai' ? (
+        <AddAiKeyModal
+          provider={add.provider}
+          providerLabel={providers.find((p) => p.id === add.provider)?.label ?? add.provider}
+          keyHint={providers.find((p) => p.id === add.provider)?.keyHint ?? ''}
+          onClose={() => setAdd(null)}
+          onSaved={async () => {
+            setAdd(null);
+            await loadAi();
+          }}
+        />
+      ) : null}
+      {add?.kind === 'integration' ? (
+        <AddIntegrationModal
+          integration={ints.find((i) => i.id === add.id) ?? null}
+          onClose={() => setAdd(null)}
+          onSaved={async () => {
+            setAdd(null);
+            await loadInt();
+          }}
+        />
+      ) : null}
+      {add?.kind === 'dataforseo' ? (
+        <AddDataForSeoModal
+          configured={false}
+          onClose={() => setAdd(null)}
+          onSaved={async () => {
+            setAdd(null);
+            await loadDfs();
+          }}
+        />
+      ) : null}
+      {add?.kind === 'drive' ? (
+        <DriveModal st={drive} reload={loadDrive} onClose={() => setAdd(null)} />
+      ) : null}
+
+      {/* ── Modal chi tiết ── */}
+      {detail?.kind === 'dataforseo' ? (
+        <AddDataForSeoModal
+          configured={dfs?.configured ?? false}
+          canDelete={dfs?.credSource === 'store'}
+          onDelete={async () => {
+            await deleteItem({ kind: 'dataforseo', id: 'dataforseo' });
+          }}
+          onClose={() => setDetail(null)}
+          onSaved={async () => {
+            setDetail(null);
+            await loadDfs();
+          }}
+        />
+      ) : detail?.kind === 'drive' ? (
+        <DriveModal st={drive} reload={loadDrive} onClose={() => setDetail(null)} />
+      ) : detail ? (
+        <DetailModal
+          target={detail}
+          providers={providers}
+          ints={ints}
+          conns={conns}
+          busy={busy}
+          setBusy={setBusy}
+          onClose={() => setDetail(null)}
+          onChanged={reloadAll}
+          onDelete={deleteItem}
+        />
+      ) : null}
     </Page>
   );
 }
 
-function updateModel(d: StatusResponse, id: ProviderId, model: string): StatusResponse {
-  return {
-    ...d,
-    providers: d.providers.map((p) => (p.id === id ? { ...p, model } : p)),
-  };
+// ── Tile đếm ──
+interface DriveStatus {
+  configured: boolean;
+  connected: boolean;
+  email?: string;
+  credSource: 'store' | 'env' | 'none';
+  redirectUri?: string;
 }
 
-// Ô nhập/hiển thị API key có nút con mắt để xem/che toàn bộ khóa.
+interface DfsStatus {
+  configured: boolean;
+  credSource: 'store' | 'env' | 'none';
+  login?: string;
+}
+
+// Google Drive: POPUP (nhất quán với các kết nối khác). Nhập OAuth credential ngay trong UI
+// (lưu mã hóa) → kết nối (OAuth) → ngắt. `st` lấy từ hub; reload để tile/danh sách cập nhật.
+function DriveModal({
+  st,
+  reload,
+  onClose,
+}: {
+  st: DriveStatus | null;
+  reload: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const t = useTranslations('settings');
+  const [busy, setBusy] = useState<'save' | 'clear' | 'disconnect' | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+
+  async function saveCreds() {
+    if (!clientId.trim() || !clientSecret.trim()) return;
+    setBusy('save');
+    try {
+      const res = await fetch('/api/drive/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim() }),
+      });
+      if (res.ok) {
+        setShowForm(false);
+        setClientId('');
+        setClientSecret('');
+        await reload();
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function clearCreds() {
+    setBusy('clear');
+    try {
+      await fetch('/api/drive/config', { method: 'DELETE' });
+      await reload();
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function disconnect() {
+    setBusy('disconnect');
+    try {
+      await fetch('/api/drive/disconnect', { method: 'POST' });
+      await reload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!st) {
+    return (
+      <Modal open onClose={onClose} title={`${t('addIntegration')} · Google Drive`}>
+        <Modal.Section>
+          <Box padding="400">
+            <Spinner size="small" />
+          </Box>
+        </Modal.Section>
+      </Modal>
+    );
+  }
+  const formOpen = showForm || st.credSource === 'none';
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t('addIntegration')} · Google Drive`}
+      secondaryActions={[{ content: t('close'), onAction: onClose }]}
+    >
+      <Modal.Section>
+        <BlockStack gap="300">
+          <InlineStack gap="200" blockAlign="center">
+            <ProviderLogo id="googledrive" label="Google Drive" size={30} />
+            {st.connected ? (
+              <Badge tone="success">{t('driveConnected')}</Badge>
+            ) : (
+              <Badge>{t('driveNotConnected')}</Badge>
+            )}
+          </InlineStack>
+
+          {!formOpen ? (
+            <BlockStack gap="300">
+              <Text as="span" tone="subdued" variant="bodySm">
+                {st.connected ? (st.email ? t('driveAs', { email: st.email }) : t('driveOn')) : t('driveDesc')}
+              </Text>
+              <InlineStack gap="200" wrap>
+                {st.connected ? (
+                  <Button loading={busy === 'disconnect'} onClick={disconnect}>
+                    {t('driveDisconnect')}
+                  </Button>
+                ) : (
+                  <Button variant="primary" onClick={() => (window.location.href = '/api/drive/auth')}>
+                    {t('driveConnect')}
+                  </Button>
+                )}
+                {st.credSource === 'store' ? (
+                  <Button variant="tertiary" onClick={() => setShowForm(true)}>
+                    {t('driveEditCreds')}
+                  </Button>
+                ) : null}
+              </InlineStack>
+            </BlockStack>
+          ) : (
+            <BlockStack gap="300">
+              <Text as="span" tone="subdued" variant="bodySm">
+                {t('driveSetupHint')}
+              </Text>
+              {st.redirectUri ? (
+                <Box background="bg-surface-secondary" padding="200" borderRadius="200">
+                  <BlockStack gap="050">
+                    <Text as="span" variant="bodySm" fontWeight="semibold">
+                      {t('driveRedirectHint')}
+                    </Text>
+                    <Text as="span" variant="bodySm" breakWord>
+                      <code>{st.redirectUri}</code>
+                    </Text>
+                  </BlockStack>
+                </Box>
+              ) : null}
+              <TextField
+                label={t('driveClientId')}
+                value={clientId}
+                onChange={setClientId}
+                autoComplete="off"
+                placeholder="1234567890-abc.apps.googleusercontent.com"
+              />
+              <TextField
+                label={t('driveClientSecret')}
+                value={clientSecret}
+                onChange={setClientSecret}
+                autoComplete="off"
+                type="password"
+                placeholder="GOCSPX-..."
+              />
+              <InlineStack gap="200">
+                <Button
+                  variant="primary"
+                  loading={busy === 'save'}
+                  disabled={!clientId.trim() || !clientSecret.trim()}
+                  onClick={saveCreds}
+                >
+                  {t('driveSaveCreds')}
+                </Button>
+                {st.credSource !== 'none' ? (
+                  <Button onClick={() => setShowForm(false)}>{t('driveCancel')}</Button>
+                ) : null}
+                {st.credSource === 'store' ? (
+                  <Button tone="critical" variant="tertiary" loading={busy === 'clear'} onClick={clearCreds}>
+                    {t('driveClearCreds')}
+                  </Button>
+                ) : null}
+              </InlineStack>
+            </BlockStack>
+          )}
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+// DataForSEO: popup nhập login + password (Basic auth) — NHẤT QUÁN với các kết nối/API key khác.
+// Test → gọi API thật (số dư tài khoản). Dùng cho cả THÊM MỚI và XEM/SỬA (khi đã cấu hình).
+// Password lưu mã hóa; cấp số liệu từ khóa/SERP thật cho hệ thống.
+function AddDataForSeoModal({
+  configured,
+  canDelete,
+  onDelete,
+  onClose,
+  onSaved,
+}: {
+  configured: boolean;
+  canDelete?: boolean;
+  onDelete?: () => Promise<void>;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const t = useTranslations('settings');
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const filled = Boolean(login.trim() && password.trim());
+
+  async function save() {
+    if (!filled) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/dataforseo/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: login.trim(), password: password.trim() }),
+      });
+      if (res.ok) await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function test() {
+    setTesting(true);
+    setResult(null);
+    try {
+      // Có nhập login+password → test creds đang nhập; để trống → test creds đã lưu.
+      const body = filled ? { login: login.trim(), password: password.trim() } : {};
+      const res = await fetch('/api/dataforseo/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setResult({ ok: true, msg: t('dfsBalance', { amount: `${data.balance} ${data.currency}` }) });
+      } else {
+        setResult({ ok: false, msg: data?.error || t('dfsTestFail') });
+      }
+    } catch {
+      setResult({ ok: false, msg: t('dfsTestFail') });
+    } finally {
+      setTesting(false);
+    }
+  }
+  async function remove() {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t('addIntegration')} · DataForSEO`}
+      primaryAction={{ content: t('dfsSaveCreds'), onAction: save, loading: saving, disabled: !filled }}
+      secondaryActions={[
+        { content: t('dfsTest'), onAction: test, loading: testing, disabled: !filled && !configured },
+        ...(configured && canDelete && onDelete
+          ? [{ content: t('dfsClearCreds'), onAction: remove, loading: deleting, destructive: true }]
+          : []),
+        { content: t('cancel'), onAction: onClose },
+      ]}
+    >
+      <Modal.Section>
+        <BlockStack gap="300">
+          <Text as="p" tone="subdued" variant="bodySm">
+            {t('dfsDesc')}
+          </Text>
+          <Text as="p" tone="subdued" variant="bodySm">
+            {t('dfsSetupHint')} <ExtLink href="https://app.dataforseo.com/api-access">app.dataforseo.com</ExtLink>
+          </Text>
+          {configured ? <Banner tone="info">{t('dfsConfiguredHint')}</Banner> : null}
+          <TextField
+            label={t('dfsLogin')}
+            value={login}
+            onChange={setLogin}
+            autoComplete="off"
+            placeholder="you@example.com"
+          />
+          <KeyField
+            label={t('dfsPassword')}
+            value={password}
+            type={reveal ? 'text' : 'password'}
+            placeholder="••••••••"
+            revealed={reveal}
+            onToggle={() => setReveal((v) => !v)}
+            onChange={setPassword}
+          />
+          {result ? <Banner tone={result.ok ? 'success' : 'critical'}>{result.msg}</Banner> : null}
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+function Tile({
+  label,
+  count,
+  strong,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  strong?: boolean;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <Box
+      background={active ? 'bg-surface-selected' : strong ? 'bg-surface-secondary' : 'bg-surface'}
+      borderColor={active ? 'border-emphasis' : 'border'}
+      borderWidth={active ? '050' : '025'}
+      borderRadius="300"
+      padding="300"
+    >
+      <BlockStack gap="050">
+        <Text as="span" variant="bodySm" tone="subdued">
+          {label}
+        </Text>
+        <Text as="span" variant="headingLg" fontWeight="bold">
+          {count}
+        </Text>
+      </BlockStack>
+    </Box>
+  );
+  if (!onClick) return inner;
+  return (
+    <button type="button" onClick={onClick} style={{ all: 'unset', cursor: 'pointer', display: 'block' }}>
+      {inner}
+    </button>
+  );
+}
+
+// ── Thẻ "Có thể thêm" ──
+function AddCard({
+  logo,
+  name,
+  type,
+  cta,
+  onClick,
+}: {
+  logo: React.ReactNode;
+  name: string;
+  type: string;
+  cta: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} style={{ all: 'unset', cursor: 'pointer', display: 'block' }}>
+      <Box borderColor="border" borderWidth="025" borderRadius="300" padding="300">
+        <InlineStack gap="200" blockAlign="center" wrap={false}>
+          {logo}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Text as="p" variant="bodySm" fontWeight="semibold" truncate>
+              {name}
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              {type} · {cta}
+            </Text>
+          </div>
+        </InlineStack>
+      </Box>
+    </button>
+  );
+}
+
+// ── Ô nhập/hiện API key có nút con mắt ──
 function KeyField({
   label,
-  labelHidden,
   value,
   type,
   readOnly,
@@ -690,19 +1098,17 @@ function KeyField({
   onChange,
 }: {
   label: string;
-  labelHidden?: boolean;
   value: string;
   type: 'text' | 'password';
   readOnly?: boolean;
   placeholder?: string;
   revealed: boolean;
   onToggle: () => void;
-  onChange?: (value: string) => void;
+  onChange?: (v: string) => void;
 }) {
   return (
     <TextField
       label={label}
-      labelHidden={labelHidden}
       type={type}
       readOnly={readOnly}
       autoComplete="off"
@@ -714,18 +1120,441 @@ function KeyField({
           <button
             type="button"
             onClick={onToggle}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'flex',
-            }}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}
           >
             <Icon source={revealed ? HideIcon : ViewIcon} tone="subdued" />
           </button>
         ) : undefined
       }
     />
+  );
+}
+
+// ── Modal nhập API key AI ──
+function AddAiKeyModal({
+  provider,
+  providerLabel,
+  keyHint,
+  onClose,
+  onSaved,
+}: {
+  provider: ProviderId;
+  providerLabel: string;
+  keyHint: string;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const t = useTranslations('settings');
+  const [key, setKey] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  async function test() {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/ai-keys/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, key: key.trim() || undefined }),
+      });
+      const j = await res.json();
+      setResult({ ok: Boolean(j.ok), msg: j.ok ? t('testOk') : j.error ?? t('testFail') });
+    } finally {
+      setTesting(false);
+    }
+  }
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/ai-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setKey', provider, key: key.trim() }),
+      });
+      if (res.ok) await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t('addAiKey')} · ${providerLabel}`}
+      primaryAction={{ content: t('saveKey'), onAction: save, loading: saving, disabled: !key.trim() }}
+      secondaryActions={[
+        { content: t('testConnection'), onAction: test, loading: testing, disabled: !key.trim() },
+        { content: t('cancel'), onAction: onClose },
+      ]}
+    >
+      <Modal.Section>
+        <BlockStack gap="300">
+          <KeyField
+            label={t('apiKey')}
+            value={key}
+            type={reveal ? 'text' : 'password'}
+            placeholder={keyHint}
+            revealed={reveal}
+            onToggle={() => setReveal((v) => !v)}
+            onChange={setKey}
+          />
+          {result ? <Banner tone={result.ok ? 'success' : 'critical'}>{result.msg}</Banner> : null}
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+// ── Modal nhập key tích hợp (PageSpeed…) ──
+function AddIntegrationModal({
+  integration,
+  onClose,
+  onSaved,
+}: {
+  integration: IntStatus | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const t = useTranslations('settings');
+  const [value, setValue] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  if (!integration) return null;
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/integration-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: integration!.id, value: value.trim() }),
+      });
+      if (res.ok) await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t('addIntegration')} · ${integration.label}`}
+      primaryAction={{ content: t('saveKey'), onAction: save, loading: saving, disabled: !value.trim() }}
+      secondaryActions={[{ content: t('cancel'), onAction: onClose }]}
+    >
+      <Modal.Section>
+        <BlockStack gap="300">
+          <Text as="p" tone="subdued" variant="bodySm">
+            {t(`intHint.${integration.hintKey}`)}
+          </Text>
+          {integration.id === 'pagespeed' ? (
+            <InlineStack gap="300" wrap>
+              <ExtLink href="https://console.cloud.google.com">{t('guideOpenConsole')}</ExtLink>
+              <ExtLink href="https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com">
+                {t('guideEnableApi')}
+              </ExtLink>
+            </InlineStack>
+          ) : null}
+          <KeyField
+            label={t('apiKey')}
+            value={value}
+            type={reveal ? 'text' : 'password'}
+            placeholder={t('apiKey')}
+            revealed={reveal}
+            onToggle={() => setReveal((v) => !v)}
+            onChange={setValue}
+          />
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+// ── Modal chi tiết (xem/sửa) ──
+function DetailModal({
+  target,
+  providers,
+  ints,
+  conns,
+  busy,
+  setBusy,
+  onClose,
+  onChanged,
+  onDelete,
+}: {
+  target: DetailTarget;
+  providers: ProviderStatus[];
+  ints: IntStatus[];
+  conns: Conn[];
+  busy: string | null;
+  setBusy: (v: string | null) => void;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+  onDelete: (t: DetailTarget) => Promise<void>;
+}) {
+  const t = useTranslations('settings');
+  const [reveal, setReveal] = useState(false);
+  const [full, setFull] = useState<string | null>(null);
+  const [models, setModels] = useState<{ loading: boolean; options: string[] }>({ loading: false, options: [] });
+  const [test, setTest] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [replacing, setReplacing] = useState(false);
+  const [newKey, setNewKey] = useState('');
+  const [revealNew, setRevealNew] = useState(false);
+
+  const ai = target.kind === 'ai' ? providers.find((p) => p.id === target.id) : undefined;
+  const int = target.kind === 'integration' ? ints.find((i) => i.id === target.id) : undefined;
+  const conn = target.kind === 'cms' ? conns.find((c) => c.id === target.id) : undefined;
+
+  const loadModels = useCallback(async (provider: ProviderId) => {
+    setModels((s) => ({ ...s, loading: true }));
+    try {
+      const res = await fetch('/api/ai-keys/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const d = await res.json();
+      setModels({ loading: false, options: res.ok && Array.isArray(d.models) ? d.models : [] });
+    } catch {
+      setModels({ loading: false, options: [] });
+    }
+  }, []);
+  useEffect(() => {
+    if (ai?.hasKey) void loadModels(ai.id);
+  }, [ai?.id, ai?.hasKey, loadModels]);
+
+  async function toggleReveal(url: string) {
+    if (reveal) {
+      setReveal(false);
+      return;
+    }
+    if (full == null) {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      setFull((await res.json()).key as string);
+    }
+    setReveal(true);
+  }
+
+  async function postAi(body: unknown, tag: string) {
+    setBusy(tag);
+    try {
+      await fetch('/api/ai-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      await onChanged();
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function testAi(provider: ProviderId) {
+    setBusy(`test-${provider}`);
+    setTest(null);
+    try {
+      const res = await fetch('/api/ai-keys/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const j = await res.json();
+      setTest({ ok: Boolean(j.ok), msg: j.ok ? t('testOk') : j.error ?? t('testFail') });
+    } finally {
+      setBusy(null);
+    }
+  }
+  // Thay khóa (AI hoặc tích hợp) bằng khóa mới.
+  async function saveNewKey() {
+    const k = newKey.trim();
+    if (!k) return;
+    setBusy(`rk-${target.kind}-${target.id}`);
+    try {
+      if (target.kind === 'ai') {
+        await fetch('/api/ai-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'setKey', provider: target.id, key: k }),
+        });
+      } else if (target.kind === 'integration') {
+        await fetch('/api/integration-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, value: k }),
+        });
+      }
+      await onChanged();
+      setReplacing(false);
+      setNewKey('');
+      setReveal(false);
+      setFull(null);
+    } finally {
+      setBusy(null);
+    }
+  }
+  const replaceBlock = (keyHint?: string) =>
+    replacing ? (
+      <BlockStack gap="200">
+        <KeyField
+          label={t('apiKey')}
+          value={newKey}
+          type={revealNew ? 'text' : 'password'}
+          placeholder={keyHint}
+          revealed={revealNew}
+          onToggle={() => setRevealNew((v) => !v)}
+          onChange={setNewKey}
+        />
+        <InlineStack gap="200">
+          <Button variant="primary" loading={busy === `rk-${target.kind}-${target.id}`} disabled={!newKey.trim()} onClick={saveNewKey}>
+            {t('saveKey')}
+          </Button>
+          <Button
+            onClick={() => {
+              setReplacing(false);
+              setNewKey('');
+            }}
+          >
+            {t('cancel')}
+          </Button>
+        </InlineStack>
+      </BlockStack>
+    ) : (
+      <Button onClick={() => setReplacing(true)}>{t('replaceKey')}</Button>
+    );
+
+  const title =
+    ai?.label ?? int?.label ?? (conn ? conn.label : t('detailTitle'));
+
+  return (
+    <Modal open onClose={onClose} title={`${t('detailTitle')} · ${title}`} secondaryActions={[{ content: t('close'), onAction: onClose }]}>
+      <Modal.Section>
+        <BlockStack gap="300">
+          {/* CMS */}
+          {conn ? (
+            <BlockStack gap="200">
+              <Row label={t('fieldType')} value={PROVIDER_CFG[conn.provider]?.name ?? conn.provider} />
+              <Row label="URL" value={conn.baseUrl} />
+              <Row label={t('fieldLocale')} value={`${localeNames[conn.locale as keyof typeof localeNames]?.flag ?? ''} ${conn.locale}`} />
+              {conn.seoPlugin && conn.seoPlugin !== 'none' ? <Row label="SEO plugin" value={conn.seoPlugin} /> : null}
+              <Row
+                label={t('fieldStatus')}
+                valueNode={<Badge tone={conn.status === 'active' ? 'success' : 'critical'}>{conn.status === 'active' ? t('reportAvailable') : t('reportError')}</Badge>}
+              />
+              <InlineStack>
+                <Button
+                  tone="critical"
+                  variant="tertiary"
+                  icon={DeleteIcon}
+                  loading={busy === `del-cms-${conn.id}`}
+                  onClick={() => onDelete({ kind: 'cms', id: conn.id })}
+                >
+                  {t('delete')}
+                </Button>
+              </InlineStack>
+            </BlockStack>
+          ) : null}
+
+          {/* AI provider */}
+          {ai ? (
+            <BlockStack gap="300">
+              {!replacing ? (
+                <KeyField
+                  label={t('apiKey')}
+                  value={reveal ? full ?? '' : ai.masked ?? ''}
+                  type="text"
+                  readOnly
+                  revealed={reveal}
+                  onToggle={() => void toggleReveal(`/api/ai-keys/reveal?provider=${ai.id}`)}
+                />
+              ) : null}
+              {replaceBlock(ai.keyHint)}
+              <Select
+                label={t('model')}
+                options={Array.from(new Set([...models.options, ai.model])).filter(Boolean).map((m) => ({ label: m, value: m }))}
+                value={ai.model}
+                disabled={models.loading}
+                onChange={(model) => void postAi({ action: 'model', provider: ai.id, model }, `m-${ai.id}`)}
+              />
+              <Text as="span" variant="bodySm" tone="subdued">
+                {`${t('default')}: ${ai.defaultModel}`}
+                {models.loading ? ` · ${t('loadingModels')}` : ''}
+              </Text>
+              <InlineStack gap="200" wrap>
+                <Button
+                  loading={busy === `en-${ai.id}`}
+                  tone={ai.enabled ? 'critical' : undefined}
+                  onClick={() => void postAi({ action: 'enable', provider: ai.id, enabled: !ai.enabled }, `en-${ai.id}`)}
+                >
+                  {ai.enabled ? t('disable') : t('enable')}
+                </Button>
+                <Button loading={busy === `test-${ai.id}`} onClick={() => void testAi(ai.id)}>
+                  {t('testConnection')}
+                </Button>
+                {ai.source === 'store' ? (
+                  <Button
+                    tone="critical"
+                    variant="tertiary"
+                    loading={busy === `del-ai-${ai.id}`}
+                    onClick={() => onDelete({ kind: 'ai', id: ai.id })}
+                  >
+                    {t('removeKey')}
+                  </Button>
+                ) : null}
+              </InlineStack>
+              {test ? <Banner tone={test.ok ? 'success' : 'critical'}>{test.msg}</Banner> : null}
+            </BlockStack>
+          ) : null}
+
+          {/* Integration */}
+          {int ? (
+            <BlockStack gap="300">
+              <Text as="p" tone="subdued" variant="bodySm">
+                {t(`intHint.${int.hintKey}`)}
+              </Text>
+              {!replacing ? (
+                <KeyField
+                  label={t('apiKey')}
+                  value={reveal ? full ?? '' : int.masked ?? ''}
+                  type="text"
+                  readOnly
+                  revealed={reveal}
+                  onToggle={() => void toggleReveal(`/api/integration-keys?reveal=${int.id}`)}
+                />
+              ) : null}
+              {replaceBlock()}
+              {int.source === 'store' ? (
+                <InlineStack>
+                  <Button
+                    tone="critical"
+                    variant="tertiary"
+                    icon={DeleteIcon}
+                    loading={busy === `del-integration-${int.id}`}
+                    onClick={() => onDelete({ kind: 'integration', id: int.id })}
+                  >
+                    {t('removeKey')}
+                  </Button>
+                </InlineStack>
+              ) : null}
+            </BlockStack>
+          ) : null}
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+function Row({ label, value, valueNode }: { label: string; value?: string; valueNode?: React.ReactNode }) {
+  return (
+    <InlineStack align="space-between" blockAlign="center" gap="300">
+      <Text as="span" variant="bodySm" tone="subdued">
+        {label}
+      </Text>
+      {valueNode ?? (
+        <Text as="span" variant="bodySm">
+          {value}
+        </Text>
+      )}
+    </InlineStack>
   );
 }

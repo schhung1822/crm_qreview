@@ -19,8 +19,8 @@ import {
 } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { TranslateIcon } from '@/components/icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MagicIcon } from '@/components/icons';
 import { AiWorking, LocaleTag } from '@/components/ui';
 import { localeNames, locales } from '@/i18n/config';
 
@@ -56,19 +56,23 @@ export default function TranslationsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
+  // Chỉ chọn nguồn mặc định LẦN ĐẦU tải — để `load` không phụ thuộc `sourceId` (đổi nguồn không
+  // kích hoạt fetch lại /api/articles/draft một cách thừa thãi).
+  const didInitSource = useRef(false);
   const load = useCallback(async () => {
     const res = await fetch('/api/articles/draft');
     if (res.ok) {
       const d = (await res.json()).articles as Draft[];
       setDrafts(d);
       setSelected((prev) => new Set([...prev].filter((id) => d.some((x) => x.id === id))));
-      if (!sourceId) {
+      if (!didInitSource.current) {
+        didInitSource.current = true;
         // Ưu tiên ?source= (đến từ nút "Dịch" ở trang Bài viết) nếu hợp lệ.
         const pick = sourceParam && d.some((x) => x.id === sourceParam) ? sourceParam : d[0]?.id;
         if (pick) setSourceId(pick);
       }
     }
-  }, [sourceId, sourceParam]);
+  }, [sourceParam]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -193,8 +197,6 @@ export default function TranslationsPage() {
       <BlockStack gap="400">
         <Banner tone="info">{t('explainer')}</Banner>
 
-        {busy ? <AiWorking text={t('translatingAI')} /> : null}
-
         {aiReady === false ? (
           <Banner tone="warning" title={t('noKeyTitle')} action={{ content: t('goSettings'), url: `/${locale}/settings` }}>
             {t('noKeyBody')}
@@ -245,7 +247,7 @@ export default function TranslationsPage() {
                   />
                   <Button
                     variant="primary"
-                    icon={TranslateIcon}
+                    icon={MagicIcon}
                     loading={busy}
                     disabled={busy || aiReady === false || !sourceId}
                     onClick={translate}
@@ -253,6 +255,8 @@ export default function TranslationsPage() {
                     {busy ? t('translating') : t('translateBtn')}
                   </Button>
                 </InlineGrid>
+
+                {busy ? <AiWorking text={t('translatingAI')} progress="indeterminate" /> : null}
 
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
                   <Select

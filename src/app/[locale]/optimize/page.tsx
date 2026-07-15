@@ -23,8 +23,13 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertIcon, CheckIcon, XIcon } from '@/components/icons';
-import { AiWorking, ScoreRing } from '@/components/ui';
+import { createPortal } from 'react-dom';
+import { AlertIcon, CheckIcon, MagicIcon, XIcon } from '@/components/icons';
+import { useFeatures } from '@/components/EntitlementProvider';
+import { GraphView } from '@/components/ForceGraph';
+import { HelpLabel } from '@/components/InfoHint';
+import { AiWorking, ExtLink, ScoreRing } from '@/components/ui';
+import { titleTokens } from '@/lib/content/tokens';
 import type { ScoreCheck, ScoreResult } from '@/lib/scoring/types';
 
 interface Conn {
@@ -42,20 +47,6 @@ interface CmsPost {
   contentHtml?: string;
 }
 
-// Token tiêu đề để chấm độ liên quan (client) - khớp logic server.
-const STOP = new Set([
-  'và','của','các','cho','bài','cách','hướng','dẫn','là','top','tốt','nhất',
-  'the','a','of','for','to','guide','best','how','what','and','with','your',
-]);
-function titleTokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9đ\s]/gi, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOP.has(w));
-}
 interface Analysis {
   post: {
     id: string;
@@ -63,6 +54,7 @@ interface Analysis {
     slug: string;
     metaDescription: string;
     markdown: string;
+    url?: string; // URL công khai của bài (mở tab mới để xem trực tiếp)
     locale: string;
     targetKeyword: string;
     tags?: string[];
@@ -93,6 +85,7 @@ interface GraphData {
 
 export default function OptimizePage() {
   const t = useTranslations();
+  const features = useFeatures();
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,12 +102,30 @@ export default function OptimizePage() {
   const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState('');
 
+  // Chọn nhiều bài + xuất lên Google Drive.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [drive, setDrive] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
+  const [exportFmt, setExportFmt] = useState<'doc' | 'txt'>('doc');
+  const [exporting, setExporting] = useState(false);
+  const [exportDone, setExportDone] = useState(0);
+  const [exportTotal, setExportTotal] = useState(0);
+  const cancelExport = useRef(false);
+  const exportAbort = useRef<AbortController | null>(null);
+  const [exportRes, setExportRes] = useState<{
+    okCount: number;
+    count: number;
+    folder: string;
+    folderUrl: string;
+    results: Array<{ postId: string; title: string; ok: boolean; webViewLink?: string; error?: string }>;
+  } | null>(null);
+
   // Chế độ xem + sơ đồ liên kết.
   const [view, setView] = useState<'list' | 'graph'>('list');
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [graphBusy, setGraphBusy] = useState(false);
   const [selectedSugg, setSelectedSugg] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState(0); // % tiến độ áp dụng internal link
 
   // Chọn AI + model để chạy gợi ý internal link theo nội dung.
   const [providers, setProviders] = useState<Array<{ id: string; label: string; hasKey: boolean }>>([]);
@@ -126,7 +137,13 @@ export default function OptimizePage() {
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const analyzeSeq = useRef(0); // chống race: chỉ nhận kết quả của lần phân tích MỚI NHẤT
   const [opening, setOpening] = useState(false);
+  // Slide panel chi tiết bài (mở khi bấm node trên biểu đồ).
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelBusy, setPanelBusy] = useState(false);
+  const [panelData, setPanelData] = useState<Analysis | null>(null);
+  const [panelErr, setPanelErr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
@@ -169,8 +186,21 @@ export default function OptimizePage() {
       .then((r) => r.json())
       .then((d: { connections: Conn[] }) => {
         setConns(d.connections);
-        // Chỉ chọn mặc định nếu CHƯA khôi phục kết nối từ lần quét trước.
-        if (!restoredConn.current && d.connections[0]) setConnId(d.connections[0].id);
+        const ids = new Set(d.connections.map((c) => c.id));
+        // Kết nối khôi phục từ lần trước ĐÃ BỊ XÓA (vd xóa rồi thêm mới) → bỏ danh sách bài cũ
+        // + chọn kết nối còn tồn tại, tránh quét trúng id không còn → "Không tìm thấy kết nối".
+        if (restoredConn.current && !ids.has(restoredConn.current)) {
+          restoredConn.current = '';
+          setPosts(null);
+          try {
+            sessionStorage.removeItem('opt_scan');
+          } catch {
+            /* bỏ qua */
+          }
+          setConnId(d.connections[0]?.id ?? '');
+        } else if (!restoredConn.current && d.connections[0]) {
+          setConnId(d.connections[0].id);
+        }
       })
       .catch(() => setConns([]));
   }, []);
@@ -206,6 +236,11 @@ export default function OptimizePage() {
       .then((d: { providers: Array<{ id: string; label: string; hasKey: boolean }> }) =>
         setProviders(d.providers),
       )
+      .catch(() => {});
+    // Trạng thái Google Drive (để bật/tắt nút xuất).
+    fetch('/api/drive/status')
+      .then((r) => r.json())
+      .then((d) => setDrive({ configured: !!d.configured, connected: !!d.connected }))
       .catch(() => {});
   }, []);
 
@@ -271,6 +306,8 @@ export default function OptimizePage() {
     setAnalysis(null);
     setGraph(null);
     setSelectedSugg(new Set());
+    setSelected(new Set());
+    setExportRes(null);
     try {
       const qs = new URLSearchParams(scanParams());
       const res = await fetch(`/api/connections/${connId}/posts?${qs.toString()}`);
@@ -377,30 +414,47 @@ export default function OptimizePage() {
     }
     const edits = [...editsMap.entries()].map(([postId, links]) => ({ postId, links }));
     if (!edits.length) return;
+    // Tính năng theo gói: gói của biz không bật "gợi ý internal link" → báo không có quyền.
+    if (features && !features.internalLinks) {
+      setError(t('billing.featureLockedBody'));
+      return;
+    }
     setApplying(true);
+    setApplyProgress(0);
     setError(null);
+    setOkMsg(null);
     try {
-      const res = await fetch('/api/optimize/interlink', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionId: connId, confirm: true, edits }),
-      });
-      const d = await res.json();
-      if (res.ok && d.ok) {
-        setSelectedSugg(new Set());
-        setError(null);
-        setAnalysis(null);
-        await loadGraph();
-        setOkMsg(t('optimize.interlinkDone', { n: d.totalAdded }));
-      } else {
-        setError(d.error ?? 'Lỗi áp dụng internal link');
+      let added = 0;
+      let failed = 0;
+      // Áp TỪNG BÀI một để hiện tiến độ (mỗi bài = 1 lần ghi lên CMS).
+      for (let i = 0; i < edits.length; i++) {
+        try {
+          const res = await fetch('/api/optimize/interlink', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectionId: connId, confirm: true, edits: [edits[i]] }),
+          });
+          const d = await res.json();
+          if (res.ok && d.ok) added += d.totalAdded ?? 0;
+          else failed += 1;
+        } catch {
+          failed += 1;
+        }
+        setApplyProgress(Math.round(((i + 1) / edits.length) * 100));
       }
+      setSelectedSugg(new Set());
+      setAnalysis(null);
+      await loadGraph();
+      if (failed > 0) setError(t('optimize.interlinkPartial', { done: added, failed }));
+      else setOkMsg(t('optimize.interlinkDone', { n: added }));
     } finally {
       setApplying(false);
+      setApplyProgress(0);
     }
   }
 
   async function analyze(postId: string, conn: string = connId) {
+    const seq = ++analyzeSeq.current; // đánh dấu lần phân tích này
     setAnalyzing(true);
     setError(null);
     setAnalysis(null);
@@ -413,10 +467,11 @@ export default function OptimizePage() {
         body: JSON.stringify({ connectionId: conn, postId }),
       });
       const d = await res.json();
+      if (seq !== analyzeSeq.current) return; // đã có lần phân tích mới hơn → bỏ kết quả cũ (chống ghi đè)
       if (res.ok && d.post) setAnalysis(d);
       else setError(d.error ?? 'Lỗi phân tích');
     } finally {
-      setAnalyzing(false);
+      if (seq === analyzeSeq.current) setAnalyzing(false);
     }
   }
 
@@ -450,35 +505,36 @@ export default function OptimizePage() {
     return scored.map((x) => ({ anchor: x.p.title, url: x.p.url || `/${x.p.slug}` }));
   }
 
-  async function editThis() {
-    if (!analysis) return;
+  // Mở 1 bài (đã phân tích) trong trình soạn thảo để "Sửa bằng AI" — dùng cho cả nút dưới lẫn slide panel.
+  async function openInEditor(a: Analysis) {
     setOpening(true);
     try {
       const res = await fetch('/api/articles/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: analysis.post.title,
-          slug: analysis.post.slug,
-          metaDescription: analysis.post.metaDescription,
-          markdown: analysis.post.markdown,
-          locale: analysis.post.locale,
-          targetKeyword: analysis.post.targetKeyword,
-          tags: analysis.post.tags,
-          categories: analysis.post.categories,
+          title: a.post.title,
+          slug: a.post.slug,
+          metaDescription: a.post.metaDescription,
+          markdown: a.post.markdown,
+          locale: a.post.locale,
+          targetKeyword: a.post.targetKeyword,
+          tags: a.post.tags,
+          categories: a.post.categories,
           connectionId: connId,
-          cmsPostId: analysis.post.id,
+          cmsPostId: a.post.id,
+          publishedUrl: a.post.url, // để editor hiện link "Xem bài trên web"
           source: 'edited', // bài cũ nhập về để sửa/tối ưu
-          seoScore: analysis.seo.score,
-          aeoScore: analysis.aeo.score,
-          geoScore: analysis.geo.score,
+          seoScore: a.seo.score,
+          aeoScore: a.aeo.score,
+          geoScore: a.geo.score,
         }),
       });
       const d = await res.json();
       if (res.ok && d.article) {
         // Gửi kèm internal link gợi ý để editor dùng khi "Tối ưu bằng AI".
         try {
-          const links = relatedLinksFor(analysis.post.id);
+          const links = relatedLinksFor(a.post.id);
           if (links.length) {
             sessionStorage.setItem(`opt_interlinks_${d.article.id}`, JSON.stringify(links));
           }
@@ -491,6 +547,29 @@ export default function OptimizePage() {
       }
     } finally {
       setOpening(false);
+    }
+  }
+  const editThis = () => (analysis ? openInEditor(analysis) : undefined);
+
+  // ── Slide panel bên phải: bấm node trên biểu đồ → phân tích bài → hiện chi tiết SEO/AEO/GEO. ──
+  async function openGraphPanel(postId: string) {
+    setPanelOpen(true);
+    setPanelBusy(true);
+    setPanelData(null);
+    setPanelErr(null);
+    try {
+      const res = await fetch('/api/optimize/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId: connId, postId }),
+      });
+      const d = await res.json();
+      if (res.ok && d.post) setPanelData(d);
+      else setPanelErr(d.error ?? t('optimize.panelError'));
+    } catch {
+      setPanelErr(t('optimize.panelError'));
+    } finally {
+      setPanelBusy(false);
     }
   }
 
@@ -581,7 +660,132 @@ export default function OptimizePage() {
     return q ? posts.filter((p) => (p.title || p.slug).toLowerCase().includes(q)) : posts;
   }, [posts, filter]);
 
+  // ── Chọn bài (1 / nhiều / tất cả) để xuất Drive ──
+  const allVisibleSelected = visiblePosts.length > 0 && visiblePosts.every((p) => selected.has(p.id));
+  const someVisibleSelected = visiblePosts.some((p) => selected.has(p.id));
+  function toggleOne(id: string) {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function toggleAllVisible() {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (allVisibleSelected) visiblePosts.forEach((p) => n.delete(p.id));
+      else visiblePosts.forEach((p) => n.add(p.id));
+      return n;
+    });
+  }
+
+  function stopExport() {
+    cancelExport.current = true;
+    exportAbort.current?.abort();
+  }
+
+  // Xuất cả lô trong 1 request; server STREAM tiến trình từng bài (NDJSON). Dừng = abort fetch.
+  async function exportToDrive() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setExporting(true);
+    setError(null);
+    setExportRes(null);
+    cancelExport.current = false;
+    setExportTotal(ids.length);
+    setExportDone(0);
+
+    type Row = { postId: string; title: string; ok: boolean; webViewLink?: string; error?: string };
+    const results: Row[] = [];
+    let folder = 'SEO-AEO-GEO-by-noti';
+    let folderUrl = '';
+    const ac = new AbortController();
+    exportAbort.current = ac;
+
+    try {
+      const res = await fetch('/api/optimize/export-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId: connId, postIds: ids, format: exportFmt }),
+        signal: ac.signal,
+      });
+      // Lỗi tiền xử lý (needsConnect / rate-limit / tham số) trả JSON, không stream.
+      if (!res.body || (res.headers.get('content-type') || '').includes('application/json')) {
+        const d = await res.json().catch(() => ({}));
+        if (d.needsConnect) {
+          setDrive((s) => ({ ...s, connected: false }));
+          setError(t('optimize.driveNeedConnect'));
+        } else {
+          setError(d.error ?? t('optimize.exportError'));
+        }
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let msg: {
+            type: string;
+            total?: number;
+            folder?: string;
+            folderUrl?: string;
+            done?: number;
+            result?: Row;
+            error?: string;
+          };
+          try {
+            msg = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (msg.type === 'meta') {
+            if (msg.total != null) setExportTotal(msg.total);
+            if (msg.folder) folder = msg.folder;
+            if (msg.folderUrl) folderUrl = msg.folderUrl;
+          } else if (msg.type === 'progress') {
+            if (msg.result) results.push(msg.result);
+            if (msg.done != null) setExportDone(msg.done);
+            // Cập nhật kết quả trực tiếp để thấy danh sách lớn dần.
+            setExportRes({
+              okCount: results.filter((r) => r.ok).length,
+              count: results.length,
+              folder,
+              folderUrl,
+              results: [...results],
+            });
+          } else if (msg.type === 'error') {
+            setError(msg.error ?? t('optimize.exportError'));
+          }
+        }
+      }
+    } catch {
+      if (!ac.signal.aborted) setError(t('optimize.exportError'));
+    } finally {
+      exportAbort.current = null;
+      const okCount = results.filter((r) => r.ok).length;
+      if (results.length) setExportRes({ okCount, count: results.length, folder, folderUrl, results: [...results] });
+      if (cancelExport.current) setOkMsg(t('optimize.exportStopped', { ok: okCount, total: ids.length }));
+      else if (results.length) setOkMsg(t('optimize.exportDone', { ok: okCount, total: results.length, folder }));
+      setExporting(false);
+    }
+  }
+
   const postRows = visiblePosts.map((p) => [
+    <Checkbox
+      key={`${p.id}-c`}
+      label=""
+      labelHidden
+      checked={selected.has(p.id)}
+      onChange={() => toggleOne(p.id)}
+    />,
     <Text as="span" fontWeight="semibold" key={p.id}>
       {p.title || p.slug || p.id}
     </Text>,
@@ -622,14 +826,14 @@ export default function OptimizePage() {
               <Banner
                 tone="warning"
                 title={t('optimize.noConnections')}
-                action={{ content: t('optimize.goConnections'), url: `/${locale}/connections` }}
+                action={{ content: t('optimize.goConnections'), url: `/${locale}/settings` }}
               />
             ) : (
           <Card>
             <BlockStack gap="300">
-              <InlineGrid columns={{ xs: 2, md: '1fr 1fr' }} gap="300">
+              <InlineGrid columns={{ xs: 1, md: '1fr 1fr' }} gap="300">
                 <Select
-                  label={t('optimize.selectSite')}
+                  label={<HelpLabel label={t('optimize.selectSite')} help={t('optimize.selectSiteHelp')} />}
                   options={(conns ?? []).map((c) => ({
                     label: `${c.label} · ${c.provider} · ${c.locale}`,
                     value: c.id,
@@ -638,7 +842,7 @@ export default function OptimizePage() {
                   onChange={setConnId}
                 />
                 <Select
-                  label={t('optimize.scanMode')}
+                  label={<HelpLabel label={t('optimize.scanMode')} help={t('optimize.scanModeHelp')} />}
                   options={[
                     { label: t('optimize.scanRecent'), value: 'recent' },
                     { label: t('optimize.scanAll'), value: 'all' },
@@ -651,14 +855,14 @@ export default function OptimizePage() {
               </InlineGrid>
 
               {mode === 'time' ? (
-                <InlineGrid columns={{ xs: 2, md: 2 }} gap="300">
-                  <TextField type="date" label={t('optimize.fromDate')} value={fromDate} onChange={setFromDate} autoComplete="off" />
-                  <TextField type="date" label={t('optimize.toDate')} value={toDate} onChange={setToDate} autoComplete="off" />
+                <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
+                  <TextField type="date" label={<HelpLabel label={t('optimize.fromDate')} help={t('optimize.fromDateHelp')} />} value={fromDate} onChange={setFromDate} autoComplete="off" />
+                  <TextField type="date" label={<HelpLabel label={t('optimize.toDate')} help={t('optimize.toDateHelp')} />} value={toDate} onChange={setToDate} autoComplete="off" />
                 </InlineGrid>
               ) : null}
               {mode === 'keyword' ? (
                 <TextField
-                  label={t('optimize.searchTitle')}
+                  label={<HelpLabel label={t('optimize.searchTitle')} help={t('optimize.searchTitleHelp')} />}
                   value={search}
                   onChange={setSearch}
                   autoComplete="off"
@@ -719,11 +923,113 @@ export default function OptimizePage() {
                   </Text>
                 </Box>
               ) : (
-                <DataTable
-                  columnContentTypes={['text', 'text', 'text']}
-                  headings={[t('optimize.colPostTitle'), t('optimize.colDate'), '']}
-                  rows={postRows}
-                />
+                <>
+                  {/* Thanh xuất Drive: chọn N bài → xuất .doc/.txt lên Google Drive. */}
+                  <Box padding="300" background="bg-surface-secondary" borderBlockEndWidth="025" borderColor="border">
+                    <InlineStack align="space-between" blockAlign="center" wrap gap="300">
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        {t('optimize.selectedN', { n: selected.size })}
+                      </Text>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Box minWidth="110px">
+                          <Select
+                            label={t('optimize.exportFormat')}
+                            labelHidden
+                            options={[
+                              { label: '.doc', value: 'doc' },
+                              { label: '.txt', value: 'txt' },
+                            ]}
+                            value={exportFmt}
+                            onChange={(v) => setExportFmt(v as 'doc' | 'txt')}
+                          />
+                        </Box>
+                        {drive.connected ? (
+                          <Button
+                            variant="primary"
+                            loading={exporting}
+                            disabled={selected.size === 0 || exporting}
+                            onClick={exportToDrive}
+                          >
+                            {t('optimize.exportDrive', { n: selected.size })}
+                          </Button>
+                        ) : (
+                          <Button url={`/${locale}/settings`}>{t('optimize.driveConnect')}</Button>
+                        )}
+                      </InlineStack>
+                    </InlineStack>
+                  </Box>
+
+                  {exporting ? (
+                    <Box padding="400" borderBlockEndWidth="025" borderColor="border">
+                      <BlockStack gap="200">
+                        <AiWorking
+                          text={t('optimize.exportProgress', { done: exportDone, total: exportTotal })}
+                          progress={exportTotal ? Math.round((exportDone / exportTotal) * 100) : 0}
+                        />
+                        <InlineStack>
+                          <Button tone="critical" onClick={stopExport}>
+                            {t('optimize.exportStop')}
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  ) : null}
+
+                  {exportRes ? (
+                    <Box padding="400" borderBlockEndWidth="025" borderColor="border">
+                      <BlockStack gap="200">
+                        <InlineStack gap="300" blockAlign="center" wrap>
+                          <Text as="span" fontWeight="semibold">
+                            {t('optimize.exportDone', { ok: exportRes.okCount, total: exportRes.count, folder: exportRes.folder })}
+                          </Text>
+                          {exportRes.folderUrl ? (
+                            <ExtLink href={exportRes.folderUrl}>{t('optimize.exportViewFolder')}</ExtLink>
+                          ) : null}
+                        </InlineStack>
+                        <Box>
+                          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                            <BlockStack gap="050">
+                              {exportRes.results.map((r) => (
+                                <InlineStack key={r.postId} gap="150" blockAlign="center" wrap={false}>
+                                  <div style={{ width: 18, flex: 'none' }}>
+                                    <Icon source={r.ok ? CheckIcon : XIcon} tone={r.ok ? 'success' : 'critical'} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <Text as="span" variant="bodySm" truncate>
+                                      {r.title}
+                                    </Text>
+                                  </div>
+                                  {r.ok && r.webViewLink ? (
+                                    <div style={{ flex: 'none' }}>
+                                      <ExtLink href={r.webViewLink}>{t('optimize.exportView')}</ExtLink>
+                                    </div>
+                                  ) : null}
+                                </InlineStack>
+                              ))}
+                            </BlockStack>
+                          </div>
+                        </Box>
+                      </BlockStack>
+                    </Box>
+                  ) : null}
+
+                  <DataTable
+                    columnContentTypes={['text', 'text', 'text', 'text']}
+                    headings={[
+                      <Checkbox
+                        key="all"
+                        label=""
+                        labelHidden
+                        checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                        onChange={toggleAllVisible}
+                      />,
+                      t('optimize.colPostTitle'),
+                      t('optimize.colDate'),
+                      '',
+                    ]}
+                    rows={postRows}
+                  />
+                </>
               )
             ) : (
               <Box padding="400">
@@ -738,7 +1044,7 @@ export default function OptimizePage() {
                     <Text as="p" tone="subdued" variant="bodySm">
                       {t('optimize.graphHint')}
                     </Text>
-                    <LinkGraph graph={graph} />
+                    <GraphView graph={graph} onOpenNode={openGraphPanel} />
                   </BlockStack>
                 )}
               </Box>
@@ -746,114 +1052,9 @@ export default function OptimizePage() {
           </Card>
         ) : null}
 
-        {/* Gợi ý internal link (chế độ sơ đồ) */}
-        {view === 'graph' && graph ? (
-          <Card>
-            <BlockStack gap="300">
-              <Text as="h2" variant="headingSm">
-                {t('optimize.suggTitle')} ({graph.suggestions.length})
-              </Text>
-              <Text as="p" tone="subdued" variant="bodySm">
-                {graph.suggestBy === 'ai' ? t('optimize.suggByAi') : t('optimize.suggByKeywordHint')}
-              </Text>
-
-              {/* Chọn AI + model rồi chạy gợi ý theo NỘI DUNG bài */}
-              <InlineGrid columns={{ xs: 2, sm: '1fr 1fr auto' }} gap="300">
-                <Select
-                  label={t('optimize.suggAi')}
-                  options={[
-                    { label: t('optimize.suggAiAuto'), value: '' },
-                    ...providers.filter((p) => p.hasKey).map((p) => ({ label: p.label, value: p.id })),
-                  ]}
-                  value={aiProvider}
-                  onChange={selectProvider}
-                />
-                <Select
-                  label={t('optimize.suggModel')}
-                  disabled={!aiProvider || modelsBusy}
-                  options={[
-                    { label: modelsBusy ? t('optimize.suggModelLoading') : t('optimize.suggModelDefault'), value: '' },
-                    ...aiModels.map((m) => ({ label: m, value: m })),
-                  ]}
-                  value={aiModel}
-                  onChange={setAiModel}
-                />
-                <Box paddingBlockStart="500">
-                  <Button variant="primary" loading={suggBusy} disabled={suggBusy} onClick={runAiSuggest}>
-                    {suggBusy ? t('optimize.suggRunning') : t('optimize.suggRun')}
-                  </Button>
-                </Box>
-              </InlineGrid>
-              {graph.aiError ? <Banner tone="warning">{graph.aiError}</Banner> : null}
-
-              <Banner tone="warning">{t('optimize.interlinkWarn')}</Banner>
-              {suggBusy ? <AiWorking text={t('optimize.suggRunning')} /> : null}
-              {graph.suggestions.length === 0 ? (
-                <Text as="p" tone="subdued">
-                  {t('optimize.suggNone')}
-                </Text>
-              ) : (
-                <>
-                  <InlineStack gap="300" blockAlign="center">
-                    <Checkbox
-                      label={t('optimize.selectAllSugg')}
-                      checked={selectedSugg.size === graph.suggestions.length && graph.suggestions.length > 0}
-                      onChange={() =>
-                        setSelectedSugg((s) =>
-                          s.size === graph.suggestions.length
-                            ? new Set()
-                            : new Set(graph.suggestions.map((x) => `${x.from}|${x.to}`)),
-                        )
-                      }
-                    />
-                    <Button
-                      variant="primary"
-                      disabled={selectedSugg.size === 0}
-                      loading={applying}
-                      onClick={applyInterlinks}
-                    >
-                      {t('optimize.applyInterlink', { n: selectedSugg.size })}
-                    </Button>
-                  </InlineStack>
-                  <BlockStack gap="100">
-                    {graph.suggestions.slice(0, 100).map((s) => {
-                      const key = `${s.from}|${s.to}`;
-                      const from = graph.nodes.find((n) => n.id === s.from);
-                      const to = graph.nodes.find((n) => n.id === s.to);
-                      return (
-                        <InlineStack key={key} gap="200" blockAlign="start" wrap={false}>
-                          <Checkbox
-                            label=""
-                            labelHidden
-                            checked={selectedSugg.has(key)}
-                            onChange={() => toggleSugg(key)}
-                          />
-                          <Text as="span" variant="bodySm">
-                            <Text as="span" fontWeight="semibold">
-                              {from?.title}
-                            </Text>{' '}
-                            → {to?.title}
-                            {s.reason ? (
-                              <>
-                                {' '}
-                                <Text as="span" tone="subdued">
-                                  ({s.reason})
-                                </Text>
-                              </>
-                            ) : null}
-                          </Text>
-                        </InlineStack>
-                      );
-                    })}
-                  </BlockStack>
-                </>
-              )}
-            </BlockStack>
-          </Card>
-        ) : null}
 
         <div ref={analysisRef} />
-        {analyzing ? <AiWorking text={t('optimize.analyzingAI')} /> : null}
+        {analyzing ? <AiWorking text={t('optimize.analyzingAI')} progress="indeterminate" /> : null}
 
         {analysis ? (
           <Layout>
@@ -863,6 +1064,9 @@ export default function OptimizePage() {
                   <Text as="h2" variant="headingSm">
                     {analysis.post.title}
                   </Text>
+                  {analysis.post.url ? (
+                    <ExtLink href={analysis.post.url}>{t('optimize.viewArticle')}</ExtLink>
+                  ) : null}
                   {analysis.post.targetKeyword ? (
                     <Box>
                       <Text as="span" variant="bodySm" tone="subdued">
@@ -955,7 +1159,7 @@ export default function OptimizePage() {
               <Banner
                 tone="warning"
                 title={t('optimize.noConnections')}
-                action={{ content: t('optimize.goConnections'), url: `/${locale}/connections` }}
+                action={{ content: t('optimize.goConnections'), url: `/${locale}/settings` }}
               />
             ) : (
               <>
@@ -963,7 +1167,7 @@ export default function OptimizePage() {
 
                 <Card>
                   <Select
-                    label={t('optimize.selectSite')}
+                    label={<HelpLabel label={t('optimize.selectSite')} help={t('optimize.selectSiteHelp')} />}
                     options={(conns ?? []).map((c) => ({
                       label: `${c.label} · ${c.provider} · ${c.locale}`,
                       value: c.id,
@@ -971,6 +1175,118 @@ export default function OptimizePage() {
                     value={connId}
                     onChange={setConnId}
                   />
+                </Card>
+
+                {/* Gợi ý internal link — AI đọc nội dung bài, gợi ý bài liên quan để chèn */}
+                <Card>
+                  <BlockStack gap="300">
+                    <Text as="h2" variant="headingSm">
+                      {t('optimize.suggTitle')}
+                      {graph?.suggestBy === 'ai' ? ` (${graph.suggestions.length})` : ''}
+                    </Text>
+                    <Text as="p" tone="subdued" variant="bodySm">
+                      {graph?.suggestBy === 'ai' ? t('optimize.suggByAi') : t('optimize.suggRunHint')}
+                    </Text>
+
+                    {/* Chọn AI + model rồi chạy gợi ý theo NỘI DUNG bài */}
+                    <InlineGrid columns={{ xs: 1, sm: '1fr 1fr auto' }} gap="300" alignItems="end">
+                      <Select
+                        label={<HelpLabel label={t('optimize.suggAi')} help={t('optimize.suggAiHelp')} />}
+                        options={[
+                          { label: t('optimize.suggAiAuto'), value: '' },
+                          ...providers.filter((p) => p.hasKey).map((p) => ({ label: p.label, value: p.id })),
+                        ]}
+                        value={aiProvider}
+                        onChange={selectProvider}
+                      />
+                      <Select
+                        label={<HelpLabel label={t('optimize.suggModel')} help={t('optimize.suggModelHelp')} />}
+                        disabled={!aiProvider || modelsBusy}
+                        options={[
+                          { label: modelsBusy ? t('optimize.suggModelLoading') : t('optimize.suggModelDefault'), value: '' },
+                          ...aiModels.map((m) => ({ label: m, value: m })),
+                        ]}
+                        value={aiModel}
+                        onChange={setAiModel}
+                      />
+                      <Button
+                        variant="primary"
+                        icon={MagicIcon}
+                        loading={suggBusy}
+                        disabled={!connId || suggBusy}
+                        onClick={runAiSuggest}
+                      >
+                        {suggBusy ? t('optimize.suggRunning') : t('optimize.suggRun')}
+                      </Button>
+                    </InlineGrid>
+                    {graph?.aiError ? <Banner tone="warning">{graph.aiError}</Banner> : null}
+
+                    <Banner tone="warning">{t('optimize.interlinkWarn')}</Banner>
+                    {suggBusy ? <AiWorking text={t('optimize.suggRunning')} progress="indeterminate" /> : null}
+                    {graph && graph.suggestBy === 'ai' && graph.suggestions.length > 0 ? (
+                      <>
+                        <InlineStack gap="300" blockAlign="center">
+                          <Checkbox
+                            label={t('optimize.selectAllSugg')}
+                            checked={selectedSugg.size === graph.suggestions.length && graph.suggestions.length > 0}
+                            onChange={() =>
+                              setSelectedSugg((s) =>
+                                s.size === graph.suggestions.length
+                                  ? new Set()
+                                  : new Set(graph.suggestions.map((x) => `${x.from}|${x.to}`)),
+                              )
+                            }
+                          />
+                          <Button
+                            variant="primary"
+                            disabled={selectedSugg.size === 0}
+                            loading={applying}
+                            onClick={applyInterlinks}
+                          >
+                            {t('optimize.applyInterlink', { n: selectedSugg.size })}
+                          </Button>
+                        </InlineStack>
+                        {applying ? (
+                          <AiWorking text={t('optimize.interlinkApplying')} progress={applyProgress} />
+                        ) : null}
+                        <BlockStack gap="100">
+                          {graph.suggestions.slice(0, 100).map((s) => {
+                            const key = `${s.from}|${s.to}`;
+                            const from = graph.nodes.find((n) => n.id === s.from);
+                            const to = graph.nodes.find((n) => n.id === s.to);
+                            return (
+                              <InlineStack key={key} gap="200" blockAlign="start" wrap>
+                                <Checkbox
+                                  label=""
+                                  labelHidden
+                                  checked={selectedSugg.has(key)}
+                                  onChange={() => toggleSugg(key)}
+                                />
+                                <Text as="span" variant="bodySm">
+                                  <Text as="span" fontWeight="semibold">
+                                    {from?.title}
+                                  </Text>{' '}
+                                  → {to?.title}
+                                  {s.reason ? (
+                                    <>
+                                      {' '}
+                                      <Text as="span" tone="subdued">
+                                        ({s.reason})
+                                      </Text>
+                                    </>
+                                  ) : null}
+                                </Text>
+                              </InlineStack>
+                            );
+                          })}
+                        </BlockStack>
+                      </>
+                    ) : (
+                      <Text as="p" tone="subdued">
+                        {graph?.suggestBy === 'ai' ? t('optimize.suggNone') : t('optimize.suggRunHint')}
+                      </Text>
+                    )}
+                  </BlockStack>
                 </Card>
 
                 {/* Khôi phục bài bị chuyển nháp do bug internal link trước đây */}
@@ -1032,170 +1348,139 @@ export default function OptimizePage() {
           </BlockStack>
         )}
       </BlockStack>
+
+      {/* Slide panel bên phải: chi tiết bài khi bấm node trên biểu đồ. */}
+      {panelOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <>
+              <div
+                onClick={() => setPanelOpen(false)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.32)', zIndex: 1000 }}
+              />
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: 'min(460px, 94vw)',
+                  background: '#fff',
+                  zIndex: 1001,
+                  boxShadow: '-8px 0 28px rgba(0,0,0,0.18)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  animation: 'optPanelIn 0.22s ease',
+                }}
+              >
+                <style>{`@keyframes optPanelIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderBottom: '1px solid var(--p-color-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text as="h2" variant="headingSm">
+                      {t('optimize.panelTitle')}
+                    </Text>
+                  </div>
+                  <Button
+                    variant="tertiary"
+                    icon={XIcon}
+                    onClick={() => setPanelOpen(false)}
+                    accessibilityLabel={t('optimize.panelClose')}
+                  />
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+                  {panelBusy ? (
+                    <AiWorking text={t('optimize.analyzingAI')} progress="indeterminate" />
+                  ) : panelErr ? (
+                    <Banner tone="critical">{panelErr}</Banner>
+                  ) : panelData ? (
+                    <BlockStack gap="400">
+                      <Text as="h3" variant="headingMd">
+                        {panelData.post.title}
+                      </Text>
+                      {panelData.post.targetKeyword ? (
+                        <Box>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            {t('optimize.detectedKeyword')}:{' '}
+                          </Text>
+                          <Badge tone="info">{panelData.post.targetKeyword}</Badge>
+                        </Box>
+                      ) : null}
+
+                      <InlineStack gap="500" blockAlign="center" align="center" wrap>
+                        {(
+                          [
+                            { label: t('common.seo'), v: panelData.seo.score },
+                            { label: t('common.aeo'), v: panelData.aeo.score },
+                            { label: t('common.geo'), v: panelData.geo.score },
+                          ] as const
+                        ).map((s) => (
+                          <BlockStack key={s.label} gap="100" inlineAlign="center">
+                            <ScoreRing value={s.v} />
+                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                              {s.label}
+                            </Text>
+                          </BlockStack>
+                        ))}
+                      </InlineStack>
+
+                      <InlineStack gap="200" wrap>
+                        <Button variant="primary" icon={MagicIcon} loading={opening} onClick={() => openInEditor(panelData)}>
+                          {t('optimize.panelEditAi')}
+                        </Button>
+                        {panelData.post.url ? (
+                          <Button onClick={() => window.open(panelData.post.url, '_blank', 'noopener,noreferrer')}>
+                            {t('optimize.viewArticle')}
+                          </Button>
+                        ) : null}
+                      </InlineStack>
+
+                      {(
+                        [
+                          { key: 'seo', label: t('common.seo'), res: panelData.seo },
+                          { key: 'aeo', label: t('common.aeo'), res: panelData.aeo },
+                          { key: 'geo', label: t('common.geo'), res: panelData.geo },
+                        ] as const
+                      ).map((g) => {
+                        const fails = g.res.checks.filter((c) => c.state !== 'pass').length;
+                        return (
+                          <Card key={g.key}>
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between" blockAlign="center">
+                                <Text as="h4" variant="headingSm">
+                                  {g.label}
+                                </Text>
+                                <Badge tone={fails === 0 ? 'success' : 'attention'}>
+                                  {t('optimize.checksPassed', { ok: g.res.checks.length - fails, total: g.res.checks.length })}
+                                </Badge>
+                              </InlineStack>
+                              <BlockStack gap="150">
+                                {g.res.checks.map((c) => (
+                                  <CheckRow key={`${g.key}-${c.id}`} check={c} />
+                                ))}
+                              </BlockStack>
+                            </BlockStack>
+                          </Card>
+                        );
+                      })}
+                    </BlockStack>
+                  ) : null}
+                </div>
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
     </Page>
   );
 }
 
-// Sơ đồ mạng nhện: bài đặt trên vòng tròn, đường nối = internal link.
-function LinkGraph({ graph }: { graph: GraphData }) {
-  const t = useTranslations();
-  const [hover, setHover] = useState<string | null>(null);
-  const N = graph.nodes.length;
-  const size = 640;
-  const cx = size / 2;
-  const cy = size / 2;
-  const R = size / 2 - 70;
-  const showLabel = N <= 48;
-
-  const pos = new Map<string, { x: number; y: number; a: number }>();
-  graph.nodes.forEach((n, i) => {
-    const a = (2 * Math.PI * i) / Math.max(1, N) - Math.PI / 2;
-    pos.set(n.id, { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a), a });
-  });
-
-  // Tập node nối trực tiếp với node đang hover (để làm nổi, làm mờ phần còn lại).
-  const neighbors = new Set<string>();
-  if (hover) {
-    neighbors.add(hover);
-    for (const e of graph.edges) {
-      if (e.from === hover) neighbors.add(e.to);
-      if (e.to === hover) neighbors.add(e.from);
-    }
-  }
-
-  const hovered = hover ? graph.nodes.find((n) => n.id === hover) : null;
-  const hp = hover ? pos.get(hover) : null;
-
-  // Hộp tooltip: tính kích thước theo độ dài chữ, kẹp trong khung để không tràn.
-  const title = hovered ? (hovered.title.length > 42 ? hovered.title.slice(0, 42) + '…' : hovered.title) : '';
-  const meta = hovered ? t('optimize.graphTipLinks', { inn: hovered.inLinks, out: hovered.outLinks }) : '';
-  const tipW = Math.min(320, Math.max(140, Math.max(title.length, meta.length) * 6.3 + 22));
-  const tipH = 46;
-  let tipX = hp ? hp.x - tipW / 2 : 0;
-  tipX = Math.max(6, Math.min(size - tipW - 6, tipX));
-  // Mặc định hiện phía trên node; nếu sát mép trên thì lật xuống dưới.
-  const baseR = hovered ? 4 + Math.min(11, hovered.inLinks * 2) : 0;
-  const above = hp ? hp.y - (baseR + 12) - tipH >= 6 : true;
-  const tipY = hp ? (above ? hp.y - (baseR + 12) - tipH : hp.y + baseR + 12) : 0;
-
-  return (
-    <div style={{ width: '100%', overflowX: 'auto' }}>
-      <style>{`@keyframes optTipIn{from{opacity:0}to{opacity:1}}`}</style>
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        style={{ width: '100%', maxWidth: 720, display: 'block', margin: '0 auto' }}
-        onMouseLeave={() => setHover(null)}
-      >
-        {/* Cạnh - cạnh nối node hover được tô đậm, còn lại làm mờ */}
-        {graph.edges.map((e, i) => {
-          const a = pos.get(e.from);
-          const b = pos.get(e.to);
-          if (!a || !b) return null;
-          const active = hover != null && (e.from === hover || e.to === hover);
-          const dim = hover != null && !active;
-          return (
-            <line
-              key={i}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke={active ? '#5b3ce0' : '#9bb0e8'}
-              strokeWidth={active ? 2 : 1}
-              opacity={dim ? 0.1 : active ? 0.9 : 0.5}
-              style={{ transition: 'stroke 0.18s ease, stroke-width 0.18s ease, opacity 0.18s ease' }}
-            />
-          );
-        })}
-
-        {/* Nút */}
-        {graph.nodes.map((n) => {
-          const p = pos.get(n.id)!;
-          const deg = n.inLinks + n.outLinks;
-          const r = 4 + Math.min(11, n.inLinks * 2);
-          const isolated = deg === 0;
-          const isH = hover === n.id;
-          const conn = hover == null || neighbors.has(n.id);
-          const fill = isolated ? '#c9c9c9' : isH ? '#4322c9' : '#5b3ce0';
-          const labelRight = Math.cos(p.a) >= 0;
-          const circle = (
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={r}
-              fill={fill}
-              stroke="#fff"
-              strokeWidth={isH ? 2 : 1}
-              opacity={conn ? 1 : 0.25}
-              style={{
-                transform: isH ? 'scale(1.7)' : 'scale(1)',
-                transformBox: 'fill-box',
-                transformOrigin: 'center',
-                transition: 'transform 0.18s ease, opacity 0.18s ease, fill 0.18s ease',
-              }}
-            />
-          );
-          const label = showLabel ? (
-            <text
-              x={p.x + (labelRight ? r + 4 : -(r + 4))}
-              y={p.y + 3}
-              fontSize={9}
-              fill={isH ? '#1a1a1a' : '#444'}
-              fontWeight={isH ? 600 : 400}
-              textAnchor={labelRight ? 'start' : 'end'}
-              opacity={conn ? 1 : 0.3}
-              style={{ transition: 'opacity 0.18s ease' }}
-            >
-              {n.title.length > 22 ? n.title.slice(0, 22) + '…' : n.title}
-            </text>
-          ) : null;
-          const inner = n.url ? (
-            <a href={n.url} target="_blank" rel="noreferrer">
-              {circle}
-              {label}
-            </a>
-          ) : (
-            <>
-              {circle}
-              {label}
-            </>
-          );
-          return (
-            <g
-              key={n.id}
-              onMouseEnter={() => setHover(n.id)}
-              onFocus={() => setHover(n.id)}
-              style={{ cursor: n.url ? 'pointer' : 'default' }}
-            >
-              {inner}
-            </g>
-          );
-        })}
-
-        {/* Tooltip tùy biến: tiêu đề + số internal link (fade mượt) */}
-        {hovered && hp ? (
-          <g style={{ animation: 'optTipIn 0.18s ease', pointerEvents: 'none' }}>
-            <rect
-              x={tipX}
-              y={tipY}
-              width={tipW}
-              height={tipH}
-              rx={8}
-              fill="#1f1f24"
-              opacity={0.96}
-            />
-            <text x={tipX + 11} y={tipY + 19} fontSize={11.5} fontWeight={600} fill="#fff">
-              {title}
-            </text>
-            <text x={tipX + 11} y={tipY + 35} fontSize={10.5} fill="#c9c9d4">
-              {meta}
-            </text>
-          </g>
-        ) : null}
-      </svg>
-    </div>
-  );
-}
 
 function CheckRow({ check }: { check: ScoreCheck }) {
   const icon = check.state === 'pass' ? CheckIcon : check.state === 'warn' ? AlertIcon : XIcon;

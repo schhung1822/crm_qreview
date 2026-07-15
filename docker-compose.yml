@@ -1,6 +1,6 @@
 # Chạy SEO-GEO self-host: docker compose up -d
-# App hiện lưu file (.data) — volume giữ dữ liệu qua các lần restart.
-# Postgres + Redis đã khai báo SẴN cho giai đoạn migrate DB / queue (chưa bắt buộc).
+# Mặc định STORAGE_DRIVER=file (.data trên volume). Khi cutover Postgres: đặt STORAGE_DRIVER=prisma
+# trong .env (xem docs/POSTGRES-MIGRATION.md) — KHÔNG cần sửa file này.
 services:
   app:
     build: .
@@ -13,15 +13,29 @@ services:
       DISABLE_SELF_REGISTRATION: ${DISABLE_SELF_REGISTRATION:-false}
       # Bí mật để worker/cron gọi /api/jobs/run (lịch đăng). Sinh: openssl rand -hex 16
       CRON_SECRET: ${CRON_SECRET:?Đặt CRON_SECRET trong .env}
-      # Sẵn cho giai đoạn DB/queue (app hiện chưa bắt buộc dùng):
-      DATABASE_URL: postgresql://seogeo:seogeo@db:5432/seogeo
+      # Backend lưu trữ: 'file' (mặc định) | 'prisma' (Postgres, sau khi đã migrate dữ liệu).
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-file}
+      # Mật khẩu Postgres KHÔNG hardcode — lấy từ .env (mặc định 'seogeo' chỉ để chạy dev nhanh).
+      DATABASE_URL: postgresql://seogeo:${POSTGRES_PASSWORD:-seogeo}@db:5432/seogeo
       REDIS_URL: redis://redis:6379
     volumes:
       - app-data:/app/.data
       - app-media:/app/public/generated
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/healthz').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
   # Worker LỊCH ĐĂNG: định kỳ gọi /api/jobs/run của app để đăng bài đến hạn.
@@ -33,21 +47,34 @@ services:
       CRON_SECRET: ${CRON_SECRET:?Đặt CRON_SECRET trong .env}
       WORKER_INTERVAL_MS: ${WORKER_INTERVAL_MS:-60000}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
 
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: seogeo
-      POSTGRES_PASSWORD: seogeo
+      # Mật khẩu lấy từ .env; ở production BẮT BUỘC đặt POSTGRES_PASSWORD mạnh (xem prod overlay).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seogeo}
       POSTGRES_DB: seogeo
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seogeo -d seogeo']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:

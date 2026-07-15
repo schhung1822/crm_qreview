@@ -1,14 +1,26 @@
 # Lớp CHỒNG cho production: thêm Caddy (HTTPS tự động) + KHÔNG lộ cổng app ra Internet.
 # Dùng KÈM docker-compose.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# BẮT BUỘC trong .env ở production:
+#   POSTGRES_PASSWORD=<mật khẩu mạnh>   (openssl rand -base64 24)  — KHÔNG để mặc định 'seogeo'.
+# CUTOVER sang Postgres (sau khi đã chạy migrate — xem docs/POSTGRES-MIGRATION.md):
+#   thêm STORAGE_DRIVER=prisma vào .env rồi deploy lại. Bỏ dòng đó = quay lại file mode ngay.
 services:
   app:
     environment:
       # URL công khai — dùng cho link email, ảnh /generated, và chốt CSRF (Origin hợp lệ).
       APP_URL: https://geo.done.vn
+      # Ở production BẮT BUỘC mật khẩu Postgres mạnh (fail nếu thiếu) — không cho rơi về 'seogeo'.
+      DATABASE_URL: postgresql://seogeo:${POSTGRES_PASSWORD:?Đặt POSTGRES_PASSWORD mạnh trong .env}@db:5432/seogeo
     # Chỉ mở cổng 3000 ở localhost của VPS; truy cập từ ngoài BẮT BUỘC qua Caddy (443).
     ports:
       - '127.0.0.1:3000:3000'
+
+  # Ở production cũng bắt buộc mật khẩu mạnh cho chính container Postgres.
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Đặt POSTGRES_PASSWORD mạnh trong .env}
 
   caddy:
     image: caddy:2-alpine

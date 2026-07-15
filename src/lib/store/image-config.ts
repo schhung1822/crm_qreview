@@ -1,6 +1,6 @@
 // Cấu hình ảnh AI toàn cục (1 bản) - lưu file .data/image-config.json. Server-only.
 // Người dùng cấu hình 1 lần ở trang "Cài đặt ảnh AI"; editor dùng lại để khỏi nhập lại.
-import path from 'node:path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 export type ImageSize = '1024x1024' | '1536x1024' | '1024x1536';
@@ -23,15 +23,15 @@ export const DEFAULT_IMAGE_CONFIG: ImageConfig = {
   imageModel: '',
 };
 
-const FILE = path.join(process.cwd(), '.data', 'image-config.json');
+const NAME = 'image-config.json'; // CÔ LẬP THEO BIZ
 
 export async function getImageConfig(): Promise<ImageConfig> {
-  const saved = await readJson<Partial<ImageConfig>>(FILE, {});
+  const saved = await readJson<Partial<ImageConfig>>(bizFile(NAME), {});
   return { ...DEFAULT_IMAGE_CONFIG, ...saved };
 }
 
 export async function saveImageConfig(patch: Partial<ImageConfig>): Promise<ImageConfig> {
-  return mutateJson<Partial<ImageConfig>, ImageConfig>(FILE, {}, (current) => {
+  return mutateJson<Partial<ImageConfig>, ImageConfig>(bizFile(NAME), {}, (current) => {
     const next = { ...DEFAULT_IMAGE_CONFIG, ...current, ...patch };
     return [next, next];
   });

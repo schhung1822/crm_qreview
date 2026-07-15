@@ -4,9 +4,12 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { decryptWith, encryptWith } from '../crypto';
-import { bizFile } from '../data/biz-path';
+import { activeBizId, bizFile } from '../data/biz-path';
 import { env } from '../env';
 import { resolveEncryptionKey } from './key';
+import { getBiz } from '../store/biz';
+import { findById } from '../auth/users';
+import { isSuperadminEmail } from '../auth/superadmin';
 
 export const AI_PROVIDERS = [
   'anthropic',
@@ -117,6 +120,23 @@ async function write(data: SecretsData): Promise<void> {
   await fs.writeFile(file, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
 
+// BYO-key SaaS: key AI trong biến môi trường (ENV) là key CỦA CHỦ NỀN TẢNG. Chỉ được dùng làm
+// fallback cho biz NỘI BỘ (owner là superadmin) - tenant PHẢI tự nhập key của họ, KHÔNG xài "chùa"
+// key nền tảng (nếu không nền tảng sẽ trả tiền token cho tenant). Ngoài ngữ cảnh biz (script/CLI
+// global không gắn biz) → cho phép (không phải tenant). Nghi ngờ/không đọc được → KHÔNG dùng ENV.
+async function platformEnvKeysAllowed(): Promise<boolean> {
+  const bizId = activeBizId();
+  if (!bizId) return true; // không có biz đang hoạt động → không phải tenant (worker/script)
+  try {
+    const biz = await getBiz(bizId);
+    if (!biz) return false;
+    const owner = await findById(biz.ownerId);
+    return !!owner && isSuperadminEmail(owner.email);
+  } catch {
+    return false; // an toàn: không xác định được chủ biz → không dùng key nền tảng
+  }
+}
+
 // Key từ env (fallback) khi store chưa có.
 function envKey(provider: AiProviderId): string | undefined {
   switch (provider) {
@@ -161,13 +181,15 @@ export async function getProvidersStatus(): Promise<{
   routing: Record<AiTask, AiProviderId>;
 }> {
   const data = await read();
+  // Tính MỘT LẦN cho cả danh sách: biz hiện tại có được dùng key ENV nền tảng không (chỉ biz superadmin).
+  const allowEnv = await platformEnvKeysAllowed();
   const providers = AI_PROVIDERS.map((id) => {
     const meta = PROVIDER_META[id];
     const entry = data.providers[id];
     const storeKey = entry?.encrypted
       ? safeDecrypt(entry.encrypted)
       : undefined;
-    const fallback = envKey(id);
+    const fallback = allowEnv ? envKey(id) : undefined;
     const effective = storeKey ?? fallback;
     return {
       id,
@@ -237,6 +259,8 @@ export async function getRevealableKey(provider: AiProviderId): Promise<string |
 }
 
 // Lấy key thật để gọi API (server-only). Tôn trọng enabled.
+// Ưu tiên key CỦA BIZ (đã nhập). Chỉ fallback key ENV nền tảng cho biz superadmin (xem
+// platformEnvKeysAllowed) → tenant không dùng "chùa" key nền tảng.
 export async function getActiveKey(provider: AiProviderId): Promise<string | undefined> {
   const data = await read();
   const entry = data.providers[provider];
@@ -245,7 +269,7 @@ export async function getActiveKey(provider: AiProviderId): Promise<string | und
     const k = safeDecrypt(entry.encrypted);
     if (k) return k;
   }
-  return envKey(provider);
+  return (await platformEnvKeysAllowed()) ? envKey(provider) : undefined;
 }
 
 export async function getRouting(): Promise<Record<AiTask, AiProviderId>> {

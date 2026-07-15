@@ -4,6 +4,7 @@ import { guard } from '@/lib/auth/current';
 import { describeImageScene } from '@/lib/ai/content';
 import { buildCoverPrompt, generateImageB64, imageProviderAvailable } from '@/lib/ai/images';
 import { saveGeneratedImage } from '@/lib/ai/image-store';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { getImageConfig } from '@/lib/store/image-config';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,8 @@ const BodySchema = z.object({
   summary: z.string().max(2000).optional(),
   // Trích đoạn nội dung bài (plain text) để ảnh bám đúng chủ đề.
   content: z.string().max(20000).optional(),
+  // Mô tả người dùng muốn ảnh trông thế nào (tùy chọn) → ưu tiên cao trong prompt.
+  brief: z.string().max(1000).optional(),
   // Override tỉ lệ (tùy chọn) - style nền lấy từ Cài đặt ảnh AI. Ảnh luôn không chữ.
   size: z.enum(['1024x1024', '1536x1024', '1024x1536']).optional(),
   // Override AI tạo ảnh ngay tại editor (tùy chọn).
@@ -24,6 +27,10 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
+
+  // Sinh ảnh bìa AI → giới hạn chống lạm dụng chi phí.
+  const rl = rateLimit(`img:${clientIp(req)}`, 12, 60_000);
+  if (!rl.ok) return NextResponse.json({ error: `Thử lại sau ${rl.retryAfter}s.` }, { status: 429 });
 
   if (!(await imageProviderAvailable())) {
     return NextResponse.json({ ok: false, needsImageKey: true });
@@ -47,11 +54,12 @@ export async function POST(req: Request) {
     content: parsed.data.content,
   });
 
-  const prompt = buildCoverPrompt({
+  const prompt = await buildCoverPrompt({
     title: parsed.data.title,
     summary: parsed.data.summary,
     content: parsed.data.content,
     sceneBrief: sceneBrief ?? undefined,
+    userBrief: parsed.data.brief,
     config,
   });
 

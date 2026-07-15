@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -26,6 +27,7 @@
     "mammoth": "^1.12.0",
     "next": "^14.2.18",
     "next-intl": "^3.26.0",
+    "nodemailer": "^6.10.1",
     "pdf-parse": "^2.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.6",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "eslint": "^8.57.1",

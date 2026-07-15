@@ -62,14 +62,6 @@ export function formatLocal(usd: number, locale: string, rate: number): string {
   return fmt(usd * rate, info.intlLocale, info.code);
 }
 
-// Chuỗi chi phí hiển thị: "$X" (nếu locale dùng USD) hoặc "$X ≈ <địa phương>".
-export function formatCost(usd: number, locale: string, rates?: Record<string, number>): string {
-  const info = infoFor(locale);
-  const base = formatUsd(usd);
-  if (info.code === 'USD') return base;
-  return `${base} ≈ ${formatLocal(usd, locale, rateFor(locale, rates))}`;
-}
-
 // Dòng tỷ giá: "1 $ ≈ 25.960 ₫" (rỗng nếu locale dùng USD).
 export function rateLine(locale: string, rates?: Record<string, number>): string {
   const info = infoFor(locale);

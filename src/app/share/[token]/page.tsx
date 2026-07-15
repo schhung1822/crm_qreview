@@ -1,0 +1,122 @@
+// Trang CÔNG KHAI hiển thị Báo cáo Social qua link chia sẻ — như một bài blog CHỈ-XEM.
+// Nằm NGOÀI [locale] nên không bị redirect login, không bọc AppFrame. Resolve token → biz/report,
+// rồi áp GATING theo GÓI của CHỦ báo cáo (chia sẻ KHÔNG lách paywall). noindex để không lộ token.
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { entitlementsForBiz } from '@/lib/billing/entitlement';
+import { runWithBiz } from '@/lib/biz/context';
+import { locales } from '@/i18n/config';
+import { redactFanpageAnalysis, socialGate } from '@/lib/social/gating';
+import {
+  buildSocialReportBody,
+  type SocialReportLabels,
+  type SocialReportTheme,
+} from '@/lib/social/report-html';
+import type { SocialReportRecord } from '@/lib/social/types';
+import { getBranding } from '@/lib/store/branding';
+import { getSocialReport } from '@/lib/store/social-reports';
+import { resolveShare } from '@/lib/store/social-shares';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+// Link chứa token bí mật → tuyệt đối KHÔNG cho search engine index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
+const TOKEN_RE = /^[a-f0-9]{64}$/;
+
+// Chuỗi tự chứa (trang ngoài [locale], không có next-intl provider). Theo report.locale.
+const UI: Record<string, { viewOnly: string; lock: string }> = {
+  vi: { viewOnly: 'Chỉ xem', lock: 'Một số nội dung phân tích sâu được ẩn.' },
+  en: { viewOnly: 'View only', lock: 'Some in-depth analysis is hidden.' },
+  zh: { viewOnly: '仅查看', lock: '部分深入分析内容已隐藏。' },
+  ja: { viewOnly: '閲覧のみ', lock: '一部の詳細分析は非表示です。' },
+  ko: { viewOnly: '보기 전용', lock: '일부 심층 분석 내용은 숨겨졌습니다.' },
+  fr: { viewOnly: 'Lecture seule', lock: 'Certaines analyses approfondies sont masquées.' },
+  de: { viewOnly: 'Nur ansehen', lock: 'Einige tiefergehende Analysen sind ausgeblendet.' },
+  id: { viewOnly: 'Hanya lihat', lock: 'Sebagian analisis mendalam disembunyikan.' },
+  hi: { viewOnly: 'केवल देखें', lock: 'कुछ गहन विश्लेषण छिपाया गया है।' },
+  th: { viewOnly: 'ดูอย่างเดียว', lock: 'เนื้อหาการวิเคราะห์เชิงลึกบางส่วนถูกซ่อนไว้' },
+};
+
+async function loadReport(
+  token: string,
+): Promise<{ report: SocialReportRecord; viewLocked: boolean } | null> {
+  if (!TOKEN_RE.test(token)) return null;
+  const s = await resolveShare(token);
+  if (!s) return null;
+  // Đọc báo cáo trong ngữ cảnh biz của CHỦ (không có cookie sg_biz ở trang công khai).
+  const report = await runWithBiz({ userId: s.ownerId, bizId: s.bizId }, () => getSocialReport(s.reportId));
+  if (!report) return null;
+  // Chỉ hiển thị khi đã có nội dung; không lộ trạng thái running/error ra công khai.
+  if (report.status !== 'done' && report.status !== 'collected') return null;
+  // GATING theo gói của CHỦ: FREE + fanpage → cắt phần phân tích sâu TRƯỚC khi render.
+  const { planId } = await entitlementsForBiz(s.bizId);
+  const gate = socialGate(planId, report);
+  const out = gate.viewLocked ? redactFanpageAnalysis(report) : report;
+  return { report: out, viewLocked: gate.viewLocked };
+}
+
+// Nhãn i18n cho report-html: lấy từ namespace socialReport.view của đúng ngôn ngữ báo cáo.
+async function loadLabels(locale: string): Promise<SocialReportLabels> {
+  const safe = (locales as readonly string[]).includes(locale) ? locale : 'vi';
+  try {
+    const m = (await import(`@/messages/${safe}.json`)) as { default?: unknown };
+    const root = (m.default ?? m) as { socialReport?: { view?: Record<string, string> } };
+    return (root.socialReport?.view ?? {}) as SocialReportLabels;
+  } catch {
+    return {} as SocialReportLabels;
+  }
+}
+
+const SHARE_CSS = `
+.sh{font-family:var(--font-inter),system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f4f6f9;min-height:100vh;padding:24px 16px 64px;color:#1a1f2b;-webkit-font-smoothing:antialiased;}
+.sh-wrap{max-width:880px;margin:0 auto;background:#fff;border:1px solid #e3e7ee;border-radius:14px;padding:28px 32px 40px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;}
+.sh-logo{height:26px;width:auto;}
+.sh-badge{font-size:12px;font-weight:600;color:#0061ff;background:#e7effe;padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.sh-title{font-size:26px;line-height:1.25;margin:0 0 10px;font-weight:700;letter-spacing:-.01em;text-wrap:balance;}
+.sh-lock{font-size:13px;color:#8a6d00;background:#fff7e0;border:1px solid #f0e0a8;padding:8px 12px;border-radius:8px;margin:0 0 16px;}
+.sh-body{margin-top:8px;}
+.sh-body img{max-width:100%;height:auto;}
+.sh-foot{margin-top:32px;padding-top:16px;border-top:1px solid #eef1f5;font-size:13px;}
+.sh-foot a{color:#5b6675;text-decoration:none;}
+.sh-foot a:hover{text-decoration:underline;}
+@media (max-width:640px){.sh-wrap{padding:20px 16px 32px;}.sh-title{font-size:22px;}}
+`;
+
+export default async function SharePage({ params }: { params: { token: string } }) {
+  const data = await loadReport(params.token);
+  if (!data) notFound();
+  const { report, viewLocked } = data;
+
+  const labels = await loadLabels(report.locale);
+  const b = await getBranding();
+  const theme: SocialReportTheme = {
+    accent: b.colorSocialAccent || undefined,
+    strength: b.colorSocialStrength || undefined,
+    weakness: b.colorSocialWeakness || undefined,
+  };
+  // collapsible=true → mỗi mục là khối THU GỌN (bấm để mở). Tránh báo cáo trải dài khó đọc;
+  // người xem tự chọn mục muốn xem. Dùng <details> HTML gốc → hoạt động không cần JS.
+  const body = buildSocialReportBody(report, labels, { collapsible: true, theme });
+  const ui = UI[(locales as readonly string[]).includes(report.locale) ? report.locale : 'vi'] ?? UI.vi;
+
+  return (
+    <main className="sh">
+      <style dangerouslySetInnerHTML={{ __html: SHARE_CSS }} />
+      <div className="sh-wrap">
+        <header className="sh-head">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="sh-logo" src={b.logoDuongBan} alt={b.sourceText} />
+          <span className="sh-badge">{ui.viewOnly}</span>
+        </header>
+        <h1 className="sh-title">{report.title}</h1>
+        {viewLocked ? <p className="sh-lock">{ui.lock}</p> : null}
+        <article className="sh-body" dangerouslySetInnerHTML={{ __html: body }} />
+        <footer className="sh-foot">
+          <a href={b.sourceUrl} target="_blank" rel="noopener noreferrer">{b.sourceText}</a>
+        </footer>
+      </div>
+    </main>
+  );
+}

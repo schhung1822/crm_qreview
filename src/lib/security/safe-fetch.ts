@@ -11,6 +11,12 @@ const MAX_REDIRECTS = 4;
 const DEFAULT_TIMEOUT_MS = 25_000;
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024; // 20MB
 
+// User-Agent giống trình duyệt: nhiều WAF/CDN (Cloudflare) và plugin bảo mật WordPress (Wordfence...)
+// CHẶN/THÁCH THỨC request từ server nếu UA là "node" mặc định → treo tới timeout. Đặt UA trình duyệt
+// để request từ máy chủ được đối xử như truy cập bình thường (trình duyệt người dùng vẫn vào được).
+const DEFAULT_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
 // Header nhạy cảm (credential) - phải xóa khi redirect không an toàn.
 const CRED_HEADERS = ['authorization', 'cookie', 'x-shopify-access-token', 'wix-account-id'];
 
@@ -61,18 +67,35 @@ export async function safeFetch(
   assertPublicHost(url);
   await assertResolvesPublic(url.hostname);
 
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    redirect: 'manual',
-    signal: signal ?? AbortSignal.timeout(timeoutMs),
-  });
+  // Chuẩn hóa headers + thêm User-Agent trình duyệt nếu caller chưa đặt (tránh bị WAF chặn).
+  const hdrs = new Headers(headers as HeadersInit | undefined);
+  if (!hdrs.has('user-agent')) hdrs.set('user-agent', DEFAULT_UA);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...rest,
+      headers: hdrs,
+      redirect: 'manual',
+      signal: signal ?? AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    // Timeout (AbortSignal.timeout) → thông báo rõ thay vì lỗi kỹ thuật khó hiểu.
+    if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new Error(
+        'Website phản hồi quá chậm hoặc chặn kết nối từ máy chủ (timeout). Thường do tường lửa/CDN ' +
+          '(Cloudflare) hoặc plugin bảo mật chặn truy cập tự động - hãy cho phép IP máy chủ hoặc tắt ' +
+          'chế độ chặn bot cho REST API.',
+      );
+    }
+    throw e;
+  }
 
   // Tự xử lý redirect để re-validate + bảo vệ credential.
   if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
     if (_redirect >= MAX_REDIRECTS) throw new Error('Quá nhiều lần chuyển hướng');
     const loc = new URL(res.headers.get('location')!, url);
-    const nextHeaders = new Headers(headers as HeadersInit | undefined);
+    const nextHeaders = new Headers(hdrs);
     if (!keepCredentials(url, loc)) {
       for (const h of CRED_HEADERS) nextHeaders.delete(h);
     }

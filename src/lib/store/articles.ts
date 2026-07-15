@@ -1,6 +1,6 @@
 // Kho bài viết / bản nháp - lưu file .data/articles.json. Server-only.
 import { randomBytes } from 'node:crypto';
-import path from 'node:path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 
 export interface ArticleRecord {
@@ -20,14 +20,21 @@ export interface ArticleRecord {
   seoScore: number;
   aeoScore: number;
   geoScore: number;
-  status: 'draft' | 'published';
+  // 'review' = đang chờ người có quyền đăng phê duyệt (quy trình duyệt trước khi đăng).
+  status: 'draft' | 'review' | 'published';
+  // ─── Quy trình phê duyệt ───
+  approved?: boolean; // đã được duyệt (đủ điều kiện đăng khi biz bật "bắt buộc duyệt")
+  reviewNote?: string; // ghi chú của người duyệt (lý do trả lại)
+  submittedBy?: string; // userId người gửi duyệt
+  reviewedBy?: string; // userId người duyệt/trả lại
+  assignedTo?: string; // userId người được giao phụ trách bài (cho "Việc của tôi")
   connectionId?: string;
   cmsPostId?: string;
   publishedUrl?: string;
   updatedAt: string;
 }
 
-const FILE = path.join(process.cwd(), '.data', 'articles.json');
+const NAME = 'articles.json'; // CÔ LẬP THEO BIZ
 
 // Các field được phép cập nhật qua upsert (whitelist) - KHÔNG dùng Object.assign mù để
 // tránh mass-assignment (ghi đè field lạ / không mong muốn).
@@ -47,13 +54,18 @@ const UPDATABLE: Array<keyof ArticleRecord> = [
   'aeoScore',
   'geoScore',
   'status',
+  'approved',
+  'reviewNote',
+  'submittedBy',
+  'reviewedBy',
+  'assignedTo',
   'connectionId',
   'cmsPostId',
   'publishedUrl',
 ];
 
 async function readAll(): Promise<ArticleRecord[]> {
-  return readJson<ArticleRecord[]>(FILE, []);
+  return readJson<ArticleRecord[]>(bizFile(NAME), []);
 }
 
 export async function listArticles(): Promise<ArticleRecord[]> {
@@ -68,7 +80,7 @@ export async function upsertArticle(
   input: Partial<ArticleRecord> & { title: string; locale: string },
 ): Promise<ArticleRecord> {
   const now = new Date().toISOString();
-  return mutateJson<ArticleRecord[], ArticleRecord>(FILE, [], (rows) => {
+  return mutateJson<ArticleRecord[], ArticleRecord>(bizFile(NAME), [], (rows) => {
     if (input.id) {
       const existing = rows.find((a) => a.id === input.id);
       if (existing) {
@@ -107,8 +119,33 @@ export async function upsertArticle(
   });
 }
 
+// Cập nhật CÓ CHỌN LỌC vài trường của 1 bài đã tồn tại (không tạo mới) - dùng cho quy trình
+// phê duyệt (đổi status/approved/note...). Trả về bài sau cập nhật hoặc null nếu không thấy.
+export async function updateArticleFields(
+  id: string,
+  patch: Partial<
+    Pick<
+      ArticleRecord,
+      'status' | 'approved' | 'reviewNote' | 'submittedBy' | 'reviewedBy' | 'assignedTo'
+    >
+  >,
+): Promise<ArticleRecord | null> {
+  return mutateJson<ArticleRecord[], ArticleRecord | null>(bizFile(NAME), [], (rows) => {
+    const a = rows.find((r) => r.id === id);
+    if (!a) return [rows, null];
+    if (patch.status !== undefined) a.status = patch.status;
+    if (patch.approved !== undefined) a.approved = patch.approved;
+    if (patch.reviewNote !== undefined) a.reviewNote = patch.reviewNote;
+    if (patch.submittedBy !== undefined) a.submittedBy = patch.submittedBy;
+    if (patch.reviewedBy !== undefined) a.reviewedBy = patch.reviewedBy;
+    if (patch.assignedTo !== undefined) a.assignedTo = patch.assignedTo || undefined;
+    a.updatedAt = new Date().toISOString();
+    return [rows, a];
+  });
+}
+
 export async function deleteArticle(id: string): Promise<void> {
-  await mutateJson<ArticleRecord[], void>(FILE, [], (rows) => [
+  await mutateJson<ArticleRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((a) => a.id !== id),
     undefined,
   ]);

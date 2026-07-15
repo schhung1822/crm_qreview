@@ -5,6 +5,7 @@ import { entitlementsForBiz, ownerQuotaStatus, providerAllowedForPlan } from '..
 import { activeBizId } from '../data/biz-path';
 import type { ImageConfig, ImageSize as CfgImageSize } from '../store/image-config';
 import { recordUsage } from './usage';
+import { renderUser } from './prompt-store';
 
 export type ImageSize = CfgImageSize;
 
@@ -247,14 +248,14 @@ function styleGuidance(config: ImageConfig): string {
 
 // Dựng prompt ảnh bìa - chủ đề lấy từ bài viết; system design chỉ định màu/mood.
 // Mặc định KHÔNG chữ (chữ AI render thường méo/sai); chỉ vẽ minh họa sạch.
-export function buildCoverPrompt(input: {
+export async function buildCoverPrompt(input: {
   title: string;
   summary?: string;
   content?: string;
   sceneBrief?: string; // mô tả cảnh do AI rút từ nội dung bài → ảnh bám sát nội dung
   userBrief?: string; // mô tả người dùng muốn ảnh trông thế nào → ưu tiên CAO NHẤT
   config: ImageConfig;
-}): string {
+}): Promise<string> {
   const topic = [input.summary, input.content].filter(Boolean).join(' - ').slice(0, 500);
   // Ưu tiên sceneBrief (AI đã đọc bài) làm CHỦ THỂ chính; nếu không có thì dựa topic.
   const subject = input.sceneBrief?.trim()
@@ -264,33 +265,24 @@ export function buildCoverPrompt(input: {
   const userWish = input.userBrief?.trim()
     ? `USER REQUEST (HIGHEST priority — the image MUST follow this): ${input.userBrief.trim()}.`
     : '';
-  return [
-    'A clean, professional blog hero/banner ILLUSTRATION.',
-    userWish,
-    subject,
-    'Use concrete, relevant imagery/objects/setting - NOT a poster, NOT a style guide.',
-    styleGuidance(input.config),
-    NO_TEXT_RULES,
-    'High quality, sharp, visually balanced, suitable as an article hero banner. No watermark, no logos.',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  return renderUser('image_cover', {
+    yeu_cau_nguoi_dung: userWish,
+    chu_the: subject,
+    chi_dan_style: styleGuidance(input.config),
+    quy_tac_khong_chu: NO_TEXT_RULES,
+  });
 }
 
 // Dựng prompt ảnh minh họa trong bài - cùng nguyên tắc (không chữ, style tham chiếu).
 // userBrief = mô tả người dùng muốn ảnh trông thế nào (áp cho MỌI ảnh minh họa của lần tạo này).
-export function buildIllustrationPrompt(alt: string, config: ImageConfig, userBrief?: string): string {
+export async function buildIllustrationPrompt(alt: string, config: ImageConfig, userBrief?: string): Promise<string> {
   const userWish = userBrief?.trim()
     ? `USER REQUEST for the style/look (HIGHEST priority): ${userBrief.trim()}.`
     : '';
-  return [
-    `A clean, professional in-article ILLUSTRATION depicting: ${alt}.`,
-    userWish,
-    'Use symbolic/relevant imagery - NOT a poster, NOT a style guide.',
-    styleGuidance(config),
-    NO_TEXT_RULES,
-    'High quality, relevant to the subject. No watermark, no logos.',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  return renderUser('image_illustration', {
+    mo_ta: alt,
+    yeu_cau_nguoi_dung: userWish,
+    chi_dan_style: styleGuidance(config),
+    quy_tac_khong_chu: NO_TEXT_RULES,
+  });
 }

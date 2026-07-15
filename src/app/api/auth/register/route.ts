@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { setSessionCookie } from '@/lib/auth/cookie';
+import { consumeVerifyToken, createVerifyToken } from '@/lib/auth/email-verification';
 import { createSession } from '@/lib/auth/session';
 import { isSuperadminEmail } from '@/lib/auth/superadmin';
-import { createUser, userCount } from '@/lib/auth/users';
+import { createUser, markEmailVerified, userCount } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
@@ -55,10 +56,51 @@ export async function POST(req: Request) {
   try {
     // Vai trò owner-đầu-tiên được quyết định LẠI trong lock của createUser (firstIsOwner) để đóng
     // race; isFirst ở trên chỉ dùng cho thông báo/kiểm superadmin, không phải nguồn chân lý.
-    const user = await createUser({ ...parsed.data, role: 'viewer', firstIsOwner: true });
+    // Tự đăng ký → emailVerified=false (phải kích hoạt qua email); tài khoản ĐẦU TIÊN được
+    // createUser tự ép verified (bootstrap - lúc đó SMTP nền tảng chưa thể cấu hình).
+    let user = await createUser({
+      ...parsed.data,
+      role: 'viewer',
+      firstIsOwner: true,
+      emailVerified: false,
+    });
+    const loginUrl = await appLoginUrl(req);
+
+    // ── Bước xác thực email (chỉ khi user chưa verified) ──
+    if (user.emailVerified === false) {
+      const verifyToken = await createVerifyToken(user.id);
+      // Link mở trang đăng nhập ở chế độ "kích hoạt tài khoản" (login page tự nhận query ?verify=).
+      const verifyUrl = `${loginUrl}?verify=${verifyToken}`;
+      const sent = await sendEventEmail('verifyEmail', user.email, {
+        name: user.name,
+        email: user.email,
+        verifyUrl,
+        loginUrl,
+      });
+      if (sent.sent) {
+        // Đã gửi link kích hoạt: KHÔNG tạo phiên - user phải bấm link trong email trước.
+        return NextResponse.json({ requiresVerification: true, email: user.email });
+      }
+      if (sent.skipped) {
+        // Email nền tảng TẮT/chưa cấu hình (self-host, dev...) → không thể xác thực qua email.
+        // Kích hoạt luôn để không khóa người dùng ngoài hệ thống. Tiêu hủy token vừa tạo
+        // (không dùng đến) để store không tồn dòng mồ côi.
+        void consumeVerifyToken(verifyToken);
+        user = (await markEmailVerified(user.id)) ?? user;
+      } else {
+        // SMTP LỖI tạm thời: vẫn yêu cầu xác thực (user bấm "gửi lại" ở trang đăng nhập) -
+        // không hạ chuẩn bảo mật chỉ vì một lần gửi lỗi.
+        return NextResponse.json({
+          requiresVerification: true,
+          email: user.email,
+          emailError: true,
+        });
+      }
+    }
+
+    // ── Đường verified (tài khoản đầu tiên, hoặc email nền tảng chưa bật) ──
     const { token, maxAge } = await createSession(user.id);
     // Email chào mừng (an toàn - không chặn nếu SMTP lỗi/tắt).
-    const loginUrl = await appLoginUrl(req);
     void sendEventEmail('registered', user.email, {
       name: user.name,
       email: user.email,

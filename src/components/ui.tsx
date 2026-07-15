@@ -128,14 +128,30 @@ export function StatTile({
         </Text>
       </div>
       {delta ? (
-        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
-          <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#29845a" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-            <path d="m5 13 5-5 5 5" />
-          </svg>
-          <Text as="span" variant="bodySm" tone="success">
-            {delta}
-          </Text>
-        </div>
+        (() => {
+          // Delta âm (bắt đầu bằng '-' hoặc '−') → mũi tên XUỐNG + tone critical, thay vì luôn xanh-lên.
+          const down = /^\s*[-−]/.test(delta);
+          return (
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke={down ? '#d12e2e' : '#29845a'}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={down ? { transform: 'rotate(180deg)' } : undefined}
+              >
+                <path d="m5 13 5-5 5 5" />
+              </svg>
+              <Text as="span" variant="bodySm" tone={down ? 'critical' : 'success'}>
+                {delta}
+              </Text>
+            </div>
+          );
+        })()
       ) : null}
     </Card>
   );

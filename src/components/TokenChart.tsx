@@ -104,7 +104,9 @@ export function TokenChart({
         <Legend color={TREND_COLOR} label={labels.trend} dashed />
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      {/* paddingTop: chừa chỗ cho nhãn trục Y trên cùng (nhô nửa dòng lên trên) khỏi bị
+          overflow-y (kéo theo overflow-x: auto) cắt mất phần trên của số. */}
+      <div style={{ overflowX: 'auto', paddingTop: 8 }}>
         {/* Bề rộng tối thiểu co giãn theo số ngày để cột không bị bóp khi khoảng dài */}
         <div style={{ minWidth: Math.max(440, n * 22 + Y_W) }}>
           {/* Hàng: nhãn trục Y + vùng vẽ */}

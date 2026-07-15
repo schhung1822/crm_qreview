@@ -23,10 +23,5 @@ export async function getRepos(): Promise<Repositories> {
   return cached;
 }
 
-// Dùng trong test để reset lựa chọn driver giữa các lần.
-export function __resetRepos(): void {
-  cached = null;
-}
-
 export { fileRepositories };
 export * from './types';

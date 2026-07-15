@@ -54,7 +54,7 @@ export function SetupChecklist() {
           </Text>
         </BlockStack>
         <Step done={hasAi} label={t('step1')} cta={t('step1Cta')} url={`/${locale}/settings`} />
-        <Step done={hasSite} label={t('step2')} cta={t('step2Cta')} url={`/${locale}/connections`} />
+        <Step done={hasSite} label={t('step2')} cta={t('step2Cta')} url={`/${locale}/settings`} />
         <Step done={false} label={t('step3')} cta={t('step3Cta')} url={`/${locale}/editor`} muted={!hasAi} />
       </BlockStack>
     </Card>
@@ -75,7 +75,7 @@ function Step({
   muted?: boolean;
 }) {
   return (
-    <InlineStack gap="300" blockAlign="center" wrap={false}>
+    <InlineStack gap="300" blockAlign="center" wrap>
       <div
         style={{
           width: 24,

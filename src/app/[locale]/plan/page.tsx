@@ -10,9 +10,8 @@ import {
   Checkbox,
   DataTable,
   InlineStack,
-  Link,
-  List,
   Page,
+  ProgressBar,
   Select,
   Spinner,
   Text,
@@ -21,6 +20,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AiWorking } from '@/components/ui';
+import { MagicIcon } from '@/components/icons';
+import { HelpLabel, InfoHint } from '@/components/InfoHint';
 
 const PRIORITY_TONE = { high: 'critical', medium: 'warning', low: undefined } as const;
 
@@ -34,19 +35,6 @@ interface PlanItem {
   cluster?: string;
 }
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 60)
-    .replace(/-+$/g, '');
-}
 interface Plan {
   id: string;
   seed: string;
@@ -57,6 +45,13 @@ interface Plan {
 interface Created {
   id: string;
   title: string;
+}
+interface GenCounts {
+  total: number;
+  queued: number;
+  running: number;
+  done: number;
+  error: number;
 }
 
 export default function PlanPage() {
@@ -74,30 +69,55 @@ export default function PlanPage() {
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [created, setCreated] = useState<Created[]>([]);
+  const [genBusy, setGenBusy] = useState(false); // vòng lặp tạo bài hàng loạt đang chạy
+  const [genCounts, setGenCounts] = useState<GenCounts | null>(null);
+  const [genMsg, setGenMsg] = useState<string | null>(null);
   // Map "locale|targetKeyword" → bài đã có (để hiện trạng thái viết/đăng).
-  const [articleByKey, setArticleByKey] = useState<Map<string, { id: string; status: string }>>(new Map());
+  const [articleByKey, setArticleByKey] = useState<
+    Map<string, { id: string; status: string; publishedUrl?: string }>
+  >(new Map());
 
   const planId = params.get('id');
 
   const loadArticles = useCallback(() => {
     fetch('/api/articles/draft')
       .then((r) => r.json())
-      .then((d: { articles?: Array<{ id: string; locale: string; status: string; targetKeyword?: string }> }) => {
-        const m = new Map<string, { id: string; status: string }>();
-        for (const a of d.articles ?? []) {
-          if (!a.targetKeyword) continue;
-          const key = `${a.locale}|${a.targetKeyword.trim().toLowerCase()}`;
-          if (!m.has(key)) m.set(key, { id: a.id, status: a.status }); // bài mới nhất (list sort desc)
-        }
-        setArticleByKey(m);
-      })
+      .then(
+        (d: {
+          articles?: Array<{
+            id: string;
+            locale: string;
+            status: string;
+            targetKeyword?: string;
+            publishedUrl?: string;
+          }>;
+        }) => {
+          const m = new Map<string, { id: string; status: string; publishedUrl?: string }>();
+          for (const a of d.articles ?? []) {
+            if (!a.targetKeyword) continue;
+            const key = `${a.locale}|${a.targetKeyword.trim().toLowerCase()}`;
+            // bài mới nhất (list sort desc)
+            if (!m.has(key)) m.set(key, { id: a.id, status: a.status, publishedUrl: a.publishedUrl });
+          }
+          setArticleByKey(m);
+        },
+      )
       .catch(() => {});
   }, []);
   useEffect(() => {
     loadArticles();
   }, [loadArticles, plan]);
+
+  // Hàng đợi tạo bài hàng loạt (bền - khôi phục sau reload).
+  const loadGenJobs = useCallback(() => {
+    fetch('/api/gen-jobs')
+      .then((r) => r.json())
+      .then((d: { counts?: GenCounts }) => setGenCounts(d.counts ?? null))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadGenJobs();
+  }, [loadGenJobs]);
 
   const loadPlan = useCallback(async () => {
     setLoadingPlan(true);
@@ -176,24 +196,33 @@ export default function PlanPage() {
       .catch(() => setAiReady(false));
   }, []);
 
-  // Internal link theo mô hình Pillar–Cluster (kèm utm_source thay khi đăng).
+  // Internal link theo mô hình Pillar–Cluster — CHỈ liên kết tới bài ĐÃ ĐĂNG và CÓ URL thật.
+  // Bài chưa viết / mới lưu nháp (chưa lên web) → KHÔNG chèn link (tránh internal link chết).
+  // Dùng chính publishedUrl (URL thật trên site) thay vì đoán slug; kèm utm_source thay khi đăng.
   function linksFor(item: PlanItem): Array<{ anchor: string; url: string }> {
     if (!plan) return [];
-    const loc = plan.locale || locale;
-    const fmt = (it: PlanItem) => ({
-      anchor: it.title,
-      url: `/${loc}/${it.slug || slugify(it.target)}?utm_source={{website}}`,
-    });
+    const withUtm = (u: string) => u + (u.includes('?') ? '&' : '?') + 'utm_source={{website}}';
+    // Trả link nếu bài đã ĐĂNG và có publishedUrl; ngược lại null (bỏ qua).
+    const linkTo = (it: PlanItem): { anchor: string; url: string } | null => {
+      const st = statusFor(it);
+      if (!st || st.status !== 'published' || !st.publishedUrl) return null;
+      return { anchor: it.title, url: withUtm(st.publishedUrl) };
+    };
+    const notNull = (x: { anchor: string; url: string } | null): x is { anchor: string; url: string } =>
+      x !== null;
     const pillar = plan.items.find((i) => i.isPillar);
     if (item.isPillar) {
-      // Bài trụ → liên kết XUỐNG các bài vệ tinh.
-      return plan.items.filter((i) => !i.isPillar).slice(0, 6).map(fmt);
+      // Bài trụ → liên kết XUỐNG các bài vệ tinh (đã đăng).
+      return plan.items.filter((i) => !i.isPillar).map(linkTo).filter(notNull).slice(0, 6);
     }
-    // Vệ tinh → link LÊN bài trụ + các vệ tinh CÙNG cụm.
+    // Vệ tinh → link LÊN bài trụ + các vệ tinh CÙNG cụm (đã đăng).
     const sibs = plan.items
       .filter((i) => !i.isPillar && i.cluster === item.cluster && i.target !== item.target)
+      .map(linkTo)
+      .filter(notNull)
       .slice(0, 3);
-    return [...(pillar ? [fmt(pillar)] : []), ...sibs.map(fmt)];
+    const pillarLink = pillar ? linkTo(pillar) : null;
+    return [...(pillarLink ? [pillarLink] : []), ...sibs];
   }
 
   async function autoWrite(item: PlanItem): Promise<Created | null> {
@@ -222,25 +251,80 @@ export default function PlanPage() {
     }
   }
 
-  async function writeAll() {
-    if (aiReady === false || !plan) return;
-    setBusy('all');
-    setCreated([]);
-    setProgress({ done: 0, total: plan.items.length });
-    const results: Created[] = [];
-    for (let i = 0; i < plan.items.length; i++) {
-      const c = await autoWrite(plan.items[i]);
-      if (c) results.push(c);
-      setProgress({ done: i + 1, total: plan.items.length });
-      setCreated([...results]);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // Lặp gọi worker (1 bài/lần) tới khi hết hàng đợi. Chạy được KHÔNG cần cron ngoài.
+  async function drainLoop() {
+    for (;;) {
+      const res = await fetch('/api/gen-jobs/run', { method: 'POST' });
+      if (res.status === 429) {
+        await sleep(3000);
+        continue;
+      }
+      const d = (await res.json().catch(() => null)) as { processed?: boolean; counts?: GenCounts } | null;
+      if (!d) break;
+      if (d.counts) setGenCounts(d.counts);
+      if (!d.processed) break; // hết việc
     }
-    setBusy(null);
-    setProgress(null);
-    loadArticles(); // cập nhật trạng thái sau khi viết hàng loạt
+  }
+
+  async function runQueue(before?: () => Promise<boolean>) {
+    if (genBusy) return;
+    setGenBusy(true);
+    setGenMsg(null);
+    try {
+      if (before && !(await before())) return;
+      await drainLoop();
+    } catch {
+      setGenMsg(t('plan.queueError'));
+    } finally {
+      setGenBusy(false);
+      loadArticles();
+      loadGenJobs();
+    }
+  }
+
+  // "Tạo hàng loạt": xếp hàng đợi cho cả kế hoạch (bỏ qua bài đã có) rồi rút hàng đợi.
+  async function generateAll() {
+    if (aiReady === false || !plan) return;
+    await runQueue(async () => {
+      const res = await fetch('/api/plans/generate-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d?.ok) {
+        setGenMsg(d?.error || t('plan.queueError'));
+        return false;
+      }
+      loadGenJobs();
+      return true;
+    });
+  }
+
+  const resumeQueue = () => runQueue();
+  const retryFailed = () =>
+    runQueue(async () => {
+      await fetch('/api/gen-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retry' }),
+      });
+      loadGenJobs();
+      return true;
+    });
+  async function clearQueue() {
+    await fetch('/api/gen-jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear' }),
+    });
+    loadGenJobs();
   }
 
   // Trạng thái bài cho 1 item plan (theo target keyword + locale).
-  function statusFor(item: PlanItem): { id: string; status: string } | null {
+  function statusFor(item: PlanItem): { id: string; status: string; publishedUrl?: string } | null {
     const loc = plan?.locale || locale;
     return articleByKey.get(`${loc}|${item.target.trim().toLowerCase()}`) ?? null;
   }
@@ -351,8 +435,9 @@ export default function PlanPage() {
           key={`${it.target}-b`}
           size="slim"
           variant="primary"
+          icon={MagicIcon}
           loading={busy === `i${i}`}
-          disabled={busy !== null || aiReady === false}
+          disabled={busy !== null || genBusy || aiReady === false}
           onClick={() => writeOne(it, `i${i}`)}
         >
           {t('plan.aiWrite')}
@@ -366,31 +451,47 @@ export default function PlanPage() {
       title={t('plan.title')}
       subtitle={`${plan.title} · ${plan.items.length} bài`}
       backAction={{ content: t('plan.backToList'), url: `/${locale}/plan` }}
-      primaryAction={{
-        content: progress ? t('plan.batchProgress', progress) : t('plan.generateAll'),
-        loading: busy === 'all',
-        disabled: busy !== null || aiReady === false,
-        onAction: writeAll,
-      }}
       secondaryActions={[
         { content: t('plan.exportCsv'), onAction: () => exportCsv(plan.items) },
         { content: t('plan.deletePlan'), destructive: true, onAction: removePlan },
       ]}
     >
       <BlockStack gap="400">
-        {busy ? (
-          <AiWorking
-            text={busy === 'all' && progress ? t('plan.batchProgress', progress) : t('plan.writingAI')}
-            progress={
-              busy === 'all' && progress
-                ? (progress.done / Math.max(1, progress.total)) * 100
-                : undefined
-            }
-          />
+        {busy ? <AiWorking text={t('plan.writingAI')} /> : null}
+        {genMsg ? (
+          <Banner tone="critical" onDismiss={() => setGenMsg(null)}>
+            {genMsg}
+          </Banner>
         ) : null}
+
+        {/* CTA nổi bật: tạo hàng loạt cả kế hoạch (bỏ qua bài đã có) - luôn thấy, không giấu ở header. */}
+        <Card>
+          <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+            <BlockStack gap="100">
+              <InlineStack gap="100" blockAlign="center">
+                <Text as="h2" variant="headingSm">
+                  {t('plan.bulkTitle')}
+                </Text>
+                <InfoHint content={t('plan.bulkHelp')} label={t('plan.bulkTitle')} />
+              </InlineStack>
+              <Text as="p" tone="subdued" variant="bodySm">
+                {t('plan.bulkDesc')}
+              </Text>
+            </BlockStack>
+            <Button
+              variant="primary"
+              icon={MagicIcon}
+              loading={genBusy}
+              disabled={genBusy || busy !== null || aiReady === false}
+              onClick={generateAll}
+            >
+              {genBusy ? t('plan.queueRunning') : t('plan.generateAll')}
+            </Button>
+          </InlineStack>
+        </Card>
         {allPlans.length > 1 ? (
           <Select
-            label={t('plan.switchPlan')}
+            label={<HelpLabel label={t('plan.switchPlan')} help={t('plan.switchPlanHelp')} />}
             labelInline
             options={allPlans.map((p) => ({ label: p.title || p.seed, value: p.id }))}
             value={plan.id}
@@ -407,66 +508,157 @@ export default function PlanPage() {
           </Banner>
         ) : null}
 
-        {created.length ? (
-          <Banner tone="success" title={t('plan.batchDone', { n: created.length })}>
-            <List type="bullet">
-              {created.map((c) => (
-                <List.Item key={c.id}>
-                  <Link url={`/${locale}/editor?draft=${c.id}`}>{c.title}</Link>
-                </List.Item>
-              ))}
-            </List>
-          </Banner>
+        {genCounts && genCounts.total > 0 ? (
+          <Card>
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center" wrap>
+                <Text as="h2" variant="headingSm">
+                  {t('plan.queueTitle')}
+                </Text>
+                <Text as="span" tone="subdued" variant="bodySm">
+                  {t('plan.queueProgress', { done: genCounts.done, total: genCounts.total })}
+                  {genCounts.error ? ` · ${t('plan.queueErrors', { n: genCounts.error })}` : ''}
+                </Text>
+              </InlineStack>
+              <ProgressBar
+                progress={((genCounts.done + genCounts.error) / Math.max(1, genCounts.total)) * 100}
+                size="small"
+              />
+              <InlineStack gap="200" wrap blockAlign="center">
+                {genBusy ? (
+                  <Text as="span" tone="subdued" variant="bodySm">
+                    {t('plan.queueRunning')}
+                  </Text>
+                ) : null}
+                {!genBusy && genCounts.queued + genCounts.running > 0 ? (
+                  <Button size="slim" variant="primary" onClick={resumeQueue}>
+                    {t('plan.queueResume', { n: genCounts.queued + genCounts.running })}
+                  </Button>
+                ) : null}
+                {!genBusy && genCounts.error > 0 ? (
+                  <Button size="slim" onClick={retryFailed}>
+                    {t('plan.queueRetry', { n: genCounts.error })}
+                  </Button>
+                ) : null}
+                {!genBusy && genCounts.queued + genCounts.running === 0 ? (
+                  <Button size="slim" variant="plain" onClick={clearQueue}>
+                    {t('plan.queueClear')}
+                  </Button>
+                ) : null}
+              </InlineStack>
+            </BlockStack>
+          </Card>
         ) : null}
 
         <Banner tone="info">{t('plan.linkInfo')}</Banner>
 
         {pillar ? (
           <div style={{ background: '#eaf4ff', borderRadius: 12, padding: 16 }}>
-            <InlineStack gap="400" blockAlign="center" wrap={false}>
-              <Badge tone="info">{t('plan.pillar')}</Badge>
-              <div style={{ flex: 1 }}>
-                <Text as="p" variant="headingSm">
-                  {pillar.title}
-                </Text>
-                <Text as="p" tone="subdued" variant="bodySm">
-                  target: {pillar.target}
-                </Text>
-              </div>
-              <StatusCell st={statusFor(pillar)} t={t} />
-              {statusFor(pillar) ? (
-                <Button size="slim" url={`/${locale}/editor?draft=${statusFor(pillar)!.id}`}>
-                  {t('plan.openDraft')}
-                </Button>
-              ) : (
-                <Button
-                  size="slim"
-                  variant="primary"
-                  loading={busy === 'pillar'}
-                  disabled={busy !== null || aiReady === false}
-                  onClick={() => writeOne(pillar, 'pillar')}
-                >
-                  {t('plan.aiWrite')}
-                </Button>
-              )}
-            </InlineStack>
+            {/* Tiêu đề FULL-WIDTH (không bị bóp giữa badge & nút → bớt xuống dòng),
+                badge + trạng thái + nút nằm hàng dưới. */}
+            <BlockStack gap="200">
+              <Text as="p" variant="headingSm">
+                {pillar.title}
+              </Text>
+              <Text as="p" tone="subdued" variant="bodySm">
+                target: {pillar.target}
+              </Text>
+              <InlineStack gap="200" align="space-between" blockAlign="center" wrap>
+                <Badge tone="info">{t('plan.pillar')}</Badge>
+                <InlineStack gap="200" blockAlign="center">
+                  <StatusCell st={statusFor(pillar)} t={t} />
+                  {statusFor(pillar) ? (
+                    <Button size="slim" url={`/${locale}/editor?draft=${statusFor(pillar)!.id}`}>
+                      {t('plan.openDraft')}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="slim"
+                      variant="primary"
+                      icon={MagicIcon}
+                      loading={busy === 'pillar'}
+                      disabled={busy !== null || genBusy || aiReady === false}
+                      onClick={() => writeOne(pillar, 'pillar')}
+                    >
+                      {t('plan.aiWrite')}
+                    </Button>
+                  )}
+                </InlineStack>
+              </InlineStack>
+            </BlockStack>
           </div>
         ) : null}
 
-        <Card padding="0">
-          <DataTable
-            columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
-            headings={[
-              t('plan.colSatellite'),
-              t('plan.colTarget'),
-              t('plan.colCluster'),
-              t('common.priority'),
-              t('plan.colStatus'),
-              '',
-            ]}
-            rows={rows}
-          />
-        </Card>
+        {/* DESKTOP: bảng. Ẩn trên mobile. */}
+        <div className="hide-mobile satellite-table">
+          <Card padding="0">
+            <DataTable
+              columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
+              headings={[
+                t('plan.colSatellite'),
+                t('plan.colTarget'),
+                t('plan.colCluster'),
+                t('common.priority'),
+                t('plan.colStatus'),
+                '',
+              ]}
+              rows={rows}
+            />
+          </Card>
+        </div>
+
+        {/* MOBILE: mỗi bài vệ tinh là 1 thẻ — tiêu đề full-width, dễ đọc, không bẹt. */}
+        <div className="hide-desktop">
+          <BlockStack gap="200">
+            {satellites.map((it, i) => {
+              const st = statusFor(it);
+              return (
+                <Box
+                  key={`${it.target}-m${i}`}
+                  padding="300"
+                  borderWidth="025"
+                  borderColor="border"
+                  borderRadius="200"
+                  background="bg-surface-secondary"
+                >
+                  <BlockStack gap="200">
+                    <Text as="p" fontWeight="semibold">
+                      {it.title}
+                    </Text>
+                    <Text as="p" tone="subdued" variant="bodySm">
+                      target: {it.target}
+                    </Text>
+                    <InlineStack gap="200" blockAlign="center" wrap>
+                      <Badge tone={PRIORITY_TONE[it.priority]}>{t(`common.${it.priority}`)}</Badge>
+                      <Text as="span" tone="subdued" variant="bodySm">
+                        {it.cluster ?? it.type}
+                      </Text>
+                      <StatusCell st={st} t={t} />
+                    </InlineStack>
+                    <InlineStack align="end">
+                      {st ? (
+                        <Button size="slim" url={`/${locale}/editor?draft=${st.id}`}>
+                          {t('plan.openDraft')}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="slim"
+                          variant="primary"
+                          icon={MagicIcon}
+                          loading={busy === `i${i}`}
+                          disabled={busy !== null || genBusy || aiReady === false}
+                          onClick={() => writeOne(it, `i${i}`)}
+                        >
+                          {t('plan.aiWrite')}
+                        </Button>
+                      )}
+                    </InlineStack>
+                  </BlockStack>
+                </Box>
+              );
+            })}
+          </BlockStack>
+        </div>
       </BlockStack>
     </Page>
   );

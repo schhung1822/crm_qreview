@@ -7,6 +7,7 @@ import { scoreAeo } from '@/lib/aeo/score';
 import { scoreGeo } from '@/lib/geo/score';
 import { scoreSeo } from '@/lib/seo/score';
 import { buildScoreInput } from '@/lib/scoring/types';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { listArticles } from '@/lib/store/articles';
 import { adapterFromConnection, setConnectionStatus } from '@/lib/store/connections';
 
@@ -22,6 +23,10 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
+
+  // Gọi AI trích từ khóa + tải bài từ CMS → giới hạn nhẹ chống lạm dụng.
+  const rl = rateLimit(`analyze:${clientIp(req)}`, 20, 60_000);
+  if (!rl.ok) return NextResponse.json({ error: `Thử lại sau ${rl.retryAfter}s.` }, { status: 429 });
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
@@ -60,6 +65,17 @@ export async function POST(req: Request) {
 
   // Ưu tiên meta description thật (adapter đã lấy từ field SEO plugin); rỗng → excerpt.
   const metaDescription = post.metaDescription || post.excerpt || '';
+
+  // URL TUYỆT ĐỐI để mở bài trực tiếp: WordPress trả permalink đầy đủ, Wix trả path tương đối
+  // (vd "/post/abc") → ghép với baseUrl để link không trỏ nhầm về domain app.
+  let absoluteUrl: string | undefined;
+  if (post.url) {
+    try {
+      absoluteUrl = new URL(post.url, loaded.record.baseUrl).toString();
+    } catch {
+      absoluteUrl = /^https?:\/\//i.test(post.url) ? post.url : undefined;
+    }
+  }
   const scoreInput = buildScoreInput({
     title: post.title,
     metaDescription,
@@ -76,7 +92,7 @@ export async function POST(req: Request) {
       slug: post.slug,
       metaDescription,
       markdown,
-      url: post.url,
+      url: absoluteUrl,
       locale: loaded.record.locale,
       targetKeyword,
       // Giữ taxonomy hiện có để khi sửa & đăng lại không mất tag / chuyên mục.

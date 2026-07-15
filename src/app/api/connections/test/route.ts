@@ -8,7 +8,7 @@ import { testConnectionInput } from '@/lib/store/connections';
 export const dynamic = 'force-dynamic';
 
 const BodySchema = z.object({
-  provider: z.enum(['wordpress', 'wix', 'shopify']),
+  provider: z.enum(['wordpress', 'wix', 'shopify', 'haravan', 'sapo']),
   baseUrl: z.string().min(1),
   locale: z.enum(locales),
   seoPlugin: z.string().optional(),

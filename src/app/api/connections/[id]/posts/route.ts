@@ -29,6 +29,8 @@ export async function GET(
       all: mode === 'all',
       after: after ? new Date(after).toISOString() : undefined,
       before: before ? new Date(`${before}T23:59:59`).toISOString() : undefined,
+      // Danh sách quét chỉ cần id/tiêu đề/slug/ngày → lấy field NHẸ, tránh timeout do content nặng.
+      summary: true,
     });
     await setConnectionStatus(params.id, 'active');
     return NextResponse.json({ posts });

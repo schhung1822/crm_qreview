@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { PlusIcon } from '@/components/icons';
 import { SetupChecklist } from '@/components/SetupChecklist';
+import { TUTORIAL_SEEN_KEY, WelcomeTutorial } from '@/components/WelcomeTutorial';
 import { TokenChart, type SeriesDay } from '@/components/TokenChart';
 import { LocaleTag, MetricRow, StatTile, StatusBadge } from '@/components/ui';
 import { localeNames } from '@/i18n/config';
@@ -108,6 +109,15 @@ export default function DashboardPage() {
   );
   const [chartTo, setChartTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [chartSeries, setChartSeries] = useState<SeriesDay[]>([]);
+  // Tutorial chào mừng: tự mở lần đầu (tài khoản mới, chưa xem), và mở lại qua nút "Xem lại".
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setTutorialOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const loadArticles = useCallback(() => {
     fetch('/api/articles/draft')
@@ -232,8 +242,12 @@ export default function DashboardPage() {
         icon: PlusIcon,
         url: `/${locale}/editor`,
       }}
-      secondaryActions={[{ content: t('dashboard.importOld'), url: `/${locale}/optimize` }]}
+      secondaryActions={[
+        { content: t('dashboard.importOld'), url: `/${locale}/optimize` },
+        { content: t('tutorial.replay'), onAction: () => setTutorialOpen(true) },
+      ]}
     >
+      <WelcomeTutorial open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
       <BlockStack gap="400">
         <SetupChecklist />
         <MetricRow

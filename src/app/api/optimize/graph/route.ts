@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { suggestRelatedLinks } from '@/lib/ai/content';
+import { titleTokens } from '@/lib/content/tokens';
 import type { AiProviderId } from '@/lib/secrets/store';
 import type { Locale } from '@/i18n/config';
 import { adapterFromConnection } from '@/lib/store/connections';
@@ -19,22 +21,6 @@ const BodySchema = z.object({
   provider: z.string().optional(),
   model: z.string().optional(),
 });
-
-// Từ dừng để chấm độ liên quan giữa các bài (VI + EN).
-const STOP = new Set([
-  'và','của','các','cho','khi','một','những','được','là','với','trong','về','có','để','theo','như','này','đó','thì','từ','bài','cách','hướng','dẫn','top','tốt','nhất','2024','2025','2026',
-  'the','a','an','and','or','of','for','to','in','on','with','how','what','why','best','guide','vs','your','you',
-]);
-
-function tokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9đ\s]/gi, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOP.has(w));
-}
 
 function hrefs(html: string): string[] {
   return [...(html || '').matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]);
@@ -61,6 +47,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
   }
   const { connectionId, mode, after, before, search, aiSuggest, provider, model } = parsed.data;
+
+  // Chỉ chặn tần suất khi bật gợi ý AI (đọc nội dung nhiều bài → tốn token). Dựng sơ đồ thường thì không.
+  if (aiSuggest) {
+    const rl = rateLimit(`ai:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: `Quá nhiều yêu cầu AI. Thử lại sau ${rl.retryAfter}s.` },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      );
+    }
+  }
 
   const loaded = await adapterFromConnection(connectionId);
   if (!loaded) return NextResponse.json({ error: 'Không tìm thấy kết nối' }, { status: 404 });
@@ -125,7 +122,7 @@ export async function POST(req: Request) {
 
   // Fallback theo từ khóa tiêu đề (cũng dùng khi AI lỗi để vẫn có gợi ý tạm).
   const keywordSuggest = () => {
-    const tok = new Map(list.map((p) => [p.id, new Set(tokens(p.title))]));
+    const tok = new Map(list.map((p) => [p.id, new Set(titleTokens(p.title))]));
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
       const ta = tok.get(a.id)!;

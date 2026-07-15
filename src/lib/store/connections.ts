@@ -1,8 +1,8 @@
-// Kho kết nối CMS - credential mã hóa AES-GCM, lưu file .data/connections.json.
-// Chạy không cần DB. Server-only. KHÔNG bao giờ trả credential ra client.
+// Kho kết nối CMS - credential mã hóa AES-GCM, lưu file .data/biz/<bizId>/connections.json.
+// CÔ LẬP THEO BIZ: mỗi biz chỉ thấy/dùng kết nối của biz đó. Server-only. KHÔNG trả credential ra client.
 import { randomBytes } from 'node:crypto';
-import path from 'node:path';
 import { decrypt, encrypt } from '../crypto';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 import { getCmsAdapter, type CmsAdapter, type CmsProvider } from '../cms';
 
@@ -34,10 +34,10 @@ export interface ConnectionRecord {
 // Bản an toàn để trả về client (không có credential).
 export type ConnectionPublic = Omit<ConnectionRecord, 'encrypted'>;
 
-const FILE = path.join(process.cwd(), '.data', 'connections.json');
+const NAME = 'connections.json';
 
 async function readAll(): Promise<ConnectionRecord[]> {
-  return readJson<ConnectionRecord[]>(FILE, []);
+  return readJson<ConnectionRecord[]>(bizFile(NAME), []);
 }
 
 function toPublic(r: ConnectionRecord): ConnectionPublic {
@@ -67,14 +67,14 @@ export async function createConnection(input: ConnectionInput): Promise<Connecti
     createdAt: new Date().toISOString(),
     encrypted: encrypt(JSON.stringify(input.credentials)),
   };
-  return mutateJson<ConnectionRecord[], ConnectionPublic>(FILE, [], (rows) => [
+  return mutateJson<ConnectionRecord[], ConnectionPublic>(bizFile(NAME), [], (rows) => [
     [...rows, record],
     toPublic(record),
   ]);
 }
 
 export async function deleteConnection(id: string): Promise<void> {
-  await mutateJson<ConnectionRecord[], void>(FILE, [], (rows) => [
+  await mutateJson<ConnectionRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((r) => r.id !== id),
     undefined,
   ]);
@@ -84,7 +84,7 @@ export async function setConnectionStatus(
   id: string,
   status: 'active' | 'error',
 ): Promise<void> {
-  await mutateJson<ConnectionRecord[], void>(FILE, [], (rows) => {
+  await mutateJson<ConnectionRecord[], void>(bizFile(NAME), [], (rows) => {
     const row = rows.find((r) => r.id === id);
     if (row) row.status = status;
     return [rows, undefined];

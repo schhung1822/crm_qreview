@@ -30,6 +30,17 @@ const TABLE: Array<{ provider?: string; match: RegExp; price: ModelPrice }> = [
   // DeepSeek
   { provider: 'deepseek', match: /reasoner|r1|pro/i, price: { in: 0.55, out: 2.19 } },
   { provider: 'deepseek', match: /chat|v\d/i, price: { in: 0.27, out: 1.1 } },
+  // Moonshot (Kimi)
+  { provider: 'moonshot', match: /k2|kimi/i, price: { in: 0.6, out: 2.5 } },
+  { provider: 'moonshot', match: /128k/i, price: { in: 8.4, out: 8.4 } },
+  { provider: 'moonshot', match: /32k/i, price: { in: 1.68, out: 1.68 } },
+  { provider: 'moonshot', match: /8k|moonshot/i, price: { in: 0.17, out: 0.17 } },
+  // Qwen (Alibaba)
+  { provider: 'qwen', match: /max/i, price: { in: 1.6, out: 6.4 } },
+  { provider: 'qwen', match: /turbo/i, price: { in: 0.05, out: 0.2 } },
+  { provider: 'qwen', match: /plus|qwen/i, price: { in: 0.4, out: 1.2 } },
+  // MiniMax
+  { provider: 'minimax', match: /text-01|abab|minimax/i, price: { in: 0.2, out: 1.1 } },
 ];
 
 // Giá MẶC ĐỊNH theo provider (khi model không khớp pattern cụ thể nào, vd model mới ra).
@@ -39,6 +50,9 @@ const FALLBACK: Record<string, ModelPrice> = {
   openai: { in: 2.5, out: 10 },
   gemini: { in: 0.5, out: 3 },
   deepseek: { in: 0.27, out: 1.1 },
+  moonshot: { in: 0.6, out: 2.5 },
+  qwen: { in: 0.4, out: 1.2 },
+  minimax: { in: 0.2, out: 1.1 },
 };
 
 export function priceFor(provider: string, model: string): ModelPrice | null {
@@ -69,10 +83,6 @@ const IMAGE_PRICE: Array<{ match: RegExp; usd: number }> = [
   { match: /fast/i, usd: 0.02 },
   { match: /gpt-image|dall-e|imagen|image/i, usd: 0.04 },
 ];
-
-export function isImageModel(model: string): boolean {
-  return /image|imagen|dall-e/i.test(model);
-}
 
 // Giá 1 ảnh (USD) cho model ảnh; null nếu không phải model ảnh.
 export function perImagePriceUsd(model: string): number | null {
