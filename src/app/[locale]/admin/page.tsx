@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   InlineGrid,
   InlineStack,
   Page,
@@ -98,6 +99,9 @@ function AdminConsole() {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [detailTarget, setDetailTarget] = useState<DetailTarget | null>(null);
+  // Công tắc tự đăng ký (null = chưa tải xong).
+  const [regEnabled, setRegEnabled] = useState<boolean | null>(null);
+  const [regBusy, setRegBusy] = useState(false);
 
   const load = useCallback(async () => {
     const aRes = await fetch('/api/admin/accounts');
@@ -108,7 +112,23 @@ function AdminConsole() {
     }
     if (aRes.ok) setAccounts((await aRes.json()).accounts ?? []);
     else setAccounts([]);
+    const rRes = await fetch('/api/admin/registration');
+    if (rRes.ok) setRegEnabled(Boolean((await rRes.json()).selfRegistrationEnabled));
   }, []);
+
+  async function toggleRegistration(next: boolean) {
+    setRegBusy(true);
+    try {
+      const res = await fetch('/api/admin/registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (res.ok) setRegEnabled(Boolean((await res.json()).selfRegistrationEnabled));
+    } finally {
+      setRegBusy(false);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -195,6 +215,22 @@ function AdminConsole() {
 
             {tab === 1 ? (
               <BlockStack gap="300">
+                {/* Công tắc TỰ ĐĂNG KÝ tài khoản mới (chỉ superadmin). */}
+                <Card>
+                  <BlockStack gap="200">
+                    <Checkbox
+                      label="Cho phép người dùng tự đăng ký tài khoản mới"
+                      checked={regEnabled !== false}
+                      disabled={regEnabled === null || regBusy}
+                      onChange={(v) => void toggleRegistration(v)}
+                    />
+                    <Text as="span" tone="subdued" variant="bodySm">
+                      Tắt để hệ thống KHÔNG nhận đăng ký mới — form tạo tài khoản ở trang đăng nhập sẽ
+                      bị ẩn. Không ảnh hưởng tài khoản đã có; owner/admin vẫn tạo được nhân viên trong
+                      từng biz.
+                    </Text>
+                  </BlockStack>
+                </Card>
                 <TextField
                   label={t('search')}
                   labelHidden

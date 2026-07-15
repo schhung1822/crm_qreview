@@ -68,6 +68,8 @@ function LoginInner() {
 
   const [mode, setMode] = useState<'loading' | 'login' | 'register' | 'forgot' | 'reset'>('loading');
   const [needsSetup, setNeedsSetup] = useState(false);
+  // Tự đăng ký có đang bật không (superadmin điều khiển). Mặc định true tới khi /api/auth/me trả về.
+  const [regEnabled, setRegEnabled] = useState(true);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -132,12 +134,15 @@ function LoginInner() {
     }
     fetch('/api/auth/me')
       .then((r) => r.json())
-      .then((d: { user: unknown; needsSetup: boolean }) => {
+      .then((d: { user: unknown; needsSetup: boolean; selfRegistrationEnabled?: boolean }) => {
         if (d.user) {
           window.location.href = `/${loc}/dashboard`;
           return;
         }
         setNeedsSetup(d.needsSetup);
+        // Tài khoản đầu tiên (setup) LUÔN được tạo dù tự đăng ký tắt; ngoài ra theo cờ nền tảng.
+        const canReg = d.needsSetup || d.selfRegistrationEnabled !== false;
+        setRegEnabled(canReg);
         setMode(d.needsSetup ? 'register' : 'login');
       })
       .catch(() => setMode('login'));
@@ -389,14 +394,14 @@ function LoginInner() {
                     {t.toSignIn}
                   </Button>
                 </div>
-              ) : (
+              ) : regEnabled ? (
                 <div className="login-links">
                   <span>{mode === 'register' ? t.haveAccount : t.noAccount}</span>
                   <Button variant="plain" onClick={() => switchMode(mode === 'register' ? 'login' : 'register')}>
                     {mode === 'register' ? t.toSignIn : t.toCreate}
                   </Button>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>

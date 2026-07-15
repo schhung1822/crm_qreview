@@ -7,6 +7,7 @@ import { isSuperadminEmail } from '@/lib/auth/superadmin';
 import { createUser, markEmailVerified, userCount } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
+import { getSelfRegistrationEnabled } from '@/lib/store/platform-settings';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -16,9 +17,6 @@ const BodySchema = z.object({
   name: z.string().min(1).max(120),
   password: z.string().min(8).max(128),
 });
-
-// Cho phép tắt tự đăng ký bằng env (mặc định bật để giữ luồng đăng ký trên trang login).
-const SELF_REGISTRATION_OFF = process.env.DISABLE_SELF_REGISTRATION === 'true';
 
 // POST /api/auth/register → tạo tài khoản từ trang đăng nhập.
 // - Tài khoản ĐẦU TIÊN → Chủ sở hữu (owner), toàn quyền.
@@ -46,8 +44,8 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
-  // Nếu tắt tự đăng ký: chỉ cho tạo tài khoản ĐẦU TIÊN (owner) qua đây.
-  if (SELF_REGISTRATION_OFF && !isFirst) {
+  // Nếu tắt tự đăng ký (superadmin tắt trong UI, hoặc env): chỉ cho tạo tài khoản ĐẦU TIÊN (owner).
+  if (!isFirst && !(await getSelfRegistrationEnabled())) {
     return NextResponse.json(
       { error: 'Tự đăng ký đã tắt. Liên hệ quản trị viên để được tạo tài khoản.' },
       { status: 403 },
