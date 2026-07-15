@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import sharp from 'sharp';
+import { registerImage } from '../store/image-library';
 
 // Slug ngắn, không dấu, để đặt TÊN FILE ảnh theo chủ đề bài (tốt cho SEO ảnh).
 function slugifyName(input: string): string {
@@ -42,5 +43,7 @@ export async function saveGeneratedImage(b64: string, hint?: string): Promise<st
     out = input;
   }
   await fs.writeFile(path.join(dir, name), out);
+  // Ghi nhận vào Thư viện ảnh (best-effort — không chặn việc lưu ảnh nếu index lỗi).
+  await registerImage(name, 'ai', hint).catch(() => {});
   return `/generated/${name}`;
 }
