@@ -34,3 +34,16 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  # Quét bí mật (API key/token lỡ commit) trên toàn bộ lịch sử git bằng gitleaks.
+  # Thay cho GitHub Secret Scanning (chỉ miễn phí ở repo public). Job đỏ = có thể lộ secret.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # lấy full lịch sử để quét mọi commit
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
