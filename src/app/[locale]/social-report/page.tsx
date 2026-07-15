@@ -36,6 +36,7 @@ import type {
   SocialPlatform,
   SocialReportSummary,
 } from '@/lib/social/types';
+import { ANALYZE_ACTIONS } from '@/lib/social/types';
 
 const TICK_MS = 4000;
 
@@ -556,9 +557,18 @@ export default function SocialReportPage() {
                             </InlineStack>
                             <InlineStack gap="200" wrap>
                               {r.status === 'error' ? (
-                                <Button size="slim" onClick={() => runLoop(r.id, { retry: true })}>
-                                  {t('retry')}
-                                </Button>
+                                <>
+                                  <Button size="slim" onClick={() => runLoop(r.id, { retry: true })}>
+                                    {t('retry')}
+                                  </Button>
+                                  {/* Lỗi ở pha PHÂN TÍCH (đã thu xong dữ liệu) → cho chọn LẠI AI/model
+                                      để phân tích lại, thay vì khóa cứng AI cũ. */}
+                                  {r.action && ANALYZE_ACTIONS.includes(r.action) ? (
+                                    <Button size="slim" variant="primary" onClick={() => setAnalyzeId(r.id)}>
+                                      {t('analyze')}
+                                    </Button>
+                                  ) : null}
+                                </>
                               ) : null}
                               {r.status === 'collected' ? (
                                 <Button size="slim" variant="primary" onClick={() => setAnalyzeId(r.id)}>

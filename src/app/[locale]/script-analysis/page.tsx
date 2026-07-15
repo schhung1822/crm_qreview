@@ -231,6 +231,28 @@ export default function ScriptAnalysisPage() {
     }
   }
 
+  // Phân tích LẠI một bản đã lỗi/xong bằng AI/model đang chọn (tái dùng transcript đã lấy).
+  async function reanalyze(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/script-analysis/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: provider || undefined, model: model || undefined }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        setError(d?.error ?? t('errGeneric'));
+        return;
+      }
+      await loadList();
+      await loadDetail(id);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function open(id: string) {
     setOpenId(id);
     setDetail(null);
@@ -339,7 +361,30 @@ export default function ScriptAnalysisPage() {
                   <Text as="span" tone="subdued">{phaseText(detail.phase)} — {t('runningHint')}</Text>
                 </InlineStack>
               ) : null}
-              {detail.status === 'error' ? <Banner tone="critical">{detail.error || t('errGeneric')}</Banner> : null}
+              {detail.status === 'error' ? (
+                <BlockStack gap="200">
+                  <Banner tone="critical">{detail.error || t('errGeneric')}</Banner>
+                  {/* Cho chọn LẠI AI + model rồi phân tích lại (không khóa cứng AI cũ). */}
+                  <InlineGrid gap="300" columns={{ xs: 1, md: '1fr 1fr auto' }} alignItems="end">
+                    <Select
+                      label={t('aiProvider')}
+                      options={providerOptions}
+                      value={provider}
+                      onChange={(v) => void selectProvider(v)}
+                    />
+                    <Select
+                      label={t('aiModel')}
+                      options={modelOptions}
+                      value={model}
+                      onChange={setModel}
+                      disabled={!provider}
+                    />
+                    <Button variant="primary" loading={busy} onClick={() => void reanalyze(detail.id)}>
+                      {t('analyze')}
+                    </Button>
+                  </InlineGrid>
+                </BlockStack>
+              ) : null}
 
               {/* Chia sẻ công khai (chỉ-xem, thu gọn). Nội dung công khai vẫn theo gói của chủ. */}
               {detail.status === 'done' ? (

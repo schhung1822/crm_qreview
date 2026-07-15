@@ -193,17 +193,26 @@ export async function runScriptAnalysis(id: string): Promise<void> {
     const rec = await getScriptAnalysis(id);
     if (!rec) return;
 
-    // (1) Transcript
-    const tr = await fetchTranscript(rec.platform, rec.url);
-    if ('error' in tr) return void (await fail(tr.error));
-    if (!tr.text || tr.text.trim().length < 20) return void (await fail('Transcript quá ngắn hoặc rỗng.'));
-    await updateScriptAnalysis(id, {
-      transcript: tr.text,
-      transcriptSource: tr.source,
-      title: tr.title,
-      metrics: tr.metrics,
-      phase: 'analyzing',
-    });
+    // (1) Transcript — TÁI DÙNG nếu đã lấy được ở lần trước (phân tích lại với AI khác KHÔNG tốn
+    // Apify/transcript nữa). Chỉ gọi lấy transcript khi record chưa có.
+    let transcript = rec.transcript;
+    let title = rec.title;
+    if (!transcript || transcript.trim().length < 20) {
+      const tr = await fetchTranscript(rec.platform, rec.url);
+      if ('error' in tr) return void (await fail(tr.error));
+      if (!tr.text || tr.text.trim().length < 20) return void (await fail('Transcript quá ngắn hoặc rỗng.'));
+      transcript = tr.text;
+      title = tr.title;
+      await updateScriptAnalysis(id, {
+        transcript: tr.text,
+        transcriptSource: tr.source,
+        title: tr.title,
+        metrics: tr.metrics,
+        phase: 'analyzing',
+      });
+    } else {
+      await updateScriptAnalysis(id, { phase: 'analyzing' });
+    }
 
     // (2) AI phân tích
     const override: AiOverride | undefined = rec.ai?.provider
@@ -211,8 +220,8 @@ export async function runScriptAnalysis(id: string): Promise<void> {
       : undefined;
     const r = await analyzeScript({
       platform: rec.platform,
-      title: rec.title,
-      transcript: tr.text,
+      title,
+      transcript,
       locale: rec.locale,
       override,
     });
