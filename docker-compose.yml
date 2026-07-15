@@ -9,6 +9,12 @@ services:
     environment:
       # BẮT BUỘC ở production: 32 byte base64 (vd: openssl rand -base64 32)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Đặt ENCRYPTION_KEY trong .env}
+      # Email chủ nền tảng (superadmin) — phân tách bằng dấu phẩy. THIẾU biến này thì không ai vào
+      # được trang Quản trị nền tảng /admin (kể cả owner). Lấy từ .env.
+      SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
+      # Đa ngôn ngữ (tùy chọn — có mặc định trong code nếu bỏ trống).
+      SUPPORTED_LOCALES: ${SUPPORTED_LOCALES:-}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-}
       # Tùy chọn: khóa tự đăng ký sau khi có tài khoản đầu tiên
       DISABLE_SELF_REGISTRATION: ${DISABLE_SELF_REGISTRATION:-false}
       # Bí mật để worker/cron gọi /api/jobs/run (lịch đăng). Sinh: openssl rand -hex 16
