@@ -22,6 +22,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+# Next standalone bind theo biến HOSTNAME. Docker tự đặt HOSTNAME=<container-id> → app chỉ nghe ở
+# IP container, KHÔNG nghe 127.0.0.1 → healthcheck (gọi 127.0.0.1:3000) fail → container "unhealthy".
+# Ép nghe mọi interface (gồm loopback) để healthcheck + reverse proxy đều vào được.
+ENV HOSTNAME=0.0.0.0
 
 # Người dùng không phải root.
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
