@@ -470,3 +470,42 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # Cập nhật:
 git pull origin main && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
+
+---
+
+# PHẦN G — VPS đã có sẵn nginx (cắm vào proxy có sẵn, KHÔNG dùng Caddy)
+
+Dùng khi VPS đang chạy nhiều site và **nginx (hoặc proxy khác) đã giữ cổng 80/443**. Ta cho app
+chạy ở `127.0.0.1:3000` rồi để nginx sẵn có reverse-proxy domain vào; nginx lo TLS bằng certbot.
+
+**Kiểm tra cổng trước:** `sudo ss -tlnp | grep -E ':80 |:443 |:3000 '` — xác nhận ai giữ 80/443 và
+cổng 3000 còn trống (nếu 3000 bị chiếm, đổi `127.0.0.1:3000:3000` → `127.0.0.1:3001:3000` trong
+`docker-compose.vps.yml` và `proxy_pass http://127.0.0.1:3001` trong file nginx).
+
+Khác biệt chính so với Phần C: **dùng `docker-compose.vps.yml` thay cho `docker-compose.prod.yml`**
+(overlay này KHÔNG có Caddy, chỉ mở app ở localhost). Các bước tạo `.env`, tạo bảng Postgres, tạo
+owner… **y hệt** Phần C.
+
+```bash
+cd /opt/seo-geo
+# .env: giống C5 (STORAGE_DRIVER=prisma, ENCRYPTION_KEY, POSTGRES_PASSWORD, CRON_SECRET, SUPERADMIN_EMAILS)
+
+# 1) db + redis trước, tạo bảng:
+docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build db redis
+docker compose -f docker-compose.yml -f docker-compose.vps.yml exec -T db \
+  psql -U seogeo -d seogeo -v ON_ERROR_STOP=1 < prisma/migrations/0_init/migration.sql
+
+# 2) chạy toàn bộ (KHÔNG có caddy):
+docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+curl -I http://127.0.0.1:3000/api/healthz   # phải trả HTTP 200 (app chạy sau nginx)
+
+# 3) nginx reverse proxy + HTTPS:
+sudo cp docs/nginx-demo.noti.vn.conf /etc/nginx/sites-available/demo.noti.vn
+sudo ln -s /etc/nginx/sites-available/demo.noti.vn /etc/nginx/sites-enabled/demo.noti.vn
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d demo.noti.vn        # tự thêm TLS + redirect 80→443
+```
+
+Sau đó mở **https://demo.noti.vn** → đăng ký tài khoản owner (như C9), rồi khóa self-register (C10).
+Cập nhật/backup/vận hành: giống Phần D, chỉ thay `-f docker-compose.prod.yml` bằng
+`-f docker-compose.vps.yml`.

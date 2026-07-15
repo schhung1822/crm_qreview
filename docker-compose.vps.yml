@@ -1,0 +1,21 @@
+# ── Overlay cho VPS ĐÃ CÓ nginx (hoặc reverse proxy khác) giữ cổng 80/443 ──────────────────
+# KHÔNG chạy Caddy (tránh đụng nginx của máy). App chỉ mở ở 127.0.0.1:3000 để nginx sẵn có của
+# VPS reverse-proxy demo.noti.vn vào (nginx lo TLS bằng certbot/Let's Encrypt).
+#
+# Dùng KÈM docker-compose.yml (KHÔNG dùng docker-compose.prod.yml vì file đó thêm Caddy 80/443):
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+services:
+  app:
+    environment:
+      # URL công khai — dùng cho link email, ảnh /generated, và chốt CSRF (Origin hợp lệ).
+      APP_URL: https://demo.noti.vn
+      # Production BẮT BUỘC mật khẩu Postgres mạnh (fail nếu thiếu) — không rơi về 'seogeo'.
+      DATABASE_URL: postgresql://seogeo:${POSTGRES_PASSWORD:?Đặt POSTGRES_PASSWORD mạnh trong .env}@db:5432/seogeo
+    # !override THAY THẾ cổng của base (0.0.0.0:3000) → chỉ mở localhost, KHÔNG lộ app ra Internet.
+    # (nginx của host gọi vào 127.0.0.1:3000; người ngoài chỉ vào được qua https://demo.noti.vn.)
+    ports: !override
+      - '127.0.0.1:3000:3000'
+
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Đặt POSTGRES_PASSWORD mạnh trong .env}
