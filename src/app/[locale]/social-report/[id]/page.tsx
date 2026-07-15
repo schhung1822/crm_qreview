@@ -13,11 +13,11 @@ import {
   InlineStack,
   Modal,
   Page,
-  Select,
   Text,
   TextField,
   Toast,
 } from '@shopify/polaris';
+import { ImageAiPicker, type ImgProvider } from '@/components/ImageAiPicker';
 import { useLocale, useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -114,7 +114,7 @@ export default function SocialReportViewPage() {
   // Ảnh bìa AI cho link chia sẻ (Open Graph).
   const [coverPrompt, setCoverPrompt] = useState('');
   const [coverSD, setCoverSD] = useState(true); // dùng System design (Cài đặt ảnh AI)
-  const [coverProvider, setCoverProvider] = useState('');
+  const [coverProvider, setCoverProvider] = useState<ImgProvider>('');
   const [coverModel, setCoverModel] = useState('');
   const [coverBusy, setCoverBusy] = useState(false);
   // Giới hạn theo gói (từ server): viewLocked = ẩn phân tích sâu; exportLocked = chặn xuất file.
@@ -522,39 +522,15 @@ export default function SocialReportViewPage() {
                     checked={coverSD}
                     onChange={setCoverSD}
                   />
-                  <InlineStack gap="200" wrap blockAlign="end">
-                    <Select
-                      label="AI tạo ảnh"
-                      options={[
-                        { label: 'Tự động', value: '' },
-                        { label: 'OpenAI', value: 'openai' },
-                        { label: 'Gemini', value: 'gemini' },
-                      ]}
-                      value={coverProvider}
-                      onChange={(v) => {
-                        setCoverProvider(v);
-                        setCoverModel('');
-                      }}
-                    />
-                    {coverProvider ? (
-                      <Select
-                        label="Model"
-                        options={[
-                          { label: 'Mặc định', value: '' },
-                          ...(coverProvider === 'openai'
-                            ? ['gpt-image-1', 'dall-e-3']
-                            : [
-                                'imagen-4.0-generate-001',
-                                'imagen-4.0-fast-generate-001',
-                                'imagen-4.0-ultra-generate-001',
-                                'gemini-2.5-flash-image',
-                              ]
-                          ).map((m) => ({ label: m, value: m })),
-                        ]}
-                        value={coverModel}
-                        onChange={setCoverModel}
-                      />
-                    ) : null}
+                  <ImageAiPicker
+                    provider={coverProvider}
+                    model={coverModel}
+                    onChange={(p, m) => {
+                      setCoverProvider(p);
+                      setCoverModel(m);
+                    }}
+                  />
+                  <InlineStack>
                     <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
                       {report?.shareCover ? 'Tạo lại ảnh bìa AI' : 'Tạo ảnh bìa bằng AI'}
                     </Button>
