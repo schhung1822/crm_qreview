@@ -24,20 +24,30 @@ function slugifyName(input: string): string {
 
 // hint: chủ đề/tiêu đề/alt để đặt tên + URL liên quan bài. Thêm hậu tố ngẫu nhiên
 // ngắn tránh trùng. Không có hint → fallback "image".
-export async function saveGeneratedImage(b64: string, hint?: string): Promise<string> {
+export async function saveGeneratedImage(
+  b64: string,
+  hint?: string,
+  // format: 'webp' (mặc định, ảnh nội dung — nhẹ) | 'jpeg' (ẢNH BÌA CHIA SẺ: Facebook/Zalo không
+  // phải lúc nào cũng render WebP nên dùng JPEG cho chắc). maxWidth: giới hạn bề rộng (OG nên ~1200).
+  opts?: { format?: 'webp' | 'jpeg'; maxWidth?: number },
+): Promise<string> {
   const dir = path.join(process.cwd(), 'public', 'generated');
   await fs.mkdir(dir, { recursive: true });
   const slug = slugifyName(hint ?? '') || 'image';
-  const name = `${slug}-${randomBytes(3).toString('hex')}.webp`;
+  const format = opts?.format ?? 'webp';
+  const ext = format === 'jpeg' ? 'jpg' : 'webp';
+  const maxWidth = opts?.maxWidth ?? 1600;
+  const name = `${slug}-${randomBytes(3).toString('hex')}.${ext}`;
 
   const input = Buffer.from(b64, 'base64');
   let out: Buffer;
   try {
-    // Giảm tối đa chiều rộng 1600px + nén WebP q72 → dung lượng nhỏ, đủ nét cho web.
-    out = await sharp(input)
-      .resize({ width: 1600, withoutEnlargement: true })
-      .webp({ quality: 72 })
-      .toBuffer();
+    // Giảm bề rộng tối đa + nén: JPEG (mozjpeg, progressive) cho ảnh bìa; WebP q72 cho ảnh nội dung.
+    const pipeline = sharp(input).resize({ width: maxWidth, withoutEnlargement: true });
+    out =
+      format === 'jpeg'
+        ? await pipeline.jpeg({ quality: 82, mozjpeg: true, progressive: true }).toBuffer()
+        : await pipeline.webp({ quality: 72 }).toBuffer();
   } catch {
     // Nếu sharp lỗi (định dạng lạ) → giữ nguyên bytes gốc.
     out = input;

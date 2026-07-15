@@ -57,9 +57,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
 
   try {
-    // 1536x1024 (ngang) = tỉ lệ hợp ảnh bìa OG; saveGeneratedImage nén WebP (nhẹ, thân thiện web).
+    // 1536x1024 (ngang) = tỉ lệ hợp ảnh bìa OG.
     const { b64 } = await generateImageB64({ prompt, size: '1536x1024', provider, model });
-    const rel = await saveGeneratedImage(b64, `og-${report.title}`);
+    // ẢNH BÌA CHIA SẺ dùng JPEG (mozjpeg) + bề rộng 1200 (chuẩn OG) — Facebook/Zalo render ổn định
+    // hơn WebP. Ảnh nội dung khác vẫn giữ WebP.
+    const rel = await saveGeneratedImage(b64, `og-${report.title}`, { format: 'jpeg', maxWidth: 1200 });
     // OG cần URL TUYỆT ĐỐI. Ưu tiên APP_URL; nếu chưa đặt → suy từ Origin request.
     let base = env.appUrl || '';
     if (!base) {
