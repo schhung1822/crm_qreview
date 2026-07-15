@@ -25,6 +25,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // "native" cho dev (Windows/Mac). "linux-musl-openssl-3.0.x" cho image Docker Alpine + openssl 3
+  // (runtime cần đúng engine này; thiếu → lỗi "could not locate the Query Engine").
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
