@@ -86,15 +86,23 @@ export async function renameImage(file: string, name: string): Promise<boolean> 
 }
 
 export async function deleteImage(file: string): Promise<boolean> {
-  if (!SAFE_NAME.test(file)) return false;
-  try {
-    await fs.rm(path.join(DIR, file), { force: true });
-  } catch {
-    /* file có thể đã bị xóa */
+  return (await deleteImages([file])) > 0;
+}
+
+// Xóa nhiều ảnh cùng lúc: bỏ file dưới đĩa + gỡ khỏi index trong MỘT lần cập nhật. Trả số ảnh hợp lệ.
+export async function deleteImages(files: string[]): Promise<number> {
+  const valid = [...new Set(files)].filter((f) => SAFE_NAME.test(f));
+  if (!valid.length) return 0;
+  for (const f of valid) {
+    try {
+      await fs.rm(path.join(DIR, f), { force: true });
+    } catch {
+      /* file có thể đã bị xóa */
+    }
   }
   await mutateJson<MetaMap, void>(META, {}, (cur) => {
-    delete cur[file];
+    for (const f of valid) delete cur[f];
     return [cur, undefined];
   });
-  return true;
+  return valid.length;
 }

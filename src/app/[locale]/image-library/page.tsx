@@ -8,6 +8,7 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   EmptyState,
   InlineGrid,
   InlineStack,
@@ -50,6 +51,45 @@ export default function ImageLibraryPage() {
   const [pendingDelete, setPendingDelete] = useState<LibImage | null>(null);
   const [toast, setToast] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // Chọn nhiều để xóa hàng loạt.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const toggleSel = (file: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(file)) n.delete(file);
+      else n.add(file);
+      return n;
+    });
+  const selectAll = () => setSelected(new Set((images ?? []).map((i) => i.file)));
+  const clearSel = () => setSelected(new Set());
+
+  async function bulkDelete() {
+    const files = [...selected];
+    if (!files.length) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch('/api/image-library', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files }),
+      });
+      const d = (await res.json().catch(() => null)) as { deleted?: number } | null;
+      if (res.ok) {
+        const gone = new Set(files);
+        setImages((list) => (list ? list.filter((i) => !gone.has(i.file)) : list));
+        setToast(`Đã xóa ${d?.deleted ?? files.length} ảnh.`);
+        clearSel();
+      } else setToast('Không xóa được ảnh.');
+    } finally {
+      setBulkBusy(false);
+      setBulkOpen(false);
+      setConfirmText('');
+    }
+  }
 
   const load = useCallback(async () => {
     const r = await fetch('/api/image-library');
@@ -170,13 +210,40 @@ export default function ImageLibraryPage() {
         </Card>
       ) : (
         <BlockStack gap="300">
-          <Text as="p" tone="subdued" variant="bodySm">
-            {images.length} ảnh
-          </Text>
+          <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+            <Text as="p" tone="subdued" variant="bodySm">
+              {images.length} ảnh{selected.size > 0 ? ` · đã chọn ${selected.size}` : ''}
+            </Text>
+            <InlineStack gap="200">
+              <Button
+                variant="plain"
+                onClick={selected.size === images.length ? clearSel : selectAll}
+              >
+                {selected.size === images.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              </Button>
+              {selected.size > 0 ? (
+                <Button
+                  tone="critical"
+                  variant="primary"
+                  onClick={() => {
+                    setConfirmText('');
+                    setBulkOpen(true);
+                  }}
+                >
+                  {`Xóa ${selected.size} ảnh đã chọn`}
+                </Button>
+              ) : null}
+            </InlineStack>
+          </InlineStack>
           <InlineGrid columns={{ xs: 1, sm: 2, md: 3, lg: 4 }} gap="300">
             {images.map((img) => (
               <Card key={img.file}>
                 <BlockStack gap="200">
+                  <Checkbox
+                    label="Chọn ảnh này"
+                    checked={selected.has(img.file)}
+                    onChange={() => toggleSel(img.file)}
+                  />
                   <a href={img.url} target="_blank" rel="noopener noreferrer">
                     <Thumbnail source={img.url} alt={img.name} size="large" />
                   </a>
@@ -241,6 +308,53 @@ export default function ImageLibraryPage() {
             <Text as="p">
               Xóa vĩnh viễn ảnh này? Nếu ảnh đang được dùng trong bài viết/báo cáo, nơi đó sẽ mất ảnh.
             </Text>
+          </Modal.Section>
+        </Modal>
+      ) : null}
+
+      {bulkOpen ? (
+        <Modal
+          open
+          onClose={() => {
+            setBulkOpen(false);
+            setConfirmText('');
+          }}
+          title={`Xóa ${selected.size} ảnh đã chọn?`}
+          primaryAction={{
+            content: `Xóa ${selected.size} ảnh`,
+            destructive: true,
+            loading: bulkBusy,
+            // Xóa NHIỀU ảnh (>1) bắt buộc gõ đúng "DELETE" mới cho phép.
+            disabled: selected.size > 1 && confirmText.trim() !== 'DELETE',
+            onAction: () => void bulkDelete(),
+          }}
+          secondaryActions={[
+            {
+              content: 'Hủy',
+              onAction: () => {
+                setBulkOpen(false);
+                setConfirmText('');
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="300">
+              <Text as="p">
+                Xóa vĩnh viễn {selected.size} ảnh đã chọn? Ảnh đang được dùng trong bài viết/báo cáo
+                sẽ mất.
+              </Text>
+              {selected.size > 1 ? (
+                <TextField
+                  label="Nhập DELETE (chữ in hoa) để xác nhận xóa nhiều ảnh"
+                  value={confirmText}
+                  onChange={setConfirmText}
+                  autoComplete="off"
+                  placeholder="DELETE"
+                  error={confirmText.length > 0 && confirmText.trim() !== 'DELETE' ? 'Phải gõ đúng chữ DELETE' : undefined}
+                />
+              ) : null}
+            </BlockStack>
           </Modal.Section>
         </Modal>
       ) : null}
