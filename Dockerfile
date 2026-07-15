@@ -1,11 +1,12 @@
 # Multi-stage build cho Next.js 14 (output: standalone). Image runtime gọn, non-root.
 FROM node:20-alpine AS deps
 WORKDIR /app
-# node:20-alpine kèm npm 10.x, nhưng package-lock.json được tạo bằng npm 11 → npm 10 hiểu sai lock
-# và báo "Missing ... from lock file" (vd @emnapi của sharp). Ghim npm 11 cho khớp lock.
-RUN npm install -g npm@11
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Dùng `npm install` (KHÔNG `npm ci`) vì package-lock.json được tạo trên Windows nên THIẾU các gói
+# optional riêng cho Linux/Alpine-musl mà `sharp` cần (vd @emnapi/runtime, @img/sharp-linuxmusl).
+# `npm ci` nghiêm ngặt sẽ báo "Missing ... from lock file" khi build trên Alpine; `npm install` tự
+# giải & tải đúng gói cho nền tảng lúc build.
+RUN npm install --no-audit --no-fund
 
 FROM node:20-alpine AS builder
 WORKDIR /app
