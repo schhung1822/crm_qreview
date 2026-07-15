@@ -1,6 +1,9 @@
 # Multi-stage build cho Next.js 14 (output: standalone). Image runtime gọn, non-root.
 FROM node:20-alpine AS deps
 WORKDIR /app
+# node:20-alpine kèm npm 10.x, nhưng package-lock.json được tạo bằng npm 11 → npm 10 hiểu sai lock
+# và báo "Missing ... from lock file" (vd @emnapi của sharp). Ghim npm 11 cho khớp lock.
+RUN npm install -g npm@11
 COPY package.json package-lock.json* ./
 RUN npm ci
 
