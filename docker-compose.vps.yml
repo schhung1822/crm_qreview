@@ -7,6 +7,10 @@
 services:
   app:
     environment:
+      # Next standalone bind theo HOSTNAME. Docker tự đặt HOSTNAME=<container-id> (ghi đè cả ENV
+      # trong image) → app chỉ nghe IP container, KHÔNG nghe 127.0.0.1 → healthcheck fail → unhealthy.
+      # Đặt ở đây (tầng compose = -e) để CHẮC CHẮN thắng → app nghe mọi interface, healthcheck pass.
+      HOSTNAME: '0.0.0.0'
       # URL công khai — dùng cho link email, ảnh /generated, và chốt CSRF (Origin hợp lệ).
       APP_URL: https://demo.noti.vn
       # Production BẮT BUỘC mật khẩu Postgres mạnh (fail nếu thiếu) — không rơi về 'seogeo'.
