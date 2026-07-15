@@ -9,9 +9,11 @@ import {
   BlockStack,
   Button,
   Card,
+  Checkbox,
   InlineStack,
   Modal,
   Page,
+  Select,
   Text,
   TextField,
   Toast,
@@ -109,6 +111,12 @@ export default function SocialReportViewPage() {
   const [styleOpen, setStyleOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState(''); // link chia sẻ công khai (nếu đã bật)
   const [shareBusy, setShareBusy] = useState(false);
+  // Ảnh bìa AI cho link chia sẻ (Open Graph).
+  const [coverPrompt, setCoverPrompt] = useState('');
+  const [coverSD, setCoverSD] = useState(true); // dùng System design (Cài đặt ảnh AI)
+  const [coverProvider, setCoverProvider] = useState('');
+  const [coverModel, setCoverModel] = useState('');
+  const [coverBusy, setCoverBusy] = useState(false);
   // Giới hạn theo gói (từ server): viewLocked = ẩn phân tích sâu; exportLocked = chặn xuất file.
   const [gated, setGated] = useState<{ viewLocked: boolean; exportLocked: boolean }>({
     viewLocked: false,
@@ -185,6 +193,43 @@ export default function SocialReportViewPage() {
       setToast(shareUrl);
     }
   }, [shareUrl, t]);
+
+  // Tạo ảnh bìa AI cho link chia sẻ (lưu vào report.shareCover).
+  const genCover = useCallback(async () => {
+    setCoverBusy(true);
+    try {
+      const res = await fetch(`/api/social-report/${id}/cover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: coverPrompt.trim() || undefined,
+          useSystemDesign: coverSD,
+          provider: coverProvider || undefined,
+          model: coverProvider ? coverModel || undefined : undefined,
+        }),
+      });
+      const d = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (res.ok && d?.url) {
+        setReport((r) => (r ? { ...r, shareCover: d.url } : r));
+        setToast('Đã tạo ảnh bìa chia sẻ.');
+      } else {
+        setToast(d?.error ?? 'Lỗi tạo ảnh bìa.');
+        setToastErr(true);
+      }
+    } finally {
+      setCoverBusy(false);
+    }
+  }, [id, coverPrompt, coverSD, coverProvider, coverModel]);
+
+  const removeCover = useCallback(async () => {
+    setCoverBusy(true);
+    try {
+      await fetch(`/api/social-report/${id}/cover`, { method: 'DELETE' });
+      setReport((r) => (r ? { ...r, shareCover: undefined } : r));
+    } finally {
+      setCoverBusy(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     void load();
@@ -432,6 +477,89 @@ export default function SocialReportViewPage() {
                     </Button>
                   </InlineStack>
                 )}
+
+                {/* Ảnh bìa AI cho link chia sẻ (Open Graph) */}
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingSm">
+                    Ảnh bìa chia sẻ (Open Graph)
+                  </Text>
+                  <Text as="p" tone="subdued" variant="bodySm">
+                    Tạo ảnh bìa bằng AI cho link chia sẻ. Bỏ trống = dùng avatar báo cáo / ảnh nền tảng.
+                    Ảnh ngang (hợp ảnh bìa MXH), tự nén nhẹ.
+                  </Text>
+                  {report?.shareCover ? (
+                    <BlockStack gap="200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={report.shareCover}
+                        alt=""
+                        style={{
+                          maxWidth: 320,
+                          width: '100%',
+                          height: 'auto',
+                          borderRadius: 8,
+                          border: '1px solid #e3e7ee',
+                          display: 'block',
+                        }}
+                      />
+                      <InlineStack>
+                        <Button variant="plain" tone="critical" loading={coverBusy} onClick={() => void removeCover()}>
+                          Gỡ ảnh bìa
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  ) : null}
+                  <TextField
+                    label="Nội dung ảnh bìa"
+                    value={coverPrompt}
+                    onChange={setCoverPrompt}
+                    autoComplete="off"
+                    multiline={2}
+                    placeholder="Mô tả ảnh bìa muốn tạo (chủ đề, phong cách, màu sắc…)"
+                  />
+                  <Checkbox
+                    label="Dùng System design (phong cách từ Cài đặt ảnh AI)"
+                    checked={coverSD}
+                    onChange={setCoverSD}
+                  />
+                  <InlineStack gap="200" wrap blockAlign="end">
+                    <Select
+                      label="AI tạo ảnh"
+                      options={[
+                        { label: 'Tự động', value: '' },
+                        { label: 'OpenAI', value: 'openai' },
+                        { label: 'Gemini', value: 'gemini' },
+                      ]}
+                      value={coverProvider}
+                      onChange={(v) => {
+                        setCoverProvider(v);
+                        setCoverModel('');
+                      }}
+                    />
+                    {coverProvider ? (
+                      <Select
+                        label="Model"
+                        options={[
+                          { label: 'Mặc định', value: '' },
+                          ...(coverProvider === 'openai'
+                            ? ['gpt-image-1', 'dall-e-3']
+                            : [
+                                'imagen-4.0-generate-001',
+                                'imagen-4.0-fast-generate-001',
+                                'imagen-4.0-ultra-generate-001',
+                                'gemini-2.5-flash-image',
+                              ]
+                          ).map((m) => ({ label: m, value: m })),
+                        ]}
+                        value={coverModel}
+                        onChange={setCoverModel}
+                      />
+                    ) : null}
+                    <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
+                      {report?.shareCover ? 'Tạo lại ảnh bìa AI' : 'Tạo ảnh bìa bằng AI'}
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
               </BlockStack>
             </Card>
             <Card>

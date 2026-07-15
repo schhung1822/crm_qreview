@@ -114,8 +114,8 @@ export async function generateMetadata({
   const platform = PLATFORM_LABEL[report.platform] ?? 'nền tảng';
   const title = `Báo cáo ${report.title} trên ${platform}`;
   const description = reportDescription(report);
-  // Ưu tiên avatar kênh/ảnh sản phẩm của báo cáo; nếu không có → ảnh bìa OG cấu hình → logo.
-  const image = reportImage(report, b.ogImage || b.logoDuongBan);
+  // Ưu tiên: ảnh bìa AI người dùng tạo cho báo cáo → avatar kênh/ảnh sản phẩm → ảnh bìa nền tảng → logo.
+  const image = report.shareCover || reportImage(report, b.ogImage || b.logoDuongBan);
   const images = image ? [image] : undefined;
   return {
     title,
