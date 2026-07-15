@@ -23,10 +23,25 @@ export const dynamic = 'force-dynamic';
 // → mặc định (giữ nguyên diện mạo cũ).
 export async function generateMetadata(): Promise<Metadata> {
   const b = await getBranding();
+  // Ảnh bìa chia sẻ MXH: ưu tiên ogImage (superadmin đặt), fallback logo. Áp cho MỌI trang app
+  // (trang chưa tự khai openGraph riêng sẽ dùng mặc định này).
+  const ogImg = b.ogImage || b.logoDuongBan;
   return {
     title: b.title,
     description: b.description,
     icons: { icon: b.favicon, shortcut: b.favicon, apple: b.favicon },
+    openGraph: {
+      title: b.title,
+      description: b.description,
+      siteName: b.title,
+      images: ogImg ? [{ url: ogImg }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: b.title,
+      description: b.description,
+      images: ogImg ? [ogImg] : undefined,
+    },
   };
 }
 

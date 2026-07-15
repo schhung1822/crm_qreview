@@ -11,6 +11,8 @@ export interface Branding {
   logoAmBan: string; // logo ÂM BẢN (chữ sáng, dùng trên nền tối - hero đăng nhập)
   logoDuongBan: string; // logo DƯƠNG BẢN (chữ tối, dùng trên nền sáng)
   bizLogo: string; // logo ở bộ chuyển biz (header + drawer mobile) và logo top bar
+  ogImage: string; // ẢNH BÌA khi chia sẻ link lên MXH (Open Graph). PHẢI là URL http(s) tuyệt đối
+  // (Facebook/Zalo không đọc được data URI). Rỗng = fallback về logoDuongBan.
   sourceText: string; // dòng nguồn, ví dụ "by: noti.vn"
   sourceUrl: string; // link của dòng nguồn
   colorPrimary: string; // màu nút chính / điểm nhấn (HEX). Rỗng = mặc định Polaris
@@ -27,13 +29,14 @@ export interface Branding {
 
 // Mặc định = đúng giá trị đang hard-code trước đây (giữ nguyên diện mạo khi chưa cấu hình).
 export const DEFAULT_BRANDING: Branding = {
-  title: 'SEO · AEO · GEO Platform',
+  title: 'GEO & Report - AI Platform by: noti.vn',
   description:
-    'Nghiên cứu từ khóa, viết bài mới & tối ưu bài cũ bằng AI, chấm điểm SEO · AEO · GEO và đăng tự động lên WordPress / Wix - đa ngôn ngữ.',
+    'Nghiên cứu từ khóa, viết bài mới & tối ưu bài cũ bằng AI, tự động nghiên cứu → tạo báo cáo social và sàn TMĐT',
   favicon: 'https://noti.vn/image/new/favicon.png',
   logoAmBan: 'https://noti.vn/image/new/logo-am-ban.png',
   logoDuongBan: 'https://noti.vn/image/new/logo-duong-ban.png',
   bizLogo: 'https://noti.vn/image/new/favicon.png',
+  ogImage: '', // rỗng = dùng logoDuongBan làm ảnh chia sẻ; superadmin đặt ảnh bìa riêng ở đây
   sourceText: 'by: noti.vn',
   sourceUrl: 'https://noti.vn',
   colorPrimary: '', // để trống = dùng màu mặc định Polaris (không ghi đè)

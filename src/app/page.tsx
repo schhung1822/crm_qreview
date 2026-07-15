@@ -49,9 +49,14 @@ export async function generateMetadata({
       url: `${origin}${path}`,
       siteName: b.title,
       locale,
-      images: b.logoDuongBan ? [{ url: b.logoDuongBan }] : undefined,
+      images: b.ogImage || b.logoDuongBan ? [{ url: b.ogImage || b.logoDuongBan }] : undefined,
     },
-    twitter: { card: 'summary_large_image', title, description: s.metaDescription },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: s.metaDescription,
+      images: b.ogImage || b.logoDuongBan ? [b.ogImage || b.logoDuongBan] : undefined,
+    },
   };
 }
 

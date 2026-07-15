@@ -25,6 +25,7 @@ const Schema = z.object({
   logoAmBan: img.optional(),
   logoDuongBan: img.optional(),
   bizLogo: img.optional(),
+  ogImage: z.string().max(2000).optional(), // URL ảnh bìa OG (không nhận data URI — upload host thành URL)
   sourceText: z.string().max(120).optional(),
   sourceUrl: z.string().max(600).optional(),
   colorPrimary: color.optional(),

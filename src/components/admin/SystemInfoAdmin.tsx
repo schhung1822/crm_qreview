@@ -28,6 +28,7 @@ interface Branding {
   logoAmBan: string;
   logoDuongBan: string;
   bizLogo: string;
+  ogImage: string;
   sourceText: string;
   sourceUrl: string;
   colorPrimary: string;
@@ -380,6 +381,7 @@ function ImageField({
   onChange,
   preview,
   onError,
+  hostOnUpload,
 }: {
   label: string;
   help?: string;
@@ -387,6 +389,8 @@ function ImageField({
   onChange: (v: string) => void;
   preview: 'light' | 'dark';
   onError: (msg: string) => void;
+  // true = upload sẽ HOST ảnh thành URL http(s) (dùng cho ảnh bìa OG — data URI không hợp lệ với MXH).
+  hostOnUpload?: boolean;
 }) {
   const t = useTranslations('admin');
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -398,7 +402,26 @@ function ImageField({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => onChange(String(reader.result || ''));
+    reader.onload = async () => {
+      const dataUri = String(reader.result || '');
+      if (!hostOnUpload) {
+        onChange(dataUri); // logo/favicon: nhúng data URI trực tiếp (hiển thị trong HTML là đủ)
+        return;
+      }
+      // Ảnh bìa OG: gửi lên server host thành /generated/*.webp rồi lấy URL tuyệt đối.
+      try {
+        const res = await fetch('/api/admin/branding/og-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri }),
+        });
+        const d = await res.json().catch(() => null);
+        if (res.ok && d?.url) onChange(d.url as string);
+        else onError(d?.error ?? 'Tải ảnh lên thất bại.');
+      } catch {
+        onError('Tải ảnh lên thất bại.');
+      }
+    };
     reader.readAsDataURL(file);
   }
 
@@ -578,6 +601,15 @@ export function SystemInfoAdmin() {
               onChange={(v) => set('favicon', v)}
               preview="light"
               onError={(text) => setMsg({ ok: false, text })}
+            />
+            <ImageField
+              label="Ảnh bìa chia sẻ MXH (Open Graph)"
+              help="Ảnh hiện khi chia sẻ liên kết lên Facebook / Zalo / LinkedIn. Khuyến nghị 1200×630px (tỉ lệ 1.91:1). Dán URL ảnh, hoặc bấm Tải ảnh lên (sẽ tự host thành URL). Bỏ trống = dùng logo."
+              value={st.ogImage}
+              onChange={(v) => set('ogImage', v)}
+              preview="light"
+              onError={(text) => setMsg({ ok: false, text })}
+              hostOnUpload
             />
           </BlockStack>
         </Card>
