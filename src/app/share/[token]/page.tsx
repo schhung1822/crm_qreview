@@ -12,17 +12,34 @@ import {
   type SocialReportLabels,
   type SocialReportTheme,
 } from '@/lib/social/report-html';
-import type { SocialReportRecord } from '@/lib/social/types';
+import type { SocialPlatform, SocialReportRecord } from '@/lib/social/types';
 import { getBranding } from '@/lib/store/branding';
 import { getSocialReport } from '@/lib/store/social-reports';
 import { resolveShare } from '@/lib/store/social-shares';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// Link chứa token bí mật → tuyệt đối KHÔNG cho search engine index.
-export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
+
+// Nhãn nền tảng cho tiêu đề "Báo cáo ... trên <nền tảng>".
+const PLATFORM_LABEL: Record<SocialPlatform, string> = {
+  facebook: 'Facebook',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  fbgroup: 'Facebook Group',
+  fbprofile: 'Facebook',
+  instagram: 'Instagram',
+  threads: 'Threads',
+  shopee: 'Shopee',
+  shopeeshop: 'Shopee',
+  tiktokshop: 'TikTok Shop',
+  tiktokshopshop: 'TikTok Shop',
+  lazada: 'Lazada',
+  lazadashop: 'Lazada',
+  overall: 'mạng xã hội',
+  ecom: 'sàn thương mại điện tử',
+};
 
 // Chuỗi tự chứa (trang ngoài [locale], không có next-intl provider). Theo report.locale.
 const UI: Record<string, { viewOnly: string; lock: string }> = {
@@ -54,6 +71,64 @@ async function loadReport(
   const gate = socialGate(planId, report);
   const out = gate.viewLocked ? redactFanpageAnalysis(report) : report;
   return { report: out, viewLocked: gate.viewLocked };
+}
+
+// Mô tả cho preview link: ưu tiên câu tóm tắt AI của báo cáo; nếu chưa có thì mô tả chung.
+function reportDescription(r: SocialReportRecord): string {
+  const a = r.analysis ?? {};
+  const raw =
+    a.summary?.summary ||
+    a.groupSummary?.summary ||
+    a.profileSummary?.summary ||
+    a.shopeeSummary?.summary ||
+    a.shopSummary?.summary ||
+    a.ecomSummary?.summary ||
+    '';
+  const text = raw.trim();
+  if (text) return text.length > 180 ? `${text.slice(0, 177)}…` : text;
+  return `Báo cáo phân tích ${PLATFORM_LABEL[r.platform] ?? 'nền tảng'}: nội dung, chiến thuật, điểm mạnh/yếu và gợi ý.`;
+}
+
+// Ảnh đại diện link: ưu tiên avatar kênh/ảnh sản phẩm; fallback logo thương hiệu. Phải là URL tuyệt đối.
+function reportImage(r: SocialReportRecord, fallback: string): string {
+  const ch = r.channels?.[0];
+  const img =
+    ch?.page?.profilePicture ||
+    ch?.product?.images?.[0] ||
+    ch?.shopProducts?.[0]?.images?.[0];
+  return img || fallback;
+}
+
+// Metadata động → khi dán link chia sẻ vào Facebook/Zalo/Slack sẽ hiện Tiêu đề + Mô tả + Ảnh.
+// GIỮ noindex (token bí mật, không cho search engine index) — trình đọc OG của MXH vẫn đọc được thẻ.
+export async function generateMetadata({
+  params,
+}: {
+  params: { token: string };
+}): Promise<Metadata> {
+  const noindex = { index: false, follow: false } as const;
+  const data = await loadReport(params.token);
+  if (!data) return { title: 'Báo cáo', robots: noindex };
+  const { report } = data;
+  const b = await getBranding();
+  const platform = PLATFORM_LABEL[report.platform] ?? 'nền tảng';
+  const title = `Báo cáo ${report.title} trên ${platform}`;
+  const description = reportDescription(report);
+  const image = reportImage(report, b.logoDuongBan);
+  const images = image ? [image] : undefined;
+  return {
+    title,
+    description,
+    robots: noindex,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      siteName: b.sourceText || undefined,
+      images,
+    },
+    twitter: { card: 'summary_large_image', title, description, images },
+  };
 }
 
 // Nhãn i18n cho report-html: lấy từ namespace socialReport.view của đúng ngôn ngữ báo cáo.
