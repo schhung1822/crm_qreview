@@ -2,6 +2,7 @@
 // /share/<token> của BOT sang đây. Trả HTML ~2KB CHỈ gồm thẻ og:/twitter: → bot chắc chắn parse được
 // (khác trang /share thật ~124KB render động dễ khiến bot bỏ cuộc). Người dùng thật KHÔNG vào đây.
 import { runWithBiz } from '@/lib/biz/context';
+import { env } from '@/lib/env';
 import type { SocialPlatform, SocialReportRecord } from '@/lib/social/types';
 import { getBranding } from '@/lib/store/branding';
 import { getSocialReport } from '@/lib/store/social-reports';
@@ -74,8 +75,9 @@ export async function GET(req: Request, { params }: { params: { token: string } 
   const title = `Báo cáo ${report.title} trên ${platform}`;
   const description = reportDescription(report);
   const image = reportImage(report, b.ogImage || b.logoDuongBan);
-  const origin = new URL(req.url).origin;
-  const pageUrl = `${origin}/share/${token}`;
+  // og:url PHẢI là URL công khai. Sau Cloudflare/nginx, req.url = http://0.0.0.0:3000 → dùng APP_URL.
+  const base = env.appUrl || new URL(req.url).origin;
+  const pageUrl = `${base}/share/${token}`;
 
   const html =
     `<!doctype html><html lang="${esc(report.locale || 'vi')}"><head><meta charset="utf-8">` +
