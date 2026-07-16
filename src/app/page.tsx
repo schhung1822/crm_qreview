@@ -36,16 +36,18 @@ export async function generateMetadata({
   const path = locale === 'vi' ? '/' : `/?lang=${locale}`;
   const languages: Record<string, string> = { 'x-default': `${origin}/` };
   for (const l of Object.keys(localeNames)) languages[l] = `${origin}/?lang=${l}`;
-  const title = `${b.title} - ${s.metaTitle}`;
+  // Tiêu đề & mô tả lấy ĐÚNG từ "Thông tin hệ thống" (branding), không ghép thêm chuỗi marketing.
+  const title = b.title;
+  const description = b.description;
   return {
     title,
-    description: s.metaDescription,
+    description,
     alternates: { canonical: `${origin}${path}`, languages },
     robots: { index: true, follow: true },
     openGraph: {
       type: 'website',
       title,
-      description: s.metaDescription,
+      description,
       url: `${origin}${path}`,
       siteName: b.title,
       locale,
@@ -54,7 +56,7 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title,
-      description: s.metaDescription,
+      description,
       images: b.ogImage || b.logoDuongBan ? [b.ogImage || b.logoDuongBan] : undefined,
     },
   };
@@ -76,7 +78,7 @@ export default async function HomePage({
       {
         '@type': 'SoftwareApplication',
         name: b.title,
-        description: s.metaDescription,
+        description: b.description,
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Web',
         url: `${origin}/`,
