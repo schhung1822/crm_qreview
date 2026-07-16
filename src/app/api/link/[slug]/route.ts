@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
   const html = buildShareOgHtml({
     locale: report.locale || 'vi',
     title,
-    description,
+    description: s.locked ? '🔒 Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.' : description,
     image,
     pageUrl: `${base}/${link.slug}`,
     siteName: b.sourceText || undefined,

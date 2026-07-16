@@ -113,6 +113,8 @@ export default function SocialReportViewPage() {
   const [shareUrl, setShareUrl] = useState(''); // link chia sẻ công khai /share/<token>
   const [prettyUrl, setPrettyUrl] = useState(''); // link rút gọn dạng blog /bao-cao-... (đăng MXH)
   const [shareBusy, setShareBusy] = useState(false);
+  const [sharePw, setSharePw] = useState(''); // ô nhập mật khẩu khóa link
+  const [sharePwBusy, setSharePwBusy] = useState(false);
   // Ảnh bìa AI cho link chia sẻ (Open Graph).
   const [coverPrompt, setCoverPrompt] = useState('');
   const [coverSD, setCoverSD] = useState(true); // dùng System design (Cài đặt ảnh AI)
@@ -225,6 +227,32 @@ export default function SocialReportViewPage() {
       setCoverBusy(false);
     }
   }, [id]);
+
+  // Đặt/đổi/gỡ mật khẩu khóa link chia sẻ. remove=true → gỡ khóa (công khai).
+  const saveSharePassword = useCallback(
+    async (remove: boolean) => {
+      setSharePwBusy(true);
+      try {
+        const res = await fetch(`/api/social-report/${id}/share/password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: remove ? '' : sharePw }),
+        });
+        const d = (await res.json().catch(() => null)) as { locked?: boolean; error?: string } | null;
+        if (res.ok) {
+          setReport((r) => (r && r.share ? { ...r, share: { ...r.share, locked: !!d?.locked } } : r));
+          setSharePw('');
+          setToast(remove ? 'Đã bỏ khóa — link công khai.' : 'Đã khóa link bằng mật khẩu.');
+        } else {
+          setToast(d?.error ?? 'Không cập nhật được.');
+          setToastErr(true);
+        }
+      } finally {
+        setSharePwBusy(false);
+      }
+    },
+    [id, sharePw],
+  );
 
   useEffect(() => {
     void load();
@@ -486,6 +514,56 @@ export default function SocialReportViewPage() {
                         {t('share.revoke')}
                       </Button>
                     </InlineStack>
+
+                    {/* Bảo mật: công khai hoặc khóa bằng mật khẩu */}
+                    <Box paddingBlockStart="200" borderColor="border" borderBlockStartWidth="025">
+                      <BlockStack gap="200">
+                        <InlineStack gap="150" blockAlign="center" wrap>
+                          <Text as="span" variant="bodySm" fontWeight="semibold">
+                            Bảo mật:
+                          </Text>
+                          {report?.share?.locked ? (
+                            <Badge tone="attention">🔒 Đã khóa — cần mật khẩu</Badge>
+                          ) : (
+                            <Badge tone="success">Công khai</Badge>
+                          )}
+                        </InlineStack>
+                        <InlineStack gap="200" wrap blockAlign="end">
+                          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                            <TextField
+                              label="Mật khẩu"
+                              labelHidden
+                              type="password"
+                              value={sharePw}
+                              onChange={setSharePw}
+                              autoComplete="off"
+                              placeholder={report?.share?.locked ? 'Nhập mật khẩu mới để đổi' : 'Đặt mật khẩu để khóa'}
+                            />
+                          </div>
+                          <Button
+                            loading={sharePwBusy}
+                            disabled={!sharePw.trim()}
+                            onClick={() => void saveSharePassword(false)}
+                          >
+                            {report?.share?.locked ? 'Đổi mật khẩu' : 'Khóa bằng mật khẩu'}
+                          </Button>
+                          {report?.share?.locked ? (
+                            <Button
+                              variant="plain"
+                              tone="critical"
+                              loading={sharePwBusy}
+                              onClick={() => void saveSharePassword(true)}
+                            >
+                              Bỏ khóa
+                            </Button>
+                          ) : null}
+                        </InlineStack>
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          Khi khóa, người xem phải nhập mật khẩu bạn cung cấp mới xem được báo cáo. Ảnh
+                          bìa/tiêu đề vẫn hiện khi chia sẻ, nhưng nội dung được bảo vệ.
+                        </Text>
+                      </BlockStack>
+                    </Box>
                   </BlockStack>
                 ) : (
                   <InlineStack>

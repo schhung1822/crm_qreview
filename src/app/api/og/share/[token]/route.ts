@@ -28,7 +28,8 @@ export async function GET(req: Request, { params }: { params: { token: string } 
   const html = buildShareOgHtml({
     locale: report.locale || 'vi',
     title,
-    description,
+    // Khóa → KHÔNG lộ tóm tắt ra thẻ mô tả.
+    description: s.locked ? '🔒 Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.' : description,
     image,
     pageUrl: `${base}/share/${token}`,
     siteName: b.sourceText || undefined,
