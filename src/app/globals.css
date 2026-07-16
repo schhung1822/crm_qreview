@@ -1176,4 +1176,17 @@ body:has(.newsfeed-detail) .Polaris-Backdrop {
   bottom: auto;
   margin: auto;
   max-width: min(38.75rem, calc(100vw - 2rem));
+  /* Giới hạn chiều cao trong viewport (dvh cho mobile) + xếp dọc để thân tin CUỘN được,
+     tránh popup tràn màn hình khi tin dài (nhất là trên di động). */
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+/* Thân popup (khu vực nội dung) co giãn + cuộn dọc; tiêu đề/nút giữ cố định. */
+.Polaris-Modal-Dialog__Container:has(.newsfeed-detail) .Polaris-Modal-Body,
+.Polaris-Modal-Dialog__Container:has(.newsfeed-detail) .Polaris-Scrollable {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }

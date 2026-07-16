@@ -672,9 +672,11 @@ export default function ScriptAnalysisPage() {
                                 src={detail.shareCover}
                                 alt=""
                                 style={{
-                                  maxWidth: 320,
                                   width: '100%',
+                                  maxWidth: 520,
                                   height: 'auto',
+                                  aspectRatio: '3 / 2',
+                                  objectFit: 'cover',
                                   borderRadius: 8,
                                   border: '1px solid #e3e7ee',
                                   display: 'block',
@@ -712,24 +714,24 @@ export default function ScriptAnalysisPage() {
                               setCoverModel(mm);
                             }}
                           />
-                          <InlineStack gap="200" wrap>
-                            <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
+                          <InlineGrid columns={{ xs: 2 }} gap="200">
+                            <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
                               {detail.shareCover ? ts('share.coverRegenerate') : ts('share.coverGenerate')}
                             </Button>
-                            <Button loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                            <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
                               {ts('share.coverUpload')}
                             </Button>
-                            <input
-                              ref={coverFileRef}
-                              type="file"
-                              accept="image/*"
-                              hidden
-                              onChange={(e) => {
-                                void uploadCover(e.target.files?.[0]);
-                                e.target.value = '';
-                              }}
-                            />
-                          </InlineStack>
+                          </InlineGrid>
+                          <input
+                            ref={coverFileRef}
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => {
+                              void uploadCover(e.target.files?.[0]);
+                              e.target.value = '';
+                            }}
+                          />
                         </BlockStack>
                       </BlockStack>
                     </Collapsible>

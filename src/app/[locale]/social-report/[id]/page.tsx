@@ -12,6 +12,7 @@ import {
   Card,
   Checkbox,
   Collapsible,
+  InlineGrid,
   InlineStack,
   Modal,
   Page,
@@ -657,9 +658,11 @@ export default function SocialReportViewPage() {
                         src={report.shareCover}
                         alt=""
                         style={{
-                          maxWidth: 320,
                           width: '100%',
+                          maxWidth: 520,
                           height: 'auto',
+                          aspectRatio: '3 / 2',
+                          objectFit: 'cover',
                           borderRadius: 8,
                           border: '1px solid #e3e7ee',
                           display: 'block',
@@ -696,24 +699,24 @@ export default function SocialReportViewPage() {
                       setCoverModel(m);
                     }}
                   />
-                  <InlineStack gap="200" wrap>
-                    <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
+                  <InlineGrid columns={{ xs: 2 }} gap="200">
+                    <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
                       {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
                     </Button>
-                    <Button loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                    <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
                       {t('share.coverUpload')}
                     </Button>
-                    <input
-                      ref={coverFileRef}
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => {
-                        void uploadCover(e.target.files?.[0]);
-                        e.target.value = '';
-                      }}
-                    />
-                  </InlineStack>
+                  </InlineGrid>
+                  <input
+                    ref={coverFileRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      void uploadCover(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
                     </BlockStack>
                   </BlockStack>
                 </Collapsible>
