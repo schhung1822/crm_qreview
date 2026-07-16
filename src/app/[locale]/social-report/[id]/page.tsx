@@ -537,8 +537,8 @@ export default function SocialReportViewPage() {
                   </Button>
                 </InlineStack>
                 <Collapsible open={shareOpen} id="share-collapse" transition={{ duration: '150ms' }}>
-                  {/* 2 cột: TRÁI = mọi điều khiển (tạo link, bảo mật, tạo ảnh bìa); PHẢI = ảnh bìa. */}
-                  <InlineGrid columns={{ xs: 1, md: report?.shareCover ? '3fr 2fr' : 1 }} gap="400">
+                  {/* 2 cột BẰNG NHAU: TRÁI = mọi điều khiển; PHẢI = ảnh bìa. */}
+                  <InlineGrid columns={{ xs: 1, md: report?.shareCover ? 2 : 1 }} gap="400">
                     <BlockStack gap="300">
                     <Text as="p" tone="subdued">
                       {t('share.desc')}
@@ -691,18 +691,27 @@ export default function SocialReportViewPage() {
                       </BlockStack>
                     </BlockStack>
 
-                    {/* CỘT PHẢI: ảnh bìa xem trước */}
+                    {/* CỘT PHẢI: ảnh bìa xem trước — hiển thị ĐẦY ĐỦ (không cắt), căn giữa cột. */}
                     {report?.shareCover ? (
-                      <BlockStack gap="200">
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          height: '100%',
+                          gap: 12,
+                        }}
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={report.shareCover}
                           alt=""
                           style={{
-                            width: '100%',
+                            maxWidth: '100%',
+                            maxHeight: 360,
+                            width: 'auto',
                             height: 'auto',
-                            aspectRatio: '3 / 2',
-                            objectFit: 'cover',
                             borderRadius: 8,
                             border: '1px solid #e3e7ee',
                             display: 'block',
@@ -716,7 +725,7 @@ export default function SocialReportViewPage() {
                             {t('share.coverRemove')}
                           </Button>
                         </InlineStack>
-                      </BlockStack>
+                      </div>
                     ) : null}
                   </InlineGrid>
                 </Collapsible>
