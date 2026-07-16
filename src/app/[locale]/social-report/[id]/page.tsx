@@ -651,72 +651,72 @@ export default function SocialReportViewPage() {
                   <Text as="p" tone="subdued" variant="bodySm">
                     {t('share.coverDesc')}
                   </Text>
-                  {report?.shareCover ? (
-                    <BlockStack gap="200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={report.shareCover}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          maxWidth: 520,
-                          height: 'auto',
-                          aspectRatio: '3 / 2',
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                          border: '1px solid #e3e7ee',
-                          display: 'block',
+                  {/* Desktop: ảnh bên trái, cấu hình lấp bên phải (hết khoảng trống). Mobile: xếp dọc. */}
+                  <InlineGrid columns={{ xs: 1, md: report?.shareCover ? '5fr 6fr' : 1 }} gap="400">
+                    {report?.shareCover ? (
+                      <BlockStack gap="200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={report.shareCover}
+                          alt=""
+                          style={{
+                            width: '100%',
+                            height: 'auto',
+                            aspectRatio: '3 / 2',
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '1px solid #e3e7ee',
+                            display: 'block',
+                          }}
+                        />
+                        <InlineStack gap="200" wrap>
+                          <Button variant="plain" onClick={() => setCoverPreview(true)}>
+                            {t('share.coverView')}
+                          </Button>
+                          <Button variant="plain" tone="critical" loading={coverBusy} onClick={() => void removeCover()}>
+                            {t('share.coverRemove')}
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    ) : null}
+                    <BlockStack gap="300">
+                      <TextField
+                        label={t('share.coverPromptLabel')}
+                        value={coverPrompt}
+                        onChange={setCoverPrompt}
+                        autoComplete="off"
+                        multiline={report?.shareCover ? 4 : 2}
+                        placeholder={t('share.coverPromptPlaceholder')}
+                      />
+                      <Checkbox label={t('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
+                      <ImageAiPicker
+                        provider={coverProvider}
+                        model={coverModel}
+                        onChange={(p, m) => {
+                          setCoverProvider(p);
+                          setCoverModel(m);
                         }}
                       />
-                      <InlineStack gap="200" wrap>
-                        <Button variant="plain" onClick={() => setCoverPreview(true)}>
-                          {t('share.coverView')}
+                      <InlineGrid columns={{ xs: 2 }} gap="200">
+                        <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
+                          {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
                         </Button>
-                        <Button variant="plain" tone="critical" loading={coverBusy} onClick={() => void removeCover()}>
-                          {t('share.coverRemove')}
+                        <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                          {t('share.coverUpload')}
                         </Button>
-                      </InlineStack>
+                      </InlineGrid>
+                      <input
+                        ref={coverFileRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          void uploadCover(e.target.files?.[0]);
+                          e.target.value = '';
+                        }}
+                      />
                     </BlockStack>
-                  ) : null}
-                  <TextField
-                    label={t('share.coverPromptLabel')}
-                    value={coverPrompt}
-                    onChange={setCoverPrompt}
-                    autoComplete="off"
-                    multiline={2}
-                    placeholder={t('share.coverPromptPlaceholder')}
-                  />
-                  <Checkbox
-                    label={t('share.coverUseSD')}
-                    checked={coverSD}
-                    onChange={setCoverSD}
-                  />
-                  <ImageAiPicker
-                    provider={coverProvider}
-                    model={coverModel}
-                    onChange={(p, m) => {
-                      setCoverProvider(p);
-                      setCoverModel(m);
-                    }}
-                  />
-                  <InlineGrid columns={{ xs: 2 }} gap="200">
-                    <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
-                      {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
-                    </Button>
-                    <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
-                      {t('share.coverUpload')}
-                    </Button>
                   </InlineGrid>
-                  <input
-                    ref={coverFileRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(e) => {
-                      void uploadCover(e.target.files?.[0]);
-                      e.target.value = '';
-                    }}
-                  />
                     </BlockStack>
                   </BlockStack>
                 </Collapsible>
