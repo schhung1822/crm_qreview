@@ -66,6 +66,12 @@ export async function getShareLink(slug: string): Promise<ShareLinkRow | null> {
   return row ?? null;
 }
 
+// Lấy 1 link (bất kể trạng thái) trong đúng biz — để quản lý (vd đặt mật khẩu theo reportId).
+export async function getShareLinkManaged(bizId: string, slug: string): Promise<ShareLinkRow | null> {
+  const rows = await readJson<ShareLinkRow[]>(FILE, []);
+  return rows.find((r) => r.slug === slug && r.bizId === bizId) ?? null;
+}
+
 // Danh sách link của 1 biz (cho trang quản lý — gồm cả đã thu hồi để hiển thị trạng thái).
 export async function listShareLinks(bizId: string): Promise<ShareLinkRow[]> {
   const rows = await readJson<ShareLinkRow[]>(FILE, []);

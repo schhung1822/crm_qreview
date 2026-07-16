@@ -93,6 +93,16 @@ export async function setSharePassword(
   return ok;
 }
 
+// Map reportId → có khóa hay không (link còn hiệu lực của biz) — dùng cho trang quản lý link.
+export async function getShareLockedMap(bizId: string): Promise<Record<string, boolean>> {
+  const rows = await readJson<ShareRow[]>(FILE, []);
+  const map: Record<string, boolean> = {};
+  for (const r of rows) {
+    if (r.bizId === bizId && !r.revoked) map[r.reportId] = !!r.passwordHash;
+  }
+  return map;
+}
+
 // Xác thực mật khẩu người xem nhập cho 1 token.
 export async function verifySharePassword(token: string, password: string): Promise<boolean> {
   if (!token || !/^[a-f0-9]{64}$/.test(token) || !password) return false;

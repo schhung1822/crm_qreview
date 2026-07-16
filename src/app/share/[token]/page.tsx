@@ -116,7 +116,7 @@ export async function generateMetadata({
   const title = `Báo cáo ${report.title} trên ${platform}`;
   // Khóa → KHÔNG lộ nội dung tóm tắt ra thẻ mô tả; chỉ báo là cần mật khẩu.
   const description = locked
-    ? '🔒 Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.'
+    ? 'Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.'
     : reportDescription(report);
   // Ưu tiên: ảnh bìa AI người dùng tạo cho báo cáo → avatar kênh/ảnh sản phẩm → ảnh bìa nền tảng → logo.
   const image = report.shareCover || reportImage(report, b.ogImage || b.logoDuongBan);
@@ -195,7 +195,7 @@ export default async function SharePage({
           <header className="sh-head">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="sh-logo" src={b.logoDuongBan} alt={b.sourceText} />
-            <span className="sh-badge">🔒 Bảo mật</span>
+            <span className="sh-badge">Bảo mật</span>
           </header>
           <h1 className="sh-title">Báo cáo được bảo vệ</h1>
           <p className="sh-gate-desc">Nhập mật khẩu được cung cấp để xem báo cáo này.</p>

@@ -523,7 +523,7 @@ export default function SocialReportViewPage() {
                             Bảo mật:
                           </Text>
                           {report?.share?.locked ? (
-                            <Badge tone="attention">🔒 Đã khóa — cần mật khẩu</Badge>
+                            <Badge tone="attention">Đã khóa — cần mật khẩu</Badge>
                           ) : (
                             <Badge tone="success">Công khai</Badge>
                           )}
@@ -645,7 +645,7 @@ export default function SocialReportViewPage() {
               <Card>
                 <BlockStack gap="200">
                   <Text as="h2" variant="headingMd">
-                    🔒 {t('locked.title')}
+                    {t('locked.title')}
                   </Text>
                   <Text as="p" tone="subdued">
                     {t('locked.desc')}

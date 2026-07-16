@@ -26,6 +26,7 @@ export interface ShareLink {
   image?: string;
   createdAt: string;
   revoked?: boolean;
+  locked?: boolean; // link đang bị khóa bằng mật khẩu
 }
 
 const ELLIPSIS: React.CSSProperties = {
@@ -43,6 +44,7 @@ export function ShareLinksPanel() {
   const [fTitle, setFTitle] = useState('');
   const [fDesc, setFDesc] = useState('');
   const [fImage, setFImage] = useState('');
+  const [fPassword, setFPassword] = useState(''); // đặt/đổi mật khẩu (để trống = không đổi)
 
   const load = useCallback(async () => {
     const r = await fetch('/api/share-links');
@@ -70,21 +72,50 @@ export function ShareLinksPanel() {
     setFTitle(l.title ?? '');
     setFDesc(l.description ?? '');
     setFImage(l.image ?? '');
+    setFPassword('');
   }
 
   async function saveEdit() {
     if (!edit) return;
     setBusy(edit.slug);
     try {
+      const body: Record<string, unknown> = {
+        slug: edit.slug,
+        title: fTitle,
+        description: fDesc,
+        image: fImage,
+      };
+      // Chỉ gửi password khi có nhập → đặt/đổi mật khẩu. Bỏ trống = giữ nguyên trạng thái khóa.
+      if (fPassword.trim()) body.password = fPassword;
       const res = await fetch('/api/share-links', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: edit.slug, title: fTitle, description: fDesc, image: fImage }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setToast('Đã lưu.');
         await load();
       } else setToast('Lưu thất bại.');
+    } finally {
+      setBusy(null);
+      setEdit(null);
+    }
+  }
+
+  // Gỡ khóa (chuyển công khai) cho link đang mở trong modal sửa.
+  async function removeLock() {
+    if (!edit) return;
+    setBusy(edit.slug);
+    try {
+      const res = await fetch('/api/share-links', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: edit.slug, password: '' }),
+      });
+      if (res.ok) {
+        setToast('Đã bỏ khóa — link công khai.');
+        await load();
+      } else setToast('Không cập nhật được.');
     } finally {
       setBusy(null);
       setEdit(null);
@@ -163,6 +194,7 @@ export function ShareLinksPanel() {
                   ) : (
                     <Badge tone="success">Đang bật</Badge>
                   )}
+                  {l.locked ? <Badge tone="attention">Đã khóa</Badge> : null}
                   <Button size="slim" onClick={() => void copy(l)}>
                     Copy
                   </Button>
@@ -213,6 +245,45 @@ export function ShareLinksPanel() {
                 autoComplete="off"
                 placeholder="https://demo.noti.vn/generated/....jpg"
               />
+
+              {/* Bảo mật: đặt/đổi/gỡ mật khẩu khóa link */}
+              <Box paddingBlockStart="200" borderColor="border" borderBlockStartWidth="025">
+                <BlockStack gap="200">
+                  <InlineStack gap="150" blockAlign="center" wrap>
+                    <Text as="span" variant="bodySm" fontWeight="semibold">
+                      Bảo mật:
+                    </Text>
+                    {edit.locked ? (
+                      <Badge tone="attention">Đã khóa — cần mật khẩu</Badge>
+                    ) : (
+                      <Badge tone="success">Công khai</Badge>
+                    )}
+                  </InlineStack>
+                  <TextField
+                    label={edit.locked ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Đặt mật khẩu để khóa'}
+                    type="password"
+                    value={fPassword}
+                    onChange={setFPassword}
+                    autoComplete="off"
+                    placeholder="Nhập mật khẩu"
+                  />
+                  {edit.locked ? (
+                    <InlineStack>
+                      <Button
+                        variant="plain"
+                        tone="critical"
+                        loading={busy === edit.slug}
+                        onClick={() => void removeLock()}
+                      >
+                        Bỏ khóa (chuyển công khai)
+                      </Button>
+                    </InlineStack>
+                  ) : null}
+                  <Text as="span" tone="subdued" variant="bodySm">
+                    Khi khóa, người xem phải nhập đúng mật khẩu mới xem được nội dung báo cáo.
+                  </Text>
+                </BlockStack>
+              </Box>
             </BlockStack>
           </Modal.Section>
         </Modal>
