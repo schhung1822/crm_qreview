@@ -168,6 +168,9 @@ const SHARE_CSS = `
 .sh-gate-input:focus{outline:none;border-color:#0061ff;box-shadow:0 0 0 3px rgba(0,97,255,.12);}
 .sh-gate-btn{padding:11px 20px;background:#0061ff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .sh-gate-btn:hover{background:#0052d6;}
+/* Trang nhập mật khẩu: căn GIỮA màn hình (cả dọc + ngang) cho cân đối; hộp nhỏ gọn hơn. */
+.sh-center{display:flex;align-items:center;justify-content:center;padding:24px 16px;}
+.sh-center .sh-wrap{max-width:440px;width:100%;margin:0;}
 @media (max-width:640px){.sh-wrap{padding:20px 16px 32px;}.sh-title{font-size:22px;}}
 `;
 
@@ -189,7 +192,7 @@ export default async function SharePage({
     const err = searchParams?.e === '1';
     const rate = searchParams?.e === 'rate';
     return (
-      <main className="sh">
+      <main className="sh sh-center">
         <style dangerouslySetInnerHTML={{ __html: SHARE_CSS }} />
         <div className="sh-wrap">
           <header className="sh-head">
