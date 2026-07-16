@@ -132,7 +132,7 @@ export default function ShareLinksPage() {
       ) : links.length === 0 ? (
         <Card>
           <EmptyState heading="Chưa có link chia sẻ nào" image="">
-            <p>Vào một báo cáo → bật "Chia sẻ" để tự tạo link rút gọn, rồi quản lý ở đây.</p>
+            <p>Vào một báo cáo → bật “Chia sẻ” để tự tạo link rút gọn, rồi quản lý ở đây.</p>
           </EmptyState>
         </Card>
       ) : (
