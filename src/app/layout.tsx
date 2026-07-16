@@ -1,7 +1,7 @@
 import '@shopify/polaris/build/esm/styles.css';
 import './globals.css';
 
-import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { TrackingPixels } from '@/components/TrackingPixels';
@@ -10,10 +10,13 @@ import { getBranding } from '@/lib/store/branding';
 
 // Root layout: nơi DUY NHẤT render <html>/<body> (Next 14 bắt buộc, kể cả trang lỗi).
 // lang được cập nhật theo locale ở client (HtmlLang) - app quản trị nên không cần SEO.
-const inter = Inter({
-  subsets: ['latin', 'latin-ext', 'vietnamese'],
+// SELF-HOST Inter (variable, có sẵn glyph tiếng Việt) → build KHÔNG cần tải Google Fonts
+// (tránh fail ETIMEDOUT khi VPS chặn/không ra được fonts.googleapis.com lúc build).
+const inter = localFont({
+  src: './fonts/InterVariable.woff2',
   variable: '--font-inter',
   display: 'swap',
+  weight: '100 900',
 });
 
 // Render động để tiêu đề/favicon phản ánh cấu hình runtime (không "đóng băng" lúc build cho các
