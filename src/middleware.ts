@@ -17,6 +17,11 @@ const OG_BOT_RE =
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Link rút gọn dạng blog: /bao-cao-<ten>-<timestamp> → route xử lý (bot đọc OG, người thật redirect).
+  if (/^\/bao-cao-[a-z0-9-]+$/.test(pathname)) {
+    return NextResponse.rewrite(new URL(`/api/link${pathname}`, req.url));
+  }
+
   // Trang chia sẻ báo cáo công khai: nếu là BOT MXH → rewrite sang trang OG tối giản (chắc chắn đọc
   // được thẻ). Người dùng thật → phục vụ trang /share đầy đủ, KHÔNG qua next-intl (tránh redirect locale).
   if (pathname.startsWith('/share/')) {

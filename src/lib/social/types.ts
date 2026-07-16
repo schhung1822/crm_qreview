@@ -543,7 +543,7 @@ export interface SocialReportRecord {
   style?: SocialStyleProfile; // hồ sơ style thương hiệu (tạo theo yêu cầu)
   // Chia sẻ công khai: có giá trị = đã bật link chia sẻ (chỉ-xem). token thô lưu ở đây (dữ liệu
   // của chủ, đã cô lập theo biz) để chủ copy lại link; INDEX toàn cục chỉ lưu HASH (social-shares).
-  share?: { token: string; createdAt: string };
+  share?: { token: string; createdAt: string; slug?: string };
   // Ảnh bìa RIÊNG cho link chia sẻ (OG) - do người dùng tạo bằng AI. URL tuyệt đối. Ưu tiên cao
   // nhất khi dựng thẻ og:image của trang /share (trên cả avatar kênh và ảnh bìa nền tảng).
   shareCover?: string;

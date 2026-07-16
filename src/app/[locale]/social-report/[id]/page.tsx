@@ -109,7 +109,8 @@ export default function SocialReportViewPage() {
   const [deleting, setDeleting] = useState(false);
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState(''); // link chia sẻ công khai (nếu đã bật)
+  const [shareUrl, setShareUrl] = useState(''); // link chia sẻ công khai /share/<token>
+  const [prettyUrl, setPrettyUrl] = useState(''); // link rút gọn dạng blog /bao-cao-... (đăng MXH)
   const [shareBusy, setShareBusy] = useState(false);
   // Ảnh bìa AI cho link chia sẻ (Open Graph).
   const [coverPrompt, setCoverPrompt] = useState('');
@@ -144,6 +145,7 @@ export default function SocialReportViewPage() {
     setTheme(body.socialTheme);
     // Link chia sẻ (nếu đã bật) — dựng URL tuyệt đối từ origin hiện tại + token lưu trong record.
     setShareUrl(body.report.share ? `${window.location.origin}/share/${body.report.share.token}` : '');
+    setPrettyUrl(body.report.share?.slug ? `${window.location.origin}/${body.report.share.slug}` : '');
   }, [id]);
 
   const enableShare = useCallback(async () => {
@@ -177,6 +179,7 @@ export default function SocialReportViewPage() {
         body: JSON.stringify({ action: 'disable' }),
       });
       setShareUrl('');
+      setPrettyUrl('');
       setToast(t('share.revoked'));
       await load();
     } finally {
@@ -453,6 +456,35 @@ export default function SocialReportViewPage() {
                 </Text>
                 {shareUrl ? (
                   <BlockStack gap="200">
+                    {prettyUrl ? (
+                      <BlockStack gap="100">
+                        <Text as="span" variant="bodySm" fontWeight="semibold">
+                          Link đăng lên mạng xã hội (dạng blog, có ảnh bìa)
+                        </Text>
+                        <TextField
+                          label="Link rút gọn"
+                          labelHidden
+                          value={prettyUrl}
+                          readOnly
+                          autoComplete="off"
+                          connectedRight={
+                            <Button
+                              onClick={() =>
+                                void navigator.clipboard
+                                  .writeText(prettyUrl)
+                                  .then(() => setToast(t('share.copied')))
+                                  .catch(() => setToast(prettyUrl))
+                              }
+                            >
+                              {t('share.copy')}
+                            </Button>
+                          }
+                        />
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          Quản lý tất cả link ở mục “Link chia sẻ” bên menu trái.
+                        </Text>
+                      </BlockStack>
+                    ) : null}
                     <TextField
                       label={t('share.linkLabel')}
                       labelHidden

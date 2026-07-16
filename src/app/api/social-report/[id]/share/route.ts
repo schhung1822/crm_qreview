@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { entitlementsForBiz } from '@/lib/billing/entitlement';
 import { env } from '@/lib/env';
+import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getSocialReport, updateSocialReport } from '@/lib/store/social-reports';
 import { createShare, revokeShareForReport } from '@/lib/store/social-shares';
 
@@ -32,6 +33,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   if (parsed.data.action === 'disable') {
     await revokeShareForReport(g.bizId, params.id);
+    await revokeShareLinksForReport(g.bizId, params.id);
     await updateSocialReport(params.id, (r) => {
       r.share = undefined;
     });
@@ -40,9 +42,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   // enable: sinh token mới (thu hồi link cũ), lưu token vào record để chủ copy lại được.
   const { ownerId } = await entitlementsForBiz(g.bizId);
+  await revokeShareLinksForReport(g.bizId, params.id); // dọn link rút gọn cũ (token cũ chết)
   const token = await createShare({ bizId: g.bizId, reportId: params.id, ownerId, createdBy: g.user.id });
-  await updateSocialReport(params.id, (r) => {
-    r.share = { token, createdAt: new Date().toISOString() };
+  // Tự tạo LINK RÚT GỌN dạng blog (bao-cao-<ten>-<timestamp>) trỏ tới token này.
+  const link = await createShareLink({
+    bizId: g.bizId,
+    reportId: params.id,
+    ownerId,
+    token,
+    reportTitle: report.title,
+    createdBy: g.user.id,
   });
-  return NextResponse.json({ ok: true, enabled: true, url: shareUrl(req, token) });
+  await updateSocialReport(params.id, (r) => {
+    r.share = { token, createdAt: new Date().toISOString(), slug: link.slug };
+  });
+  const base = env.appUrl || new URL(req.url).origin;
+  return NextResponse.json({
+    ok: true,
+    enabled: true,
+    url: shareUrl(req, token),
+    prettyUrl: `${base}/${link.slug}`,
+    slug: link.slug,
+  });
 }
