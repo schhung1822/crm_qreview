@@ -16,6 +16,7 @@ import {
   TextField,
   Toast,
 } from '@shopify/polaris';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface ShareLink {
@@ -36,6 +37,7 @@ const ELLIPSIS: React.CSSProperties = {
 };
 
 export function ShareLinksPanel() {
+  const t = useTranslations('socialReport.shareLinks');
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState('');
@@ -57,11 +59,12 @@ export function ShareLinksPanel() {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const urlOf = (l: ShareLink) => `${origin}/${l.slug}`;
+  const nameOf = (l: ShareLink) => l.title || t('reportName', { name: l.reportTitle });
 
   async function copy(l: ShareLink) {
     try {
       await navigator.clipboard.writeText(urlOf(l));
-      setToast('Đã copy link.');
+      setToast(t('copied'));
     } catch {
       setToast(urlOf(l));
     }
@@ -93,9 +96,9 @@ export function ShareLinksPanel() {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        setToast('Đã lưu.');
+        setToast(t('saved'));
         await load();
-      } else setToast('Lưu thất bại.');
+      } else setToast(t('saveFailed'));
     } finally {
       setBusy(null);
       setEdit(null);
@@ -113,9 +116,9 @@ export function ShareLinksPanel() {
         body: JSON.stringify({ slug: edit.slug, password: '' }),
       });
       if (res.ok) {
-        setToast('Đã bỏ khóa — link công khai.');
+        setToast(t('lockRemoved'));
         await load();
-      } else setToast('Không cập nhật được.');
+      } else setToast(t('updateFailed'));
     } finally {
       setBusy(null);
       setEdit(null);
@@ -145,7 +148,7 @@ export function ShareLinksPanel() {
         body: JSON.stringify({ slug: l.slug }),
       });
       if (res.ok) {
-        setToast('Đã xóa.');
+        setToast(t('deleted'));
         setLinks((x) => (x ? x.filter((i) => i.slug !== l.slug) : x));
       }
     } finally {
@@ -164,8 +167,8 @@ export function ShareLinksPanel() {
         </Box>
       ) : links.length === 0 ? (
         <Card>
-          <EmptyState heading="Chưa có link chia sẻ nào" image="">
-            <p>Vào một báo cáo → bật “Chia sẻ” để tự tạo link rút gọn, rồi quản lý ở đây.</p>
+          <EmptyState heading={t('emptyTitle')} image="">
+            <p>{t('emptyDesc')}</p>
           </EmptyState>
         </Card>
       ) : (
@@ -178,7 +181,7 @@ export function ShareLinksPanel() {
                   <BlockStack gap="050">
                     <div style={ELLIPSIS}>
                       <Text as="span" fontWeight="semibold">
-                        {l.title || `Báo cáo ${l.reportTitle}`}
+                        {nameOf(l)}
                       </Text>
                     </div>
                     <div style={ELLIPSIS}>
@@ -190,25 +193,25 @@ export function ShareLinksPanel() {
                 </div>
                 <InlineStack gap="150" blockAlign="center" wrap>
                   {l.revoked ? (
-                    <Badge tone="critical">Đã thu hồi</Badge>
+                    <Badge tone="critical">{t('revoked')}</Badge>
                   ) : (
-                    <Badge tone="success">Đang bật</Badge>
+                    <Badge tone="success">{t('active')}</Badge>
                   )}
-                  {l.locked ? <Badge tone="attention">Đã khóa</Badge> : null}
+                  {l.locked ? <Badge tone="attention">{t('locked')}</Badge> : null}
                   <Button size="slim" onClick={() => void copy(l)}>
-                    Copy
+                    {t('copy')}
                   </Button>
                   <Button size="slim" url={urlOf(l)} external>
-                    Mở
+                    {t('open')}
                   </Button>
                   <Button size="slim" onClick={() => openEdit(l)}>
-                    Sửa
+                    {t('edit')}
                   </Button>
                   <Button size="slim" loading={busy === l.slug} onClick={() => void toggleRevoke(l)}>
-                    {l.revoked ? 'Bật lại' : 'Thu hồi'}
+                    {l.revoked ? t('reenable') : t('revoke')}
                   </Button>
                   <Button size="slim" tone="critical" variant="plain" onClick={() => setDel(l)}>
-                    Xóa
+                    {t('delete')}
                   </Button>
                 </InlineStack>
               </InlineStack>
@@ -221,25 +224,25 @@ export function ShareLinksPanel() {
         <Modal
           open
           onClose={() => setEdit(null)}
-          title="Sửa nội dung hiển thị khi chia sẻ"
-          primaryAction={{ content: 'Lưu', loading: busy === edit.slug, onAction: () => void saveEdit() }}
-          secondaryActions={[{ content: 'Hủy', onAction: () => setEdit(null) }]}
+          title={t('editTitle')}
+          primaryAction={{ content: t('save'), loading: busy === edit.slug, onAction: () => void saveEdit() }}
+          secondaryActions={[{ content: t('cancel'), onAction: () => setEdit(null) }]}
         >
           <Modal.Section>
             <BlockStack gap="300">
               <Text as="p" tone="subdued" variant="bodySm">
-                Bỏ trống = dùng mặc định của báo cáo. Ảnh nên là URL http(s) (JPEG/PNG) để MXH hiển thị.
+                {t('editHint')}
               </Text>
               <TextField
-                label="Tiêu đề"
+                label={t('fieldTitle')}
                 value={fTitle}
                 onChange={setFTitle}
                 autoComplete="off"
-                placeholder={`Báo cáo ${edit.reportTitle}`}
+                placeholder={t('reportName', { name: edit.reportTitle })}
               />
-              <TextField label="Mô tả" value={fDesc} onChange={setFDesc} autoComplete="off" multiline={3} />
+              <TextField label={t('fieldDesc')} value={fDesc} onChange={setFDesc} autoComplete="off" multiline={3} />
               <TextField
-                label="URL ảnh bìa"
+                label={t('fieldImage')}
                 value={fImage}
                 onChange={setFImage}
                 autoComplete="off"
@@ -251,21 +254,21 @@ export function ShareLinksPanel() {
                 <BlockStack gap="200">
                   <InlineStack gap="150" blockAlign="center" wrap>
                     <Text as="span" variant="bodySm" fontWeight="semibold">
-                      Bảo mật:
+                      {t('security')}
                     </Text>
                     {edit.locked ? (
-                      <Badge tone="attention">Đã khóa — cần mật khẩu</Badge>
+                      <Badge tone="attention">{t('lockedNeedPw')}</Badge>
                     ) : (
-                      <Badge tone="success">Công khai</Badge>
+                      <Badge tone="success">{t('publicBadge')}</Badge>
                     )}
                   </InlineStack>
                   <TextField
-                    label={edit.locked ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Đặt mật khẩu để khóa'}
+                    label={edit.locked ? t('pwLabelChange') : t('pwLabelSet')}
                     type="password"
                     value={fPassword}
                     onChange={setFPassword}
                     autoComplete="off"
-                    placeholder="Nhập mật khẩu"
+                    placeholder={t('pwPlaceholder')}
                   />
                   {edit.locked ? (
                     <InlineStack>
@@ -275,12 +278,12 @@ export function ShareLinksPanel() {
                         loading={busy === edit.slug}
                         onClick={() => void removeLock()}
                       >
-                        Bỏ khóa (chuyển công khai)
+                        {t('removeLock')}
                       </Button>
                     </InlineStack>
                   ) : null}
                   <Text as="span" tone="subdued" variant="bodySm">
-                    Khi khóa, người xem phải nhập đúng mật khẩu mới xem được nội dung báo cáo.
+                    {t('lockHint')}
                   </Text>
                 </BlockStack>
               </Box>
@@ -293,17 +296,17 @@ export function ShareLinksPanel() {
         <Modal
           open
           onClose={() => setDel(null)}
-          title="Xóa link chia sẻ?"
+          title={t('deleteTitle')}
           primaryAction={{
-            content: 'Xóa',
+            content: t('delete'),
             destructive: true,
             loading: busy === del.slug,
             onAction: () => void doDelete(del),
           }}
-          secondaryActions={[{ content: 'Hủy', onAction: () => setDel(null) }]}
+          secondaryActions={[{ content: t('cancel'), onAction: () => setDel(null) }]}
         >
           <Modal.Section>
-            <Text as="p">Xóa vĩnh viễn link này? Ai có link cũ sẽ không xem được nữa.</Text>
+            <Text as="p">{t('deleteConfirm')}</Text>
           </Modal.Section>
         </Modal>
       ) : null}
@@ -315,11 +318,9 @@ export function ShareLinksPanel() {
 
 // Trang độc lập (giữ để truy cập trực tiếp qua URL) — nội dung dùng chung với tab trong Báo cáo Social.
 export function ShareLinksStandalonePage() {
+  const t = useTranslations('socialReport.shareLinks');
   return (
-    <Page
-      title="Link chia sẻ báo cáo"
-      subtitle="Các link rút gọn dạng blog (tự tạo khi bật chia sẻ báo cáo). Copy để đăng lên mạng xã hội — có ảnh bìa, tiêu đề, mô tả."
-    >
+    <Page title={t('standaloneTitle')} subtitle={t('standaloneSubtitle')}>
       <ShareLinksPanel />
     </Page>
   );

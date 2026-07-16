@@ -503,8 +503,8 @@ export default function SocialReportPage() {
 
   // 2 tab chính: Tạo & xem báo cáo | Link chia sẻ báo cáo (gom quản lý link vào đây cho gọn).
   const mainTabs = [
-    { id: 'reports', content: 'Tạo & xem báo cáo' },
-    { id: 'share-links', content: 'Link chia sẻ báo cáo' },
+    { id: 'reports', content: t('tabReports') },
+    { id: 'share-links', content: t('tabShareLinks') },
   ];
 
   return (

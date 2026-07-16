@@ -208,15 +208,15 @@ export default function SocialReportViewPage() {
       const d = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (res.ok && d?.url) {
         setReport((r) => (r ? { ...r, shareCover: d.url } : r));
-        setToast('Đã tạo ảnh bìa chia sẻ.');
+        setToast(t('share.coverCreated'));
       } else {
-        setToast(d?.error ?? 'Lỗi tạo ảnh bìa.');
+        setToast(d?.error ?? t('share.coverError'));
         setToastErr(true);
       }
     } finally {
       setCoverBusy(false);
     }
-  }, [id, coverPrompt, coverSD, coverProvider, coverModel]);
+  }, [id, coverPrompt, coverSD, coverProvider, coverModel, t]);
 
   const removeCover = useCallback(async () => {
     setCoverBusy(true);
@@ -242,16 +242,16 @@ export default function SocialReportViewPage() {
         if (res.ok) {
           setReport((r) => (r && r.share ? { ...r, share: { ...r.share, locked: !!d?.locked } } : r));
           setSharePw('');
-          setToast(remove ? 'Đã bỏ khóa — link công khai.' : 'Đã khóa link bằng mật khẩu.');
+          setToast(remove ? t('share.passwordRemoved') : t('share.passwordSet'));
         } else {
-          setToast(d?.error ?? 'Không cập nhật được.');
+          setToast(d?.error ?? t('share.updateFailed'));
           setToastErr(true);
         }
       } finally {
         setSharePwBusy(false);
       }
     },
-    [id, sharePw],
+    [id, sharePw, t],
   );
 
   useEffect(() => {
@@ -479,10 +479,10 @@ export default function SocialReportViewPage() {
                     {prettyUrl ? (
                       <BlockStack gap="100">
                         <Text as="span" variant="bodySm" fontWeight="semibold">
-                          Link đăng lên mạng xã hội (dạng blog, có ảnh bìa)
+                          {t('share.socialLinkTitle')}
                         </Text>
                         <TextField
-                          label="Link rút gọn"
+                          label={t('share.shortLinkLabel')}
                           labelHidden
                           value={prettyUrl}
                           readOnly
@@ -501,7 +501,7 @@ export default function SocialReportViewPage() {
                           }
                         />
                         <Text as="span" tone="subdued" variant="bodySm">
-                          Quản lý tất cả link ở mục “Link chia sẻ” bên menu trái.
+                          {t('share.manageHint')}
                         </Text>
                       </BlockStack>
                     ) : null}
@@ -520,24 +520,28 @@ export default function SocialReportViewPage() {
                       <BlockStack gap="200">
                         <InlineStack gap="150" blockAlign="center" wrap>
                           <Text as="span" variant="bodySm" fontWeight="semibold">
-                            Bảo mật:
+                            {t('share.security')}
                           </Text>
                           {report?.share?.locked ? (
-                            <Badge tone="attention">Đã khóa — cần mật khẩu</Badge>
+                            <Badge tone="attention">{t('share.lockedBadge')}</Badge>
                           ) : (
-                            <Badge tone="success">Công khai</Badge>
+                            <Badge tone="success">{t('share.publicBadge')}</Badge>
                           )}
                         </InlineStack>
                         <InlineStack gap="200" wrap blockAlign="end">
                           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                             <TextField
-                              label="Mật khẩu"
+                              label={t('share.passwordLabel')}
                               labelHidden
                               type="password"
                               value={sharePw}
                               onChange={setSharePw}
                               autoComplete="off"
-                              placeholder={report?.share?.locked ? 'Nhập mật khẩu mới để đổi' : 'Đặt mật khẩu để khóa'}
+                              placeholder={
+                                report?.share?.locked
+                                  ? t('share.pwPlaceholderChange')
+                                  : t('share.pwPlaceholderSet')
+                              }
                             />
                           </div>
                           <Button
@@ -545,7 +549,7 @@ export default function SocialReportViewPage() {
                             disabled={!sharePw.trim()}
                             onClick={() => void saveSharePassword(false)}
                           >
-                            {report?.share?.locked ? 'Đổi mật khẩu' : 'Khóa bằng mật khẩu'}
+                            {report?.share?.locked ? t('share.changePassword') : t('share.lockWithPassword')}
                           </Button>
                           {report?.share?.locked ? (
                             <Button
@@ -554,13 +558,12 @@ export default function SocialReportViewPage() {
                               loading={sharePwBusy}
                               onClick={() => void saveSharePassword(true)}
                             >
-                              Bỏ khóa
+                              {t('share.unlock')}
                             </Button>
                           ) : null}
                         </InlineStack>
                         <Text as="span" tone="subdued" variant="bodySm">
-                          Khi khóa, người xem phải nhập mật khẩu bạn cung cấp mới xem được báo cáo. Ảnh
-                          bìa/tiêu đề vẫn hiện khi chia sẻ, nhưng nội dung được bảo vệ.
+                          {t('share.lockHint')}
                         </Text>
                       </BlockStack>
                     </Box>
@@ -576,11 +579,10 @@ export default function SocialReportViewPage() {
                 {/* Ảnh bìa AI cho link chia sẻ (Open Graph) */}
                 <BlockStack gap="200">
                   <Text as="h3" variant="headingSm">
-                    Ảnh bìa chia sẻ (Open Graph)
+                    {t('share.coverTitle')}
                   </Text>
                   <Text as="p" tone="subdued" variant="bodySm">
-                    Tạo ảnh bìa bằng AI cho link chia sẻ. Bỏ trống = dùng avatar báo cáo / ảnh nền tảng.
-                    Ảnh ngang (hợp ảnh bìa MXH), tự nén nhẹ.
+                    {t('share.coverDesc')}
                   </Text>
                   {report?.shareCover ? (
                     <BlockStack gap="200">
@@ -599,24 +601,24 @@ export default function SocialReportViewPage() {
                       />
                       <InlineStack gap="200" wrap>
                         <Button variant="plain" onClick={() => setCoverPreview(true)}>
-                          Xem chi tiết
+                          {t('share.coverView')}
                         </Button>
                         <Button variant="plain" tone="critical" loading={coverBusy} onClick={() => void removeCover()}>
-                          Gỡ ảnh bìa
+                          {t('share.coverRemove')}
                         </Button>
                       </InlineStack>
                     </BlockStack>
                   ) : null}
                   <TextField
-                    label="Nội dung ảnh bìa"
+                    label={t('share.coverPromptLabel')}
                     value={coverPrompt}
                     onChange={setCoverPrompt}
                     autoComplete="off"
                     multiline={2}
-                    placeholder="Mô tả ảnh bìa muốn tạo (chủ đề, phong cách, màu sắc…)"
+                    placeholder={t('share.coverPromptPlaceholder')}
                   />
                   <Checkbox
-                    label="Dùng System design (phong cách từ Cài đặt ảnh AI)"
+                    label={t('share.coverUseSD')}
                     checked={coverSD}
                     onChange={setCoverSD}
                   />
@@ -630,7 +632,7 @@ export default function SocialReportViewPage() {
                   />
                   <InlineStack>
                     <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
-                      {report?.shareCover ? 'Tạo lại ảnh bìa AI' : 'Tạo ảnh bìa bằng AI'}
+                      {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
                     </Button>
                   </InlineStack>
                 </BlockStack>
@@ -698,12 +700,12 @@ export default function SocialReportViewPage() {
 
       {/* Xem ảnh bìa chia sẻ cỡ lớn */}
       {coverPreview && report?.shareCover ? (
-        <Modal open onClose={() => setCoverPreview(false)} title="Ảnh bìa chia sẻ" size="large">
+        <Modal open onClose={() => setCoverPreview(false)} title={t('share.coverModalTitle')} size="large">
           <Modal.Section>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={report.shareCover}
-              alt="Ảnh bìa chia sẻ"
+              alt={t('share.coverModalTitle')}
               style={{ width: '100%', height: 'auto', borderRadius: 8, display: 'block' }}
             />
             <Box paddingBlockStart="300">
