@@ -25,6 +25,9 @@ export interface Branding {
   colorSocialAccent: string; // màu nhấn (tiêu đề mục, header bài đăng, chip, link)
   colorSocialStrength: string; // màu khối Điểm mạnh (+ BOFU)
   colorSocialWeakness: string; // màu khối Điểm yếu
+  // Màu RIÊNG cho TRANG CHIA SẺ công khai (/share) — nút bấm & nhãn. Rỗng = xanh mặc định.
+  colorShareButton: string; // màu nút trên trang chia sẻ (nút "Xem báo cáo" ở màn nhập mật khẩu)
+  colorShareBadge: string; // màu nhãn ("Bảo mật" / "Chỉ xem") trên trang chia sẻ
 }
 
 // Mặc định = đúng giá trị đang hard-code trước đây (giữ nguyên diện mạo khi chưa cấu hình).
@@ -48,6 +51,8 @@ export const DEFAULT_BRANDING: Branding = {
   colorSocialAccent: '', // để trống = xanh mặc định của báo cáo
   colorSocialStrength: '',
   colorSocialWeakness: '',
+  colorShareButton: '', // để trống = xanh #0061ff mặc định
+  colorShareBadge: '',
 };
 
 const FILE = globalFile('branding.json');

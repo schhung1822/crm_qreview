@@ -40,6 +40,8 @@ interface Branding {
   colorSocialAccent: string;
   colorSocialStrength: string;
   colorSocialWeakness: string;
+  colorShareButton: string;
+  colorShareBadge: string;
 }
 
 // ─── Trạng thái máy chủ (cấu hình deploy, RAM, ổ đĩa, CPU, tốc độ mạng) ───
@@ -713,6 +715,22 @@ export function SystemInfoAdmin() {
                 value={st.colorSocialWeakness}
                 fallback="#c5280c"
                 onChange={(v) => set('colorSocialWeakness', v)}
+              />
+              <ColorField
+                label="Màu nút trang chia sẻ"
+                help="Màu nút bấm trên trang chia sẻ công khai (ví dụ nút “Xem báo cáo” ở màn nhập mật khẩu). Bỏ trống = xanh mặc định."
+                value={st.colorShareButton}
+                fallback="#0061ff"
+                onChange={(v) => set('colorShareButton', v)}
+                presets={COLOR_PRESETS}
+              />
+              <ColorField
+                label="Màu nhãn trang chia sẻ"
+                help="Màu nhãn nhỏ (“Bảo mật” / “Chỉ xem”) ở góc trên trang chia sẻ công khai. Bỏ trống = xanh mặc định."
+                value={st.colorShareBadge}
+                fallback="#0061ff"
+                onChange={(v) => set('colorShareBadge', v)}
+                presets={COLOR_PRESETS}
               />
             </InlineGrid>
           </BlockStack>

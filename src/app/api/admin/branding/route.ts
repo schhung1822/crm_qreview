@@ -37,6 +37,8 @@ const Schema = z.object({
   colorSocialAccent: color.optional(),
   colorSocialStrength: color.optional(),
   colorSocialWeakness: color.optional(),
+  colorShareButton: color.optional(),
+  colorShareBadge: color.optional(),
   reset: z.boolean().optional(),
 });
 
