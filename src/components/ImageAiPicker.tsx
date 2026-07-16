@@ -4,6 +4,7 @@
 //  - Provider = các nhà cung cấp CÓ KEY + hỗ trợ tạo ảnh (openai/gemini) + tùy chọn "Tự động".
 //  - Model = load ĐỘNG từ API của provider (kind=image); nếu API không trả thì fallback danh sách curated.
 import { InlineGrid, Select } from '@shopify/polaris';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 export type ImgProvider = '' | 'openai' | 'gemini';
@@ -23,15 +24,16 @@ export function ImageAiPicker({
   provider,
   model,
   onChange,
-  providerLabel = 'AI tạo ảnh',
-  modelLabel = 'Model',
+  providerLabel,
+  modelLabel,
 }: {
   provider: ImgProvider;
   model: string;
   onChange: (provider: ImgProvider, model: string) => void;
-  providerLabel?: string;
+  providerLabel?: string; // bỏ trống = dùng nhãn i18n mặc định (khớp trang Cài đặt ảnh AI)
   modelLabel?: string;
 }) {
+  const t = useTranslations('imageSettings');
   const [keyed, setKeyed] = useState<Array<'openai' | 'gemini'>>([]);
   const [models, setModels] = useState<string[]>([]);
   const [modelsBusy, setModelsBusy] = useState(false);
@@ -73,17 +75,19 @@ export function ImageAiPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 'Mặc định' = để provider tự chọn model. Các model khác giữ ĐÚNG TÊN gốc (gpt-image-1, imagen-4.0…).
   const modelOptions = [
-    { label: 'Mặc định', value: '' },
+    { label: t('modelDefault'), value: '' },
     ...models.map((m) => ({ label: m, value: m })),
   ];
 
   return (
     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
       <Select
-        label={providerLabel}
+        label={providerLabel ?? t('provider')}
         options={[
-          { label: 'Tự động', value: '' },
+          // 'Tự động' theo ngôn ngữ; tên AI (OpenAI/Gemini) giữ nguyên tên gốc.
+          { label: t('auto'), value: '' },
           ...keyed.map((p) => ({
             label: p === 'openai' ? 'OpenAI (gpt-image / DALL·E)' : 'Gemini (Imagen)',
             value: p,
@@ -97,7 +101,7 @@ export function ImageAiPicker({
         }}
       />
       <Select
-        label={modelLabel}
+        label={modelLabel ?? t('model')}
         options={modelOptions}
         value={model}
         onChange={(v) => onChange(provider, v)}
