@@ -1,5 +1,10 @@
-// Rate limit đơn giản trong bộ nhớ (cửa sổ trượt cố định) - chống lạm dụng đăng ký /
-// brute-force đăng nhập. Đủ cho 1 instance; nhiều instance nên dùng Redis.
+// Rate limit đơn giản trong bộ nhớ (cửa sổ cố định) - chống lạm dụng / quá tải THEO TỪNG INSTANCE.
+// Đủ cho throttle tài nguyên (AI/scrape đắt) vì mục tiêu là chặn quá tải mỗi process, gần đúng là đủ.
+//
+// ⚠️ KHÓA BẢO MẬT (brute-force đăng nhập / đặt lại mật khẩu / đăng ký / kích hoạt) KHÔNG được dùng bản
+// in-memory này khi chạy NHIỀU replica: mỗi process đếm riêng → kẻ tấn công xoay vòng qua các replica
+// để nhân số lần thử lên ~N×limit. Dùng `rate-limit-shared.ts` (bộ đếm chia sẻ qua Postgres khi
+// STORAGE_DRIVER=prisma; tự ủy quyền về bản in-memory này khi chạy 1 instance).
 interface Bucket {
   count: number;
   resetAt: number;

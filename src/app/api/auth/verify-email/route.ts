@@ -6,7 +6,8 @@ import { createSession } from '@/lib/auth/session';
 import { findById, markEmailVerified } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 import { ensureMigrated, resolveActiveBiz } from '@/lib/store/biz';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ const BodySchema = z.object({ token: z.string().min(1).max(200) });
 // cho mượt - không bắt người dùng gõ lại mật khẩu ngay sau khi vừa bấm link.
 export async function POST(req: Request) {
   // Token 256-bit không thể đoán, nhưng vẫn chặn quét bừa cho sạch log.
-  const rl = rateLimit(`verify-email:${clientIp(req)}`, 20, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`verify-email:${clientIp(req)}`, 20, 10 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Quá nhiều yêu cầu. Thử lại sau ít phút.' },

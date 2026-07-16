@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { consumeResetToken } from '@/lib/auth/password-reset';
 import { destroySessionsForUser } from '@/lib/auth/session';
 import { setPassword } from '@/lib/auth/users';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,7 +17,7 @@ const BodySchema = z.object({
 // POST /api/auth/reset-password → đặt mật khẩu mới bằng TOKEN từ email (một-lần, có hạn).
 // Không cần đăng nhập (người dùng quên mật khẩu), nhưng phải có token hợp lệ → chứng minh kiểm soát email.
 export async function POST(req: Request) {
-  const rl = rateLimit(`resetpw:${clientIp(req)}`, 10, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`resetpw:${clientIp(req)}`, 10, 10 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: `Thử lại sau ${rl.retryAfter}s.` },

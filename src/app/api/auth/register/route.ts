@@ -8,7 +8,8 @@ import { createUser, markEmailVerified, userCount } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
 import { getSelfRegistrationEnabled } from '@/lib/store/platform-settings';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ const BodySchema = z.object({
 //   quyền sau ở Quản lý nhân viên. Tránh việc tự đăng ký là có quyền đăng bài ngay.
 export async function POST(req: Request) {
   // Chặn lạm dụng: tối đa 5 lần đăng ký / 10 phút / IP.
-  const rl = rateLimit(`register:${clientIp(req)}`, 5, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`register:${clientIp(req)}`, 5, 10 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Quá nhiều lần đăng ký. Thử lại sau ít phút.' },

@@ -4,7 +4,8 @@ import { createResetToken } from '@/lib/auth/password-reset';
 import { findByEmail } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,7 +17,7 @@ const BodySchema = z.object({ email: z.string().email().max(254) });
 // khẩu plaintext. Mật khẩu chỉ đổi khi người dùng bấm link + tự đặt mật khẩu mới (/api/auth/reset-password).
 // Luôn trả { ok:true } (không lộ email nào tồn tại trong hệ thống).
 export async function POST(req: Request) {
-  const rl = rateLimit(`forgot:${clientIp(req)}`, 5, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`forgot:${clientIp(req)}`, 5, 10 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Quá nhiều yêu cầu. Thử lại sau ít phút.' },

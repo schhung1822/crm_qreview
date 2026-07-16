@@ -4,7 +4,8 @@ import { guard } from '@/lib/auth/current';
 import { setSessionCookie } from '@/lib/auth/cookie';
 import { createSession, destroySessionsForUser } from '@/lib/auth/session';
 import { setPassword, verifyCredentials } from '@/lib/auth/users';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const g = await guard();
   if ('response' in g) return g.response;
 
-  const rl = rateLimit(`changepw:${clientIp(req)}`, 10, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`changepw:${clientIp(req)}`, 10, 10 * 60 * 1000);
   if (!rl.ok) return NextResponse.json({ error: `Thử lại sau ${rl.retryAfter}s.` }, { status: 429 });
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));

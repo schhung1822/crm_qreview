@@ -4,7 +4,8 @@ import { createVerifyToken } from '@/lib/auth/email-verification';
 import { findByEmail, isEmailVerified } from '@/lib/auth/users';
 import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
-import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { clientIp } from '@/lib/security/rate-limit';
+import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,7 +15,7 @@ const BodySchema = z.object({ email: z.string().email().max(254) });
 // POST /api/auth/resend-verification → gửi lại LINK KÍCH HOẠT cho tài khoản chưa xác thực.
 // Như forgot-password: luôn trả { ok:true } (không lộ email nào tồn tại / trạng thái xác thực).
 export async function POST(req: Request) {
-  const rl = rateLimit(`resend-verify:${clientIp(req)}`, 5, 10 * 60 * 1000);
+  const rl = await sharedRateLimit(`resend-verify:${clientIp(req)}`, 5, 10 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Quá nhiều yêu cầu. Thử lại sau ít phút.' },

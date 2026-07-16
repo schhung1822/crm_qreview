@@ -47,3 +47,24 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Quét CVE trong dependency.
+  #  - Hard-fail CHỈ khi dependency RUNTIME (prod) có lỗ hổng CRITICAL — đây là thứ chạy trên VPS và
+  #    cần vá ngay. Ngưỡng đặt ở "critical" (không phải "high") có chủ đích: các lỗ hổng high hiện tại
+  #    (vd Next.js middleware advisory) chỉ vá được bằng nâng cấp MAJOR breaking (Next 16), đã theo dõi
+  #    riêng ở sổ nợ kỹ thuật "Next 15/16 upgrade" — không để nó chặn MỌI PR.
+  #  - Bước report chạy ở mức high+ cho cả prod lẫn dev để vẫn THẤY trong log CI (không chặn).
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit production dependencies (fail on CRITICAL)
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Report high+ vulnerabilities (không chặn CI)
+        run: npm audit --audit-level=high || true
