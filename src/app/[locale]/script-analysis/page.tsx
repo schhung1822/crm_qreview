@@ -556,7 +556,9 @@ export default function ScriptAnalysisPage() {
                       </Button>
                     </InlineStack>
                     <Collapsible open={shareOpen} id="vshare-collapse" transition={{ duration: '150ms' }}>
-                      <BlockStack gap="300">
+                      {/* 2 cột: TRÁI = mọi điều khiển (tạo link, bảo mật, tạo ảnh bìa); PHẢI = ảnh bìa. */}
+                      <InlineGrid columns={{ xs: 1, md: detail.shareCover ? '3fr 2fr' : 1 }} gap="400">
+                        <BlockStack gap="300">
                         {shareUrl ? (
                           <BlockStack gap="200">
                             {prettyUrl ? (
@@ -657,7 +659,7 @@ export default function ScriptAnalysisPage() {
                           </InlineStack>
                         )}
 
-                        {/* Ảnh bìa AI / tải lên cho link chia sẻ (Open Graph) */}
+                        {/* Tạo ảnh bìa (điều khiển) — ảnh xem trước ở CỘT PHẢI */}
                         <BlockStack gap="200">
                           <Text as="h3" variant="headingSm">
                             {ts('share.coverTitle')}
@@ -665,79 +667,77 @@ export default function ScriptAnalysisPage() {
                           <Text as="p" tone="subdued" variant="bodySm">
                             {ts('share.coverDesc')}
                           </Text>
-                          {/* Desktop: ảnh bên trái, cấu hình lấp bên phải. Mobile: xếp dọc. */}
-                          <InlineGrid columns={{ xs: 1, md: detail.shareCover ? '5fr 6fr' : 1 }} gap="400">
-                            {detail.shareCover ? (
-                              <BlockStack gap="200">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={detail.shareCover}
-                                  alt=""
-                                  style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    aspectRatio: '3 / 2',
-                                    objectFit: 'cover',
-                                    borderRadius: 8,
-                                    border: '1px solid #e3e7ee',
-                                    display: 'block',
-                                  }}
-                                />
-                                <InlineStack gap="200" wrap>
-                                  <Button variant="plain" onClick={() => setCoverPreview(true)}>
-                                    {ts('share.coverView')}
-                                  </Button>
-                                  <Button
-                                    variant="plain"
-                                    tone="critical"
-                                    loading={coverBusy}
-                                    onClick={() => void removeCover()}
-                                  >
-                                    {ts('share.coverRemove')}
-                                  </Button>
-                                </InlineStack>
-                              </BlockStack>
-                            ) : null}
-                            <BlockStack gap="300">
-                              <TextField
-                                label={ts('share.coverPromptLabel')}
-                                value={coverPrompt}
-                                onChange={setCoverPrompt}
-                                autoComplete="off"
-                                multiline={detail.shareCover ? 4 : 2}
-                                placeholder={ts('share.coverPromptPlaceholder')}
-                              />
-                              <Checkbox label={ts('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
-                              <ImageAiPicker
-                                provider={coverProvider}
-                                model={coverModel}
-                                onChange={(p, mm) => {
-                                  setCoverProvider(p);
-                                  setCoverModel(mm);
-                                }}
-                              />
-                              <InlineGrid columns={{ xs: 2 }} gap="200">
-                                <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
-                                  {detail.shareCover ? ts('share.coverRegenerate') : ts('share.coverGenerate')}
-                                </Button>
-                                <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
-                                  {ts('share.coverUpload')}
-                                </Button>
-                              </InlineGrid>
-                              <input
-                                ref={coverFileRef}
-                                type="file"
-                                accept="image/*"
-                                hidden
-                                onChange={(e) => {
-                                  void uploadCover(e.target.files?.[0]);
-                                  e.target.value = '';
-                                }}
-                              />
-                            </BlockStack>
+                          <TextField
+                            label={ts('share.coverPromptLabel')}
+                            value={coverPrompt}
+                            onChange={setCoverPrompt}
+                            autoComplete="off"
+                            multiline={2}
+                            placeholder={ts('share.coverPromptPlaceholder')}
+                          />
+                          <Checkbox label={ts('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
+                          <ImageAiPicker
+                            provider={coverProvider}
+                            model={coverModel}
+                            onChange={(p, mm) => {
+                              setCoverProvider(p);
+                              setCoverModel(mm);
+                            }}
+                          />
+                          <InlineGrid columns={{ xs: 2 }} gap="200">
+                            <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
+                              {detail.shareCover ? ts('share.coverRegenerate') : ts('share.coverGenerate')}
+                            </Button>
+                            <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                              {ts('share.coverUpload')}
+                            </Button>
                           </InlineGrid>
+                          <input
+                            ref={coverFileRef}
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => {
+                              void uploadCover(e.target.files?.[0]);
+                              e.target.value = '';
+                            }}
+                          />
                         </BlockStack>
-                      </BlockStack>
+                        </BlockStack>
+
+                        {/* CỘT PHẢI: ảnh bìa xem trước */}
+                        {detail.shareCover ? (
+                          <BlockStack gap="200">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={detail.shareCover}
+                              alt=""
+                              style={{
+                                width: '100%',
+                                height: 'auto',
+                                aspectRatio: '3 / 2',
+                                objectFit: 'cover',
+                                borderRadius: 8,
+                                border: '1px solid #e3e7ee',
+                                display: 'block',
+                              }}
+                            />
+                            <InlineStack gap="200" wrap>
+                              <Button variant="plain" onClick={() => setCoverPreview(true)}>
+                                {ts('share.coverView')}
+                              </Button>
+                              <Button
+                                variant="plain"
+                                tone="critical"
+                                loading={coverBusy}
+                                onClick={() => void removeCover()}
+                              >
+                                {ts('share.coverRemove')}
+                              </Button>
+                            </InlineStack>
+                          </BlockStack>
+                        ) : null}
+                      </InlineGrid>
                     </Collapsible>
                   </BlockStack>
                 </Box>

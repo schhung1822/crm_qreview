@@ -537,7 +537,9 @@ export default function SocialReportViewPage() {
                   </Button>
                 </InlineStack>
                 <Collapsible open={shareOpen} id="share-collapse" transition={{ duration: '150ms' }}>
-                  <BlockStack gap="200">
+                  {/* 2 cột: TRÁI = mọi điều khiển (tạo link, bảo mật, tạo ảnh bìa); PHẢI = ảnh bìa. */}
+                  <InlineGrid columns={{ xs: 1, md: report?.shareCover ? '3fr 2fr' : 1 }} gap="400">
+                    <BlockStack gap="300">
                     <Text as="p" tone="subdued">
                       {t('share.desc')}
                     </Text>
@@ -643,16 +645,53 @@ export default function SocialReportViewPage() {
                   </InlineStack>
                 )}
 
-                {/* Ảnh bìa AI cho link chia sẻ (Open Graph) */}
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingSm">
-                    {t('share.coverTitle')}
-                  </Text>
-                  <Text as="p" tone="subdued" variant="bodySm">
-                    {t('share.coverDesc')}
-                  </Text>
-                  {/* Desktop: ảnh bên trái, cấu hình lấp bên phải (hết khoảng trống). Mobile: xếp dọc. */}
-                  <InlineGrid columns={{ xs: 1, md: report?.shareCover ? '5fr 6fr' : 1 }} gap="400">
+                      {/* Tạo ảnh bìa (điều khiển) — ảnh xem trước ở CỘT PHẢI */}
+                      <BlockStack gap="200">
+                        <Text as="h3" variant="headingSm">
+                          {t('share.coverTitle')}
+                        </Text>
+                        <Text as="p" tone="subdued" variant="bodySm">
+                          {t('share.coverDesc')}
+                        </Text>
+                        <TextField
+                          label={t('share.coverPromptLabel')}
+                          value={coverPrompt}
+                          onChange={setCoverPrompt}
+                          autoComplete="off"
+                          multiline={2}
+                          placeholder={t('share.coverPromptPlaceholder')}
+                        />
+                        <Checkbox label={t('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
+                        <ImageAiPicker
+                          provider={coverProvider}
+                          model={coverModel}
+                          onChange={(p, m) => {
+                            setCoverProvider(p);
+                            setCoverModel(m);
+                          }}
+                        />
+                        <InlineGrid columns={{ xs: 2 }} gap="200">
+                          <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
+                            {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
+                          </Button>
+                          <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                            {t('share.coverUpload')}
+                          </Button>
+                        </InlineGrid>
+                        <input
+                          ref={coverFileRef}
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => {
+                            void uploadCover(e.target.files?.[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                      </BlockStack>
+                    </BlockStack>
+
+                    {/* CỘT PHẢI: ảnh bìa xem trước */}
                     {report?.shareCover ? (
                       <BlockStack gap="200">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -679,46 +718,7 @@ export default function SocialReportViewPage() {
                         </InlineStack>
                       </BlockStack>
                     ) : null}
-                    <BlockStack gap="300">
-                      <TextField
-                        label={t('share.coverPromptLabel')}
-                        value={coverPrompt}
-                        onChange={setCoverPrompt}
-                        autoComplete="off"
-                        multiline={report?.shareCover ? 4 : 2}
-                        placeholder={t('share.coverPromptPlaceholder')}
-                      />
-                      <Checkbox label={t('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
-                      <ImageAiPicker
-                        provider={coverProvider}
-                        model={coverModel}
-                        onChange={(p, m) => {
-                          setCoverProvider(p);
-                          setCoverModel(m);
-                        }}
-                      />
-                      <InlineGrid columns={{ xs: 2 }} gap="200">
-                        <Button variant="primary" fullWidth loading={coverBusy} onClick={() => void genCover()}>
-                          {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
-                        </Button>
-                        <Button fullWidth loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
-                          {t('share.coverUpload')}
-                        </Button>
-                      </InlineGrid>
-                      <input
-                        ref={coverFileRef}
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => {
-                          void uploadCover(e.target.files?.[0]);
-                          e.target.value = '';
-                        }}
-                      />
-                    </BlockStack>
                   </InlineGrid>
-                    </BlockStack>
-                  </BlockStack>
                 </Collapsible>
               </BlockStack>
             </Card>
