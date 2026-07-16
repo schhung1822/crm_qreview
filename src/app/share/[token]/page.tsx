@@ -56,6 +56,149 @@ const UI: Record<string, { viewOnly: string; lock: string }> = {
   th: { viewOnly: 'ดูอย่างเดียว', lock: 'เนื้อหาการวิเคราะห์เชิงลึกบางส่วนถูกซ่อนไว้' },
 };
 
+// Chuỗi màn NHẬP MẬT KHẨU (self-contained) — cũng theo report.locale như phần nội dung.
+interface GateStr {
+  badge: string; // nhãn tag
+  protTitle: string; // tiêu đề bảng thương hiệu
+  protNote: string; // dòng trấn an
+  action: string; // tiêu đề biểu mẫu + chữ trên nút
+  prompt: string; // hướng dẫn nhập
+  pwLabel: string; // nhãn ô mật khẩu
+  pwPlaceholder: string; // placeholder ô mật khẩu
+  errWrong: string; // sai mật khẩu
+  errRate: string; // thử quá nhiều lần
+  metaLocked: string; // mô tả OG khi khóa
+}
+const GATE: Record<string, GateStr> = {
+  vi: {
+    badge: 'Bảo mật',
+    protTitle: 'Nội dung được bảo vệ',
+    protNote: 'Báo cáo này chỉ dành cho người được cấp mật khẩu truy cập.',
+    action: 'Xem báo cáo',
+    prompt: 'Nhập mật khẩu được cung cấp để tiếp tục.',
+    pwLabel: 'Mật khẩu',
+    pwPlaceholder: 'Nhập mật khẩu',
+    errWrong: 'Mật khẩu không đúng. Vui lòng thử lại.',
+    errRate: 'Thử quá nhiều lần. Đợi một phút rồi thử lại.',
+    metaLocked: 'Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.',
+  },
+  en: {
+    badge: 'Protected',
+    protTitle: 'Content is protected',
+    protNote: 'This report is only available to people with the access password.',
+    action: 'View report',
+    prompt: 'Enter the password you were given to continue.',
+    pwLabel: 'Password',
+    pwPlaceholder: 'Enter password',
+    errWrong: 'Incorrect password. Please try again.',
+    errRate: 'Too many attempts. Wait a minute and try again.',
+    metaLocked: 'This report is password-protected — a password is required to view it.',
+  },
+  zh: {
+    badge: '受保护',
+    protTitle: '内容受保护',
+    protNote: '此报告仅向持有访问密码的人开放。',
+    action: '查看报告',
+    prompt: '请输入您获得的密码以继续。',
+    pwLabel: '密码',
+    pwPlaceholder: '输入密码',
+    errWrong: '密码不正确，请重试。',
+    errRate: '尝试次数过多，请稍等一分钟后重试。',
+    metaLocked: '此报告受密码保护 — 需要密码才能查看。',
+  },
+  ja: {
+    badge: '保護中',
+    protTitle: 'コンテンツは保護されています',
+    protNote: 'このレポートはアクセスパスワードをお持ちの方のみ閲覧できます。',
+    action: 'レポートを見る',
+    prompt: '続行するには、提供されたパスワードを入力してください。',
+    pwLabel: 'パスワード',
+    pwPlaceholder: 'パスワードを入力',
+    errWrong: 'パスワードが正しくありません。もう一度お試しください。',
+    errRate: '試行回数が多すぎます。1分ほど待ってから再度お試しください。',
+    metaLocked: 'このレポートはパスワードで保護されています — 閲覧にはパスワードが必要です。',
+  },
+  ko: {
+    badge: '보호됨',
+    protTitle: '콘텐츠가 보호되어 있습니다',
+    protNote: '이 보고서는 접근 비밀번호를 가진 사람만 볼 수 있습니다.',
+    action: '보고서 보기',
+    prompt: '계속하려면 제공받은 비밀번호를 입력하세요.',
+    pwLabel: '비밀번호',
+    pwPlaceholder: '비밀번호 입력',
+    errWrong: '비밀번호가 올바르지 않습니다. 다시 시도하세요.',
+    errRate: '시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.',
+    metaLocked: '이 보고서는 비밀번호로 보호되어 있습니다 — 보려면 비밀번호가 필요합니다.',
+  },
+  fr: {
+    badge: 'Protégé',
+    protTitle: 'Contenu protégé',
+    protNote: "Ce rapport n'est accessible qu'aux personnes disposant du mot de passe.",
+    action: 'Voir le rapport',
+    prompt: 'Saisissez le mot de passe qui vous a été fourni pour continuer.',
+    pwLabel: 'Mot de passe',
+    pwPlaceholder: 'Saisir le mot de passe',
+    errWrong: 'Mot de passe incorrect. Veuillez réessayer.',
+    errRate: 'Trop de tentatives. Attendez une minute puis réessayez.',
+    metaLocked:
+      'Ce rapport est protégé par mot de passe — un mot de passe est requis pour le consulter.',
+  },
+  de: {
+    badge: 'Geschützt',
+    protTitle: 'Inhalt ist geschützt',
+    protNote: 'Dieser Bericht ist nur für Personen mit dem Zugangspasswort verfügbar.',
+    action: 'Bericht ansehen',
+    prompt: 'Geben Sie das erhaltene Passwort ein, um fortzufahren.',
+    pwLabel: 'Passwort',
+    pwPlaceholder: 'Passwort eingeben',
+    errWrong: 'Falsches Passwort. Bitte erneut versuchen.',
+    errRate: 'Zu viele Versuche. Warten Sie eine Minute und versuchen Sie es erneut.',
+    metaLocked:
+      'Dieser Bericht ist passwortgeschützt — zum Ansehen ist ein Passwort erforderlich.',
+  },
+  id: {
+    badge: 'Terlindungi',
+    protTitle: 'Konten dilindungi',
+    protNote: 'Laporan ini hanya tersedia bagi orang yang memiliki kata sandi akses.',
+    action: 'Lihat laporan',
+    prompt: 'Masukkan kata sandi yang diberikan untuk melanjutkan.',
+    pwLabel: 'Kata sandi',
+    pwPlaceholder: 'Masukkan kata sandi',
+    errWrong: 'Kata sandi salah. Silakan coba lagi.',
+    errRate: 'Terlalu banyak percobaan. Tunggu satu menit lalu coba lagi.',
+    metaLocked: 'Laporan ini dilindungi kata sandi — kata sandi diperlukan untuk melihatnya.',
+  },
+  hi: {
+    badge: 'सुरक्षित',
+    protTitle: 'सामग्री सुरक्षित है',
+    protNote: 'यह रिपोर्ट केवल उन लोगों के लिए उपलब्ध है जिनके पास एक्सेस पासवर्ड है।',
+    action: 'रिपोर्ट देखें',
+    prompt: 'जारी रखने के लिए आपको दिया गया पासवर्ड दर्ज करें।',
+    pwLabel: 'पासवर्ड',
+    pwPlaceholder: 'पासवर्ड दर्ज करें',
+    errWrong: 'गलत पासवर्ड। कृपया पुनः प्रयास करें।',
+    errRate: 'बहुत अधिक प्रयास। एक मिनट रुकें और फिर से प्रयास करें।',
+    metaLocked: 'यह रिपोर्ट पासवर्ड से सुरक्षित है — इसे देखने के लिए पासवर्ड आवश्यक है।',
+  },
+  th: {
+    badge: 'ได้รับการป้องกัน',
+    protTitle: 'เนื้อหาได้รับการป้องกัน',
+    protNote: 'รายงานนี้เปิดให้เฉพาะผู้ที่มีรหัสผ่านเข้าถึงเท่านั้น',
+    action: 'ดูรายงาน',
+    prompt: 'กรอกรหัสผ่านที่ได้รับเพื่อดำเนินการต่อ',
+    pwLabel: 'รหัสผ่าน',
+    pwPlaceholder: 'กรอกรหัสผ่าน',
+    errWrong: 'รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง',
+    errRate: 'พยายามมากเกินไป โปรดรอสักครู่แล้วลองใหม่',
+    metaLocked: 'รายงานนี้ได้รับการป้องกันด้วยรหัสผ่าน — ต้องใช้รหัสผ่านเพื่อดู',
+  },
+};
+
+// Chọn locale an toàn (fallback 'vi') cho các map tự chứa ở trên.
+function pickLocale(loc: string): string {
+  return (locales as readonly string[]).includes(loc) ? loc : 'vi';
+}
+
 async function loadReport(
   token: string,
 ): Promise<{ report: SocialReportRecord; viewLocked: boolean; locked: boolean } | null> {
@@ -114,9 +257,9 @@ export async function generateMetadata({
   const b = await getBranding();
   const platform = PLATFORM_LABEL[report.platform] ?? 'nền tảng';
   const title = `Báo cáo ${report.title} trên ${platform}`;
-  // Khóa → KHÔNG lộ nội dung tóm tắt ra thẻ mô tả; chỉ báo là cần mật khẩu.
+  // Khóa → KHÔNG lộ nội dung tóm tắt ra thẻ mô tả; chỉ báo là cần mật khẩu (theo ngôn ngữ báo cáo).
   const description = locked
-    ? 'Báo cáo được bảo vệ bằng mật khẩu — cần mật khẩu để xem.'
+    ? GATE[pickLocale(report.locale)].metaLocked
     : reportDescription(report);
   // Ưu tiên: ảnh bìa AI người dùng tạo cho báo cáo → avatar kênh/ảnh sản phẩm → ảnh bìa nền tảng → logo.
   const image = report.shareCover || reportImage(report, b.ogImage || b.logoDuongBan);
@@ -250,6 +393,7 @@ export default async function SharePage({
   if (locked && !checkShareAccess(token, cookies().get(shareAccessCookieName(token))?.value)) {
     const err = searchParams?.e === '1';
     const rate = searchParams?.e === 'rate';
+    const g = GATE[pickLocale(report.locale)];
     return (
       <main className="sh sg">
         <style
@@ -277,8 +421,8 @@ export default async function SharePage({
                   <circle cx="12" cy="16" r="1.3" fill="currentColor" stroke="none" />
                 </svg>
               </div>
-              <h1 className="sg-hero-h">Nội dung được bảo vệ</h1>
-              <p className="sg-hero-p">Báo cáo này chỉ dành cho người được cấp mật khẩu truy cập.</p>
+              <h1 className="sg-hero-h">{g.protTitle}</h1>
+              <p className="sg-hero-p">{g.protNote}</p>
             </div>
             <div className="sg-side-foot">
               <a href={b.sourceUrl} target="_blank" rel="noopener noreferrer">
@@ -289,27 +433,27 @@ export default async function SharePage({
 
           {/* Biểu mẫu nhập mật khẩu */}
           <div className="sg-form-side">
-            <p className="sg-eyebrow">Bảo mật</p>
-            <h2 className="sg-title">Xem báo cáo</h2>
-            <p className="sg-note">Nhập mật khẩu được cung cấp để tiếp tục.</p>
-            {err ? <p className="sg-err">Mật khẩu không đúng. Vui lòng thử lại.</p> : null}
-            {rate ? <p className="sg-err">Thử quá nhiều lần. Đợi một phút rồi thử lại.</p> : null}
+            <p className="sg-eyebrow">{g.badge}</p>
+            <h2 className="sg-title">{g.action}</h2>
+            <p className="sg-note">{g.prompt}</p>
+            {err ? <p className="sg-err">{g.errWrong}</p> : null}
+            {rate ? <p className="sg-err">{g.errRate}</p> : null}
             <form method="POST" action={`/api/share/${token}/unlock`} className="sg-form">
               <label className="sg-field" htmlFor="sg-pw">
-                Mật khẩu
+                {g.pwLabel}
               </label>
               <input
                 id="sg-pw"
                 type="password"
                 name="password"
-                placeholder="Nhập mật khẩu"
+                placeholder={g.pwPlaceholder}
                 autoComplete="off"
                 className="sg-input"
                 autoFocus
                 required
               />
               <button type="submit" className="sg-btn">
-                Xem báo cáo
+                {g.action}
               </button>
             </form>
           </div>
