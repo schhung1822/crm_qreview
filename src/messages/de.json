@@ -1668,7 +1668,11 @@
       "coverRegenerate": "KI-Titelbild neu erzeugen",
       "coverModalTitle": "Titelbild für Freigabe",
       "coverCreated": "Titelbild für Freigabe erstellt.",
-      "coverError": "Titelbild konnte nicht erzeugt werden."
+      "coverError": "Titelbild konnte nicht erzeugt werden.",
+      "coverUpload": "Bild hochladen",
+      "coverUploadTooBig": "Bild ist zu groß (max. 8 MB).",
+      "expand": "Ausklappen",
+      "collapse": "Einklappen"
     },
     "shareLinks": {
       "emptyTitle": "Noch keine Freigabelinks",

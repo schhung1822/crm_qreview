@@ -1668,7 +1668,11 @@
       "coverRegenerate": "Régénérer la couverture IA",
       "coverModalTitle": "Image de couverture de partage",
       "coverCreated": "Image de couverture de partage créée.",
-      "coverError": "Impossible de générer l'image de couverture."
+      "coverError": "Impossible de générer l'image de couverture.",
+      "coverUpload": "Importer une image",
+      "coverUploadTooBig": "Image trop volumineuse (max 8 Mo).",
+      "expand": "Développer",
+      "collapse": "Réduire"
     },
     "shareLinks": {
       "emptyTitle": "Aucun lien de partage pour le moment",

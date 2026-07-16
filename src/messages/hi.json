@@ -1668,7 +1668,11 @@
       "coverRegenerate": "AI कवर फिर से बनाएँ",
       "coverModalTitle": "शेयर कवर छवि",
       "coverCreated": "शेयर कवर छवि बनाई गई।",
-      "coverError": "कवर छवि नहीं बनाई जा सकी।"
+      "coverError": "कवर छवि नहीं बनाई जा सकी।",
+      "coverUpload": "छवि अपलोड करें",
+      "coverUploadTooBig": "छवि बहुत बड़ी है (अधिकतम 8MB)।",
+      "expand": "विस्तृत करें",
+      "collapse": "संक्षिप्त करें"
     },
     "shareLinks": {
       "emptyTitle": "अभी तक कोई शेयर लिंक नहीं",

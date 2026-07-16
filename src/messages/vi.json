@@ -1668,7 +1668,11 @@
       "coverRegenerate": "Tạo lại ảnh bìa AI",
       "coverModalTitle": "Ảnh bìa chia sẻ",
       "coverCreated": "Đã tạo ảnh bìa chia sẻ.",
-      "coverError": "Lỗi tạo ảnh bìa."
+      "coverError": "Lỗi tạo ảnh bìa.",
+      "coverUpload": "Tải ảnh lên",
+      "coverUploadTooBig": "Ảnh quá lớn (tối đa 8MB).",
+      "expand": "Mở rộng",
+      "collapse": "Thu gọn"
     },
     "shareLinks": {
       "emptyTitle": "Chưa có link chia sẻ nào",

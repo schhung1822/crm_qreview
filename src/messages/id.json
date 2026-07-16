@@ -1668,7 +1668,11 @@
       "coverRegenerate": "Buat ulang sampul AI",
       "coverModalTitle": "Gambar sampul berbagi",
       "coverCreated": "Gambar sampul berbagi dibuat.",
-      "coverError": "Tidak dapat membuat gambar sampul."
+      "coverError": "Tidak dapat membuat gambar sampul.",
+      "coverUpload": "Unggah gambar",
+      "coverUploadTooBig": "Gambar terlalu besar (maks 8MB).",
+      "expand": "Perluas",
+      "collapse": "Ciutkan"
     },
     "shareLinks": {
       "emptyTitle": "Belum ada tautan berbagi",

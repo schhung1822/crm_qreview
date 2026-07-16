@@ -18,17 +18,65 @@ export const maxDuration = 120; // tạo ảnh AI có thể lâu
 
 const ID_RE = /^sr_[a-f0-9]+$/;
 const Body = z.object({
+  // dataUri có → chế độ TẢI ẢNH TỪ NGOÀI (không cần AI). Ảnh vẫn được nén + đổi sang JPEG.
+  dataUri: z.string().max(20_000_000).optional(),
   prompt: z.string().max(1000).optional(), // nội dung/mô tả người dùng muốn cho ảnh bìa
   useSystemDesign: z.boolean().optional(), // dùng phong cách "Cài đặt ảnh AI" (system design) hay không
   provider: z.enum(['', 'openai', 'gemini']).optional(),
   model: z.string().max(120).optional(),
 });
 
+// OG cần URL TUYỆT ĐỐI. Ưu tiên APP_URL; nếu chưa đặt → suy từ Origin request.
+function absoluteUrl(rel: string, req: Request): string {
+  let base = env.appUrl || '';
+  if (!base) {
+    try {
+      base = new URL(req.url).origin;
+    } catch {
+      /* bỏ qua */
+    }
+  }
+  return base ? `${base}${rel}` : rel;
+}
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id)) return NextResponse.json({ error: 'Id không hợp lệ.' }, { status: 400 });
 
+  const report = await getSocialReport(params.id);
+  if (!report) return NextResponse.json({ error: 'Không tìm thấy báo cáo.' }, { status: 404 });
+
+  const parsed = Body.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: 'Tham số không hợp lệ.' }, { status: 400 });
+
+  // ── Chế độ TẢI ẢNH TỪ NGOÀI: có dataUri → nén + chuyển JPEG (thân thiện MXH), không cần AI key ──
+  if (parsed.data.dataUri) {
+    const rlUp = rateLimit(`imgup:${clientIp(req)}`, 20, 60_000);
+    if (!rlUp.ok)
+      return NextResponse.json(
+        { error: `Thử lại sau ${rlUp.retryAfter}s.` },
+        { status: 429, headers: { 'Retry-After': String(rlUp.retryAfter) } },
+      );
+    const m = /^data:image\/[a-zA-Z0-9.+-]+;base64,([A-Za-z0-9+/=]+)$/.exec(parsed.data.dataUri.trim());
+    if (!m) return NextResponse.json({ error: 'Ảnh không hợp lệ (cần ảnh PNG/JPEG/WebP).' }, { status: 400 });
+    try {
+      // Nén + resize bề rộng 1200 (chuẩn OG) + chuyển JPEG (Facebook/Zalo render ổn định).
+      const rel = await saveGeneratedImage(m[1], `og-${report.title}`, { format: 'jpeg', maxWidth: 1200 });
+      const url = absoluteUrl(rel, req);
+      await updateSocialReport(params.id, (x) => {
+        x.shareCover = url;
+      });
+      return NextResponse.json({ url });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Lỗi xử lý ảnh tải lên.' },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── Chế độ TẠO BẰNG AI ──
   const rl = rateLimit(`img:${clientIp(req)}`, 12, 60_000);
   if (!rl.ok)
     return NextResponse.json(
@@ -37,12 +85,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   if (!(await imageProviderAvailable()))
     return NextResponse.json({ error: 'Cần API key OpenAI hoặc Gemini (hỗ trợ tạo ảnh) ở API Keys & AI.' }, { status: 400 });
-
-  const report = await getSocialReport(params.id);
-  if (!report) return NextResponse.json({ error: 'Không tìm thấy báo cáo.' }, { status: 404 });
-
-  const parsed = Body.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: 'Tham số không hợp lệ.' }, { status: 400 });
 
   // System design bật (mặc định) → lấy phong cách từ Cài đặt ảnh AI; tắt → dùng cấu hình trung tính.
   const useSD = parsed.data.useSystemDesign !== false;
@@ -62,16 +104,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // ẢNH BÌA CHIA SẺ dùng JPEG (mozjpeg) + bề rộng 1200 (chuẩn OG) — Facebook/Zalo render ổn định
     // hơn WebP. Ảnh nội dung khác vẫn giữ WebP.
     const rel = await saveGeneratedImage(b64, `og-${report.title}`, { format: 'jpeg', maxWidth: 1200 });
-    // OG cần URL TUYỆT ĐỐI. Ưu tiên APP_URL; nếu chưa đặt → suy từ Origin request.
-    let base = env.appUrl || '';
-    if (!base) {
-      try {
-        base = new URL(req.url).origin;
-      } catch {
-        /* bỏ qua */
-      }
-    }
-    const url = base ? `${base}${rel}` : rel;
+    const url = absoluteUrl(rel, req);
     await updateSocialReport(params.id, (x) => {
       x.shareCover = url;
     });

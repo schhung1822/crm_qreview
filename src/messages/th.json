@@ -1668,7 +1668,11 @@
       "coverRegenerate": "สร้างภาพปก AI ใหม่",
       "coverModalTitle": "ภาพปกสำหรับแชร์",
       "coverCreated": "สร้างภาพปกสำหรับแชร์แล้ว",
-      "coverError": "สร้างภาพปกไม่สำเร็จ"
+      "coverError": "สร้างภาพปกไม่สำเร็จ",
+      "coverUpload": "อัปโหลดรูปภาพ",
+      "coverUploadTooBig": "รูปภาพใหญ่เกินไป (สูงสุด 8MB)",
+      "expand": "ขยาย",
+      "collapse": "ย่อ"
     },
     "shareLinks": {
       "emptyTitle": "ยังไม่มีลิงก์แชร์",

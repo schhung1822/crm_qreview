@@ -1668,7 +1668,11 @@
       "coverRegenerate": "AI 커버 다시 생성",
       "coverModalTitle": "공유 커버 이미지",
       "coverCreated": "공유 커버 이미지를 생성했습니다.",
-      "coverError": "커버 이미지를 생성하지 못했습니다."
+      "coverError": "커버 이미지를 생성하지 못했습니다.",
+      "coverUpload": "이미지 업로드",
+      "coverUploadTooBig": "이미지가 너무 큽니다(최대 8MB).",
+      "expand": "펼치기",
+      "collapse": "접기"
     },
     "shareLinks": {
       "emptyTitle": "아직 공유 링크가 없습니다",

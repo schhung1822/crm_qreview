@@ -1668,7 +1668,11 @@
       "coverRegenerate": "重新生成 AI 封面",
       "coverModalTitle": "分享封面图",
       "coverCreated": "已生成分享封面图。",
-      "coverError": "无法生成封面图。"
+      "coverError": "无法生成封面图。",
+      "coverUpload": "上传图片",
+      "coverUploadTooBig": "图片太大（最大 8MB）。",
+      "expand": "展开",
+      "collapse": "收起"
     },
     "shareLinks": {
       "emptyTitle": "还没有分享链接",

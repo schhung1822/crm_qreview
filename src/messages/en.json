@@ -1668,7 +1668,11 @@
       "coverRegenerate": "Regenerate AI cover",
       "coverModalTitle": "Share cover image",
       "coverCreated": "Share cover image created.",
-      "coverError": "Couldn’t generate the cover image."
+      "coverError": "Couldn’t generate the cover image.",
+      "coverUpload": "Upload image",
+      "coverUploadTooBig": "Image is too large (max 8MB).",
+      "expand": "Expand",
+      "collapse": "Collapse"
     },
     "shareLinks": {
       "emptyTitle": "No share links yet",

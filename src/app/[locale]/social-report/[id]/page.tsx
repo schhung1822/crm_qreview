@@ -11,6 +11,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Collapsible,
   InlineStack,
   Modal,
   Page,
@@ -21,7 +22,7 @@ import {
 import { ImageAiPicker, type ImgProvider } from '@/components/ImageAiPicker';
 import { useLocale, useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SocialAnalyzeModal } from '@/components/SocialAnalyzeModal';
 import { SocialStyleModal } from '@/components/SocialStyleModal';
 import { AiWorking } from '@/components/ui';
@@ -113,6 +114,7 @@ export default function SocialReportViewPage() {
   const [shareUrl, setShareUrl] = useState(''); // link chia sẻ công khai /share/<token>
   const [prettyUrl, setPrettyUrl] = useState(''); // link rút gọn dạng blog /bao-cao-... (đăng MXH)
   const [shareBusy, setShareBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false); // đã có link → thu gọn card, bấm mở rộng để xem
   const [sharePw, setSharePw] = useState(''); // ô nhập mật khẩu khóa link
   const [sharePwBusy, setSharePwBusy] = useState(false);
   // Ảnh bìa AI cho link chia sẻ (Open Graph).
@@ -150,6 +152,8 @@ export default function SocialReportViewPage() {
     // Link chia sẻ (nếu đã bật) — dựng URL tuyệt đối từ origin hiện tại + token lưu trong record.
     setShareUrl(body.report.share ? `${window.location.origin}/share/${body.report.share.token}` : '');
     setPrettyUrl(body.report.share?.slug ? `${window.location.origin}/${body.report.share.slug}` : '');
+    // Đã có link chia sẻ → mặc định THU GỌN card (đỡ chiếm chỗ); chưa có → mở để người dùng tạo.
+    setShareOpen(!body.report.share);
   }, [id]);
 
   const enableShare = useCallback(async () => {
@@ -227,6 +231,45 @@ export default function SocialReportViewPage() {
       setCoverBusy(false);
     }
   }, [id]);
+
+  // Tải ảnh bìa TỪ NGOÀI: đọc file → data URI → server nén + chuyển JPEG (giữ nguyên cơ chế AI riêng).
+  const coverFileRef = useRef<HTMLInputElement | null>(null);
+  const uploadCover = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) {
+        setToast(t('share.coverUploadTooBig'));
+        setToastErr(true);
+        return;
+      }
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('read'));
+        reader.readAsDataURL(file);
+      }).catch(() => '');
+      if (!dataUri) return;
+      setCoverBusy(true);
+      try {
+        const res = await fetch(`/api/social-report/${id}/cover`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri }),
+        });
+        const d = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (res.ok && d?.url) {
+          setReport((r) => (r ? { ...r, shareCover: d.url } : r));
+          setToast(t('share.coverCreated'));
+        } else {
+          setToast(d?.error ?? t('share.coverError'));
+          setToastErr(true);
+        }
+      } finally {
+        setCoverBusy(false);
+      }
+    },
+    [id, t],
+  );
 
   // Đặt/đổi/gỡ mật khẩu khóa link chia sẻ. remove=true → gỡ khóa (công khai).
   const saveSharePassword = useCallback(
@@ -468,13 +511,36 @@ export default function SocialReportViewPage() {
                 của chủ (server áp gating ở trang /share). */}
             <Card>
               <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">
-                  {t('share.title')}
-                </Text>
-                <Text as="p" tone="subdued">
-                  {t('share.desc')}
-                </Text>
-                {shareUrl ? (
+                {/* Header: tiêu đề + trạng thái (khi thu gọn) + nút mở rộng/thu gọn */}
+                <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+                  <InlineStack gap="200" blockAlign="center" wrap>
+                    <Text as="h2" variant="headingMd">
+                      {t('share.title')}
+                    </Text>
+                    {shareUrl ? (
+                      report?.share?.locked ? (
+                        <Badge tone="attention">{t('share.lockedBadge')}</Badge>
+                      ) : (
+                        <Badge tone="success">{t('share.publicBadge')}</Badge>
+                      )
+                    ) : null}
+                  </InlineStack>
+                  <Button
+                    variant="plain"
+                    disclosure={shareOpen ? 'up' : 'down'}
+                    ariaExpanded={shareOpen}
+                    ariaControls="share-collapse"
+                    onClick={() => setShareOpen((o) => !o)}
+                  >
+                    {shareOpen ? t('share.collapse') : t('share.expand')}
+                  </Button>
+                </InlineStack>
+                <Collapsible open={shareOpen} id="share-collapse" transition={{ duration: '150ms' }}>
+                  <BlockStack gap="200">
+                    <Text as="p" tone="subdued">
+                      {t('share.desc')}
+                    </Text>
+                    {shareUrl ? (
                   <BlockStack gap="200">
                     {prettyUrl ? (
                       <BlockStack gap="100">
@@ -630,12 +696,27 @@ export default function SocialReportViewPage() {
                       setCoverModel(m);
                     }}
                   />
-                  <InlineStack>
+                  <InlineStack gap="200" wrap>
                     <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
                       {report?.shareCover ? t('share.coverRegenerate') : t('share.coverGenerate')}
                     </Button>
+                    <Button loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                      {t('share.coverUpload')}
+                    </Button>
+                    <input
+                      ref={coverFileRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => {
+                        void uploadCover(e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
                   </InlineStack>
-                </BlockStack>
+                    </BlockStack>
+                  </BlockStack>
+                </Collapsible>
               </BlockStack>
             </Card>
             <Card>

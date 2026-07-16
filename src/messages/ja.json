@@ -1668,7 +1668,11 @@
       "coverRegenerate": "AI カバーを再生成",
       "coverModalTitle": "共有カバー画像",
       "coverCreated": "共有カバー画像を生成しました。",
-      "coverError": "カバー画像を生成できませんでした。"
+      "coverError": "カバー画像を生成できませんでした。",
+      "coverUpload": "画像をアップロード",
+      "coverUploadTooBig": "画像が大きすぎます（最大 8MB）。",
+      "expand": "展開",
+      "collapse": "折りたたむ"
     },
     "shareLinks": {
       "emptyTitle": "共有リンクはまだありません",
