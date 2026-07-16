@@ -297,7 +297,52 @@ Mẹo: bài được tham chiếu "Bài 1..N" theo từng kênh (kèm tên nền
 
 ---
 
-## 20. Cần trợ giúp thêm?
+## 20. Phân tích kịch bản video
+
+Mục **Phân tích kịch bản** (menu trái) bóc tách một video/reel đang viral để bạn học công thức rồi áp dụng cho nội dung của mình.
+
+1. Dán **link video** (TikTok, YouTube hoặc Facebook), chọn **AI** và **model** (hoặc để "Tự động"), rồi bấm **Phân tích**.
+2. Hệ thống tự nhận nền tảng → lấy lời thoại (transcript) → AI mổ xẻ: **tóm tắt**, **dạng nội dung**, **đối tượng**, **hook mở đầu** (và vì sao hiệu quả), **công thức/cấu trúc**, **timeline theo giây**, **tông giọng**, **nhịp độ**, **điểm mạnh**, **điểm cần cải thiện** và **bài học áp dụng**.
+3. Kết quả hiện ngay trong trang, kèm **video nhúng** cạnh timeline để vừa đọc vừa xem. Mỗi mục là khối bấm-để-mở.
+4. Mọi bản phân tích lưu ở **Lịch sử** ngay dưới; bấm **Xem** để mở lại hoặc **Xóa**.
+5. Nếu một bản bị **lỗi**, bạn **chọn lại AI + model** rồi phân tích lại (tái dùng lời thoại đã lấy, không tải lại từ đầu).
+
+> Cần khóa **Thu thập dữ liệu** (Apify) giống Báo cáo Social để lấy được lời thoại. Quyền dùng tính năng phụ thuộc gói cước.
+
+Muốn chia sẻ bản phân tích ra ngoài: xem phần **Chia sẻ công khai** (phần 21).
+
+---
+
+## 21. Chia sẻ công khai (link chia sẻ, mật khẩu, ảnh bìa)
+
+Cả **Báo cáo Social** lẫn **Phân tích kịch bản** đều tạo được **link chia sẻ công khai** — người xem mở link là thấy nội dung dạng trang web chỉ-xem, **không cần đăng nhập**. (Nội dung công khai vẫn tuân theo gói cước của chủ.)
+
+**Tạo link:** mở một báo cáo/bản phân tích đã xong → khu **Chia sẻ công khai** → bấm **Tạo link chia sẻ**. Hệ thống tạo sẵn:
+- **Link rút gọn dạng blog** (ví dụ `.../bao-cao-...` hoặc `.../kich-ban-...`) để đăng lên mạng xã hội — đây là link nên copy đi chia sẻ.
+- Khi đã có link, khu này **tự thu gọn**; bấm **Mở rộng** để chỉnh.
+
+**Ảnh bìa khi chia sẻ (Open Graph):** để khi dán link lên Facebook/Zalo hiện đẹp có ảnh + tiêu đề + mô tả.
+- **Tạo bằng AI**: nhập mô tả ảnh (tuỳ chọn), chọn AI/model tạo ảnh, bấm **Tạo ảnh bìa AI**.
+- Hoặc **Tải ảnh lên** từ máy — hệ thống tự nén và đổi định dạng cho nhẹ, hợp mạng xã hội.
+- Bỏ trống = dùng ảnh mặc định (avatar kênh/logo).
+
+**Khóa bằng mật khẩu:** muốn giới hạn người xem → đặt **mật khẩu**. Người mở link phải nhập đúng mật khẩu mới xem được nội dung (ảnh bìa/tiêu đề vẫn hiện để chia sẻ). Bạn có thể **đổi mật khẩu** hoặc **Bỏ khóa** (chuyển lại công khai) bất cứ lúc nào.
+
+**Quản lý link:** trong **Báo cáo Social** (và **Phân tích kịch bản**) có tab **Link chia sẻ** liệt kê mọi link đã tạo: **Copy**, **Mở**, **Sửa** tiêu đề/mô tả/ảnh, đặt/gỡ **mật khẩu**, **Thu hồi** (tạm tắt) hoặc **Xóa**. Thu hồi/xóa xong, link cũ sẽ không xem được nữa.
+
+---
+
+## 22. Thư viện ảnh
+
+Mục **Thư viện ảnh** (menu trái) gom mọi ảnh do AI tạo hoặc bạn tải lên trong hệ thống.
+
+- **Xem** toàn bộ ảnh ở dạng lưới.
+- **Đổi tên** hoặc **Xóa** một ảnh.
+- **Chọn nhiều** ảnh để xóa hàng loạt — khi xóa nhiều, phải gõ chữ **DELETE** để xác nhận (tránh xóa nhầm).
+
+---
+
+## 23. Cần trợ giúp thêm?
 
 - Xem lại phần liên quan trong hướng dẫn này (dùng ô tìm kiếm ở đầu trang).
 - Với tài khoản mới, bạn có thể mở lại phần **giới thiệu nhanh** bằng nút "Xem lại hướng dẫn" trên trang Tổng quan.

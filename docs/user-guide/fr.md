@@ -295,7 +295,52 @@ Astuce : les publications sont référencées « Publication 1..N » par canal (
 
 ---
 
-## 20. Besoin d'aide supplémentaire ?
+## 20. Analyse de scripts vidéo
+
+La section **Analyse de scripts** (menu de gauche) décortique une vidéo/un reel viral pour que vous en appreniez la formule et l'appliquiez à votre propre contenu.
+
+1. Collez un **lien vidéo** (TikTok, YouTube ou Facebook), choisissez une **IA** et un **modèle** (ou laissez « Auto »), puis cliquez sur **Analyser**.
+2. Le système détecte la plateforme → récupère la transcription → l'IA la dissèque : **résumé**, **type de contenu**, **audience**, **hook d'ouverture** (et pourquoi il fonctionne), **formule/structure**, **timeline seconde par seconde**, **ton**, **rythme**, **points forts**, **améliorations** et **enseignements à appliquer**.
+3. Les résultats s'affichent directement sur la page avec la **vidéo intégrée** à côté de la timeline, pour lire et regarder en même temps. Chaque partie est un bloc à cliquer pour l'ouvrir.
+4. Chaque analyse est enregistrée dans l'**Historique** juste en dessous ; cliquez sur **Ouvrir** pour la rouvrir ou sur **Supprimer**.
+5. En cas d'**échec**, vous pouvez **resélectionner l'IA + le modèle** et relancer l'analyse (elle réutilise la transcription déjà récupérée — sans nouveau téléchargement).
+
+> Nécessite une clé de **collecte de données** (Apify), comme pour le Rapport Social, afin de récupérer la transcription. L'accès dépend de votre forfait.
+
+Pour partager une analyse à l'extérieur, voir **Partage public** (section 21).
+
+---
+
+## 21. Partage public (lien de partage, mot de passe, image de couverture)
+
+Les **Rapports Social** comme les **Analyses de scripts** peuvent générer un **lien de partage public** — il suffit au visiteur d'ouvrir le lien pour voir le contenu sous forme de page web en lecture seule, **sans connexion**. (Le contenu public reste soumis au forfait du propriétaire.)
+
+**Créer un lien :** ouvrez un rapport/une analyse terminé(e) → la zone **Partage public** → cliquez sur **Créer un lien de partage**. Le système prépare :
+- Un **lien court de type blog** (par ex. `.../bao-cao-...` ou `.../kich-ban-...`) à publier sur les réseaux sociaux — c'est le lien à copier et à partager.
+- Une fois le lien créé, cette zone **se replie automatiquement** ; cliquez sur **Développer** pour la modifier.
+
+**Image de couverture (Open Graph) :** pour que le collage du lien sur Facebook/Zalo affiche un bel aperçu avec image + titre + description.
+- **Générer avec l'IA** : saisissez une description d'image (facultatif), choisissez l'IA/le modèle d'image, cliquez sur **Générer une couverture IA**.
+- Ou **Téléversez une image** depuis votre appareil — le système la compresse et la reformate pour qu'elle soit légère et adaptée aux réseaux sociaux.
+- Laissez vide = utilise l'image par défaut (avatar du canal/logo).
+
+**Verrouillage par mot de passe :** pour restreindre les visiteurs → définissez un **mot de passe**. Toute personne ouvrant le lien doit saisir le bon mot de passe pour voir le contenu (l'image de couverture/le titre restent visibles lors du partage). Vous pouvez **changer le mot de passe** ou **Retirer le verrou** (le rendre public à nouveau) à tout moment.
+
+**Gérer les liens :** le **Rapport Social** (et l'**Analyse de scripts**) dispose d'un onglet **Liens de partage** qui liste tous les liens créés : **Copier**, **Ouvrir**, **Modifier** le titre/la description/l'image, définir/retirer le **mot de passe**, **Révoquer** (désactiver temporairement) ou **Supprimer**. Une fois révoqué/supprimé, l'ancien lien ne fonctionne plus.
+
+---
+
+## 22. Bibliothèque d'images
+
+La section **Bibliothèque d'images** (menu de gauche) rassemble toutes les images créées par l'IA ou téléversées dans le système.
+
+- **Voir** toutes les images sous forme de grille.
+- **Renommer** ou **Supprimer** une image.
+- **Sélectionner plusieurs** images pour les supprimer en masse — lors d'une suppression multiple, vous devez taper **DELETE** pour confirmer (afin d'éviter les accidents).
+
+---
+
+## 23. Besoin d'aide supplémentaire ?
 
 - Relisez la section concernée de ce guide (utilisez le champ de recherche en haut de la page).
 - Avec un compte récent, vous pouvez rouvrir la partie **introduction rapide** grâce au bouton « Revoir le guide » sur la page Tableau de bord.

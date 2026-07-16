@@ -295,7 +295,52 @@ Tipp: Beiträge werden je Kanal als „Beitrag 1..N" referenziert (bei mehreren 
 
 ---
 
-## 20. Brauchen Sie weitere Hilfe?
+## 20. Videoskript-Analyse
+
+Der Bereich **Skript-Analyse** (linkes Menü) zerlegt ein virales Video/Reel, damit Sie dessen Formel lernen und auf Ihre eigenen Inhalte anwenden können.
+
+1. Fügen Sie einen **Videolink** ein (TikTok, YouTube oder Facebook), wählen Sie eine **KI** und ein **Modell** (oder belassen Sie „Auto") und klicken Sie auf **Analysieren**.
+2. Das System erkennt die Plattform → holt das Transkript → die KI zerlegt es: **Zusammenfassung**, **Inhaltstyp**, **Zielgruppe**, **Eröffnungs-Hook** (und warum er funktioniert), **Formel/Struktur**, **Sekunde-für-Sekunde-Timeline**, **Tonalität**, **Tempo**, **Stärken**, **Verbesserungen** und **anwendbare Erkenntnisse**.
+3. Die Ergebnisse erscheinen direkt auf der Seite, mit dem **eingebetteten Video** neben der Timeline, sodass Sie zugleich lesen und schauen können. Jeder Teil ist ein Block zum Aufklappen.
+4. Jede Analyse wird darunter im **Verlauf** gespeichert; klicken Sie auf **Öffnen**, um sie erneut zu öffnen, oder auf **Löschen**.
+5. Falls eine **fehlschlägt**, können Sie **KI + Modell erneut wählen** und erneut analysieren (das bereits geholte Transkript wird wiederverwendet — kein erneuter Download).
+
+> Erfordert einen **Datenerfassungs**-Key (Apify), wie beim Social-Report, um das Transkript zu holen. Der Zugriff hängt von Ihrem Tarif ab.
+
+Um eine Analyse extern zu teilen, siehe **Öffentliches Teilen** (Abschnitt 21).
+
+---
+
+## 21. Öffentliches Teilen (Freigabelink, Passwort, Titelbild)
+
+Sowohl **Social-Reports** als auch **Skript-Analysen** können einen **öffentlichen Freigabelink** erzeugen — Betrachter öffnen einfach den Link und sehen den Inhalt als schreibgeschützte Webseite, **ohne Anmeldung**. (Öffentliche Inhalte folgen weiterhin dem Tarif des Inhabers.)
+
+**Link erstellen:** Öffnen Sie einen fertigen Report/eine fertige Analyse → Bereich **Öffentliches Teilen** → klicken Sie auf **Freigabelink erstellen**. Das System bereitet vor:
+- Einen **blog-artigen Kurzlink** (z. B. `.../bao-cao-...` oder `.../kich-ban-...`) zum Posten in sozialen Medien — dies ist der Link zum Kopieren und Teilen.
+- Sobald ein Link existiert, **klappt dieser Bereich automatisch zu**; klicken Sie auf **Aufklappen**, um zu bearbeiten.
+
+**Titelbild (Open Graph):** damit beim Einfügen des Links auf Facebook/Zalo eine schöne Vorschau mit Bild + Titel + Beschreibung erscheint.
+- **Mit KI erzeugen**: Bildbeschreibung eingeben (optional), Bild-KI/-Modell wählen, auf **KI-Titelbild erzeugen** klicken.
+- Oder **Bild hochladen** von Ihrem Gerät — das System komprimiert und formatiert es leicht und social-tauglich um.
+- Leer lassen = das Standardbild verwenden (Kanal-Avatar/Logo).
+
+**Passwortsperre:** um die Betrachter einzuschränken → ein **Passwort** festlegen. Wer den Link öffnet, muss das richtige Passwort eingeben, um den Inhalt zu sehen (Titelbild/Titel werden beim Teilen weiterhin angezeigt). Sie können jederzeit das **Passwort ändern** oder die **Sperre entfernen** (wieder öffentlich machen).
+
+**Links verwalten:** Der **Social-Report** (und die **Skript-Analyse**) hat einen Tab **Freigabelinks**, der jeden erstellten Link auflistet: **Kopieren**, **Öffnen**, Titel/Beschreibung/Bild **Bearbeiten**, **Passwort** setzen/entfernen, **Widerrufen** (vorübergehend deaktivieren) oder **Löschen**. Nach dem Widerrufen/Löschen funktioniert der alte Link nicht mehr.
+
+---
+
+## 22. Bildbibliothek
+
+Der Bereich **Bildbibliothek** (linkes Menü) sammelt jedes Bild, das im gesamten System von der KI erstellt oder hochgeladen wurde.
+
+- **Ansehen** aller Bilder in einem Raster.
+- Ein Bild **Umbenennen** oder **Löschen**.
+- **Mehrere auswählen**, um sie stapelweise zu löschen — beim Löschen vieler Bilder müssen Sie **DELETE** eingeben, um zu bestätigen (um Versehen zu vermeiden).
+
+---
+
+## 23. Brauchen Sie weitere Hilfe?
 
 - Sehen Sie sich den betreffenden Abschnitt in dieser Anleitung noch einmal an (nutzen Sie das Suchfeld oben auf der Seite).
 - Bei einem neuen Konto können Sie die **Schnelleinführung** über die Schaltfläche "Anleitung erneut ansehen" auf der Seite Übersicht wieder öffnen.

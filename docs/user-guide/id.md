@@ -295,7 +295,52 @@ Tips: postingan dirujuk "Postingan 1..N" per kanal (dengan nama platform saat mu
 
 ---
 
-## 20. Butuh bantuan lebih lanjut?
+## 20. Analisis skrip video
+
+Menu **Analisis Skrip** (menu sebelah kiri) membedah sebuah video/reel yang sedang viral agar Anda bisa mempelajari formulanya lalu menerapkannya pada konten Anda sendiri.
+
+1. Tempel **tautan video** (TikTok, YouTube, atau Facebook), pilih **AI** dan **model** (atau biarkan "Otomatis"), lalu klik **Analisis**.
+2. Sistem mendeteksi platform → mengambil transkrip → AI membedahnya: **ringkasan**, **jenis konten**, **audiens**, **hook pembuka** (dan mengapa berhasil), **formula/struktur**, **timeline per detik**, **nada**, **tempo**, **kekuatan**, **perbaikan**, dan **pelajaran untuk diterapkan**.
+3. Hasil muncul langsung di halaman dengan **video tersemat** di samping timeline sehingga Anda bisa membaca dan menonton sekaligus. Setiap bagian adalah blok yang bisa diklik untuk dibuka.
+4. Setiap analisis disimpan di **Riwayat** di bawah; klik **Buka** untuk membukanya kembali atau **Hapus**.
+5. Jika salah satu **gagal**, Anda bisa **memilih ulang AI + model** lalu menganalisis lagi (sistem menggunakan kembali transkrip yang sudah diambil — tanpa mengunduh ulang).
+
+> Membutuhkan kunci **Pengumpulan data** (Apify), sama seperti Laporan Sosial, untuk mengambil transkrip. Akses bergantung pada paket Anda.
+
+Untuk membagikan analisis ke luar, lihat **Berbagi publik** (bagian 21).
+
+---
+
+## 21. Berbagi publik (tautan bagikan, kata sandi, gambar sampul)
+
+Baik **Laporan Sosial** maupun **Analisis Skrip** dapat menghasilkan **tautan bagikan publik** — penonton cukup membuka tautan untuk melihat konten sebagai halaman web hanya-baca, **tanpa perlu masuk**. (Konten publik tetap mengikuti paket pemilik.)
+
+**Membuat tautan:** buka sebuah laporan/analisis yang sudah selesai → area **Berbagi publik** → klik **Buat tautan bagikan**. Sistem menyiapkan:
+- Sebuah **tautan pendek bergaya blog** (mis. `.../bao-cao-...` atau `.../kich-ban-...`) untuk diposting ke media sosial — inilah tautan yang perlu Anda salin dan bagikan.
+- Setelah tautan ada, area ini **menciut otomatis**; klik **Perluas** untuk mengeditnya.
+
+**Gambar sampul (Open Graph):** agar saat menempel tautan di Facebook/Zalo muncul pratinjau yang bagus dengan gambar + judul + deskripsi.
+- **Buat dengan AI**: masukkan deskripsi gambar (opsional), pilih AI/model gambar, klik **Buat sampul AI**.
+- Atau **Unggah gambar** dari perangkat Anda — sistem mengompres dan mengubah formatnya agar ringan dan ramah media sosial.
+- Biarkan kosong = gunakan gambar default (avatar kanal/logo).
+
+**Kunci kata sandi:** untuk membatasi penonton → atur sebuah **kata sandi**. Siapa pun yang membuka tautan harus memasukkan kata sandi yang benar untuk melihat konten (gambar sampul/judul tetap tampil saat dibagikan). Anda bisa **mengubah kata sandi** atau **Hapus kunci** (membuatnya publik lagi) kapan saja.
+
+**Mengelola tautan:** **Laporan Sosial** (dan **Analisis Skrip**) memiliki tab **Tautan bagikan** yang mencantumkan setiap tautan yang dibuat: **Salin**, **Buka**, **Edit** judul/deskripsi/gambar, atur/hapus **kata sandi**, **Cabut** (nonaktifkan sementara), atau **Hapus**. Setelah dicabut/dihapus, tautan lama tidak berfungsi lagi.
+
+---
+
+## 22. Pustaka gambar
+
+Menu **Pustaka Gambar** (menu sebelah kiri) mengumpulkan setiap gambar yang dibuat oleh AI atau yang diunggah di seluruh sistem.
+
+- **Lihat** semua gambar dalam bentuk kisi (grid).
+- **Ganti nama** atau **Hapus** sebuah gambar.
+- **Pilih beberapa** gambar untuk dihapus sekaligus — saat menghapus banyak gambar, Anda harus mengetik **DELETE** untuk mengonfirmasi (agar tidak salah hapus).
+
+---
+
+## 23. Butuh bantuan lebih lanjut?
 
 - Tinjau kembali bagian terkait dalam panduan ini (gunakan kotak pencarian di bagian atas halaman).
 - Untuk akun baru, Anda bisa membuka kembali bagian **pengenalan cepat** dengan tombol "Lihat panduan lagi" di halaman Ringkasan.

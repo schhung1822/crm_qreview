@@ -297,7 +297,52 @@ Tip: posts are referenced "Post 1..N" per channel (with the platform name when m
 
 ---
 
-## 20. Need more help?
+## 20. Video script analysis
+
+The **Script analysis** section (left menu) breaks down a viral video/reel so you can learn its formula and apply it to your own content.
+
+1. Paste a **video link** (TikTok, YouTube, or Facebook), pick an **AI** and **model** (or leave "Auto"), then click **Analyze**.
+2. The system detects the platform → pulls the transcript → the AI dissects it: **summary**, **content type**, **audience**, **opening hook** (and why it works), **formula/structure**, **second-by-second timeline**, **tone**, **pacing**, **strengths**, **improvements**, and **takeaways to apply**.
+3. Results appear right on the page with the **video embedded** next to the timeline so you can read and watch at once. Each part is a click-to-open block.
+4. Every analysis is saved under **History** below; click **Open** to reopen or **Delete**.
+5. If one **fails**, you can **re-select AI + model** and analyze again (it reuses the transcript already fetched — no re-download).
+
+> Requires a **data-collection** key (Apify), like the Social Report, to fetch the transcript. Access depends on your plan.
+
+To share an analysis externally, see **Public sharing** (section 21).
+
+---
+
+## 21. Public sharing (share link, password, cover image)
+
+Both **Social Reports** and **Script analyses** can generate a **public share link** — viewers just open the link to see the content as a read-only web page, **no sign-in needed**. (Public content still follows the owner's plan.)
+
+**Create a link:** open a finished report/analysis → the **Public sharing** area → click **Create share link**. The system prepares:
+- A **blog-style short link** (e.g. `.../bao-cao-...` or `.../kich-ban-...`) to post on social media — this is the link to copy and share.
+- Once a link exists, this area **collapses automatically**; click **Expand** to edit.
+
+**Cover image (Open Graph):** so that pasting the link on Facebook/Zalo shows a nice preview with image + title + description.
+- **Generate with AI**: enter an image description (optional), pick the image AI/model, click **Generate AI cover**.
+- Or **Upload image** from your device — the system compresses and reformats it to be light and social-friendly.
+- Leave empty = use the default image (channel avatar/logo).
+
+**Password lock:** to restrict viewers → set a **password**. Anyone opening the link must enter the correct password to see the content (the cover image/title still show when shared). You can **change the password** or **Remove lock** (make it public again) anytime.
+
+**Manage links:** the **Social Report** (and **Script analysis**) has a **Share links** tab listing every link created: **Copy**, **Open**, **Edit** title/description/image, set/remove **password**, **Revoke** (temporarily disable), or **Delete**. Once revoked/deleted, the old link no longer works.
+
+---
+
+## 22. Image library
+
+The **Image library** section (left menu) collects every image created by AI or uploaded across the system.
+
+- **View** all images in a grid.
+- **Rename** or **Delete** an image.
+- **Select multiple** images to delete in bulk — when deleting many, you must type **DELETE** to confirm (to prevent accidents).
+
+---
+
+## 23. Need more help?
 
 - Review the relevant section in this guide (use the search box at the top of the page).
 - For new accounts, you can reopen the **quick introduction** using the "Review the guide" button on the Dashboard page.
