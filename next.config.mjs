@@ -23,9 +23,12 @@ const nextConfig = {
   poweredByHeader: false,
   // Output standalone → image Docker gọn (chỉ kèm file cần để chạy).
   output: 'standalone',
-  // Polaris ships ESM that Next can transpile fine; allow remote media previews.
+  // TẮT hẳn Image Optimizer: codebase không dùng next/image (preview ảnh remote dùng <img>
+  // thường), còn endpoint /_next/image + remotePatterns '**' là vector DoS
+  // (GHSA-9g9p-9gw9-jx7f — kẻ tấn công bơm ảnh khổng lồ cho optimizer). unoptimized cũng
+  // vô hiệu endpoint này. Nếu sau này cần next/image, bật lại với whitelist hostname cụ thể.
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    unoptimized: true,
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

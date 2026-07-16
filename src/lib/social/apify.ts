@@ -14,6 +14,7 @@ import type {
   SocialPostType,
   SocialReportOptions,
 } from './types';
+import { safeFetch } from '../security/safe-fetch';
 
 const API = 'https://api.apify.com/v2';
 
@@ -184,13 +185,11 @@ export async function fetchSubtitleFile(url: string, apifyToken?: string): Promi
     if (apifyToken && (host === 'api.apify.com' || host.endsWith('.apify.com')) && !/[?&]token=/.test(url)) {
       target = url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(apifyToken);
     }
-    const res = await fetch(target, {
+    // URL phụ đề đến TỪ kết quả actor Apify (nội dung bên thứ ba scrape) → đi qua safeFetch để
+    // chặn SSRF (kẻ tấn công có thể nhét link phụ đề trỏ IP nội bộ). safeFetch tự gắn UA trình duyệt.
+    const res = await safeFetch(target, {
       signal: AbortSignal.timeout(15_000),
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: '*/*',
-      },
+      headers: { Accept: '*/*' },
     });
     if (!res.ok) return undefined;
     const text = await res.text();

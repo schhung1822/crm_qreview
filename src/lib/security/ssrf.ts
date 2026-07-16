@@ -32,6 +32,16 @@ function v6Blocked(ip: string): boolean {
     const b = parseInt(hexMapped[2], 16);
     return v4Blocked(`${(a >> 8) & 255}.${a & 255}.${(b >> 8) & 255}.${b & 255}`);
   }
+  // NAT64 (64:ff9b::/96 well-known + 64:ff9b:1::/48 local) nhúng IPv4 ở 32 bit cuối. Nếu KHÔNG
+  // bóc ra kiểm, attacker trỏ bản ghi AAAA tới 64:ff9b::a9fe:a9fe (=169.254.169.254 metadata) để
+  // lách khi host có gateway NAT64. Dạng dotted (64:ff9b::1.2.3.4) đã bị nhánh `dotted` bắt phía trên;
+  // ở đây bắt dạng hex. Chỉ chặn nếu IPv4 nhúng là nội bộ (NAT64 tới IP public vẫn hợp lệ).
+  const nat64 = h.match(/^64:ff9b:(?:1:)?:?[0-9a-f:]*?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (nat64) {
+    const a = parseInt(nat64[1], 16);
+    const b = parseInt(nat64[2], 16);
+    return v4Blocked(`${(a >> 8) & 255}.${a & 255}.${(b >> 8) & 255}.${b & 255}`);
+  }
   return (
     h === '::1' || // loopback
     h === '::' || // unspecified

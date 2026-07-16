@@ -1,9 +1,18 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { guard } from '@/lib/auth/current';
 import { runDueJobs, runDueJobsAllBiz } from '@/lib/publish/runner';
 import { runDueGenJobsAllBiz } from '@/lib/gen/runner';
 
 export const dynamic = 'force-dynamic';
+
+// So sánh HẰNG THỜI GIAN (chống dò secret theo thời gian phản hồi). Hash sha256 hai chuỗi trước
+// rồi mới timingSafeEqual → hai digest luôn cùng 32 byte (không cần guard độ dài, không lộ độ dài).
+function safeEqual(a: string, b: string): boolean {
+  const da = createHash('sha256').update(a).digest();
+  const db = createHash('sha256').update(b).digest();
+  return timingSafeEqual(da, db);
+}
 
 // POST /api/jobs/run → chạy các job đăng đến hạn (lịch đăng / retry).
 // Cho phép gọi từ:
@@ -12,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
   const provided = req.headers.get('x-cron-secret');
-  const viaCron = !!secret && provided === secret;
+  const viaCron = !!secret && !!provided && safeEqual(provided, secret);
   if (!viaCron) {
     // Người dùng bấm "Chạy ngay": guard nạp ngữ cảnh biz đang hoạt động (cookie sg_biz) →
     // runDueJobs() chỉ quét job của CHÍNH biz đó.
