@@ -4,6 +4,7 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { TrackingPixels } from '@/components/TrackingPixels';
 import { buildBrandThemeCss } from '@/lib/branding/theme';
 import { getBranding } from '@/lib/store/branding';
 
@@ -53,7 +54,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="vi" className={inter.variable}>
       <head>{themeCss ? <style dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}</head>
-      <body>{children}</body>
+      <body>
+        <TrackingPixels fb={b.facebookPixelId} tiktok={b.tiktokPixelId} />
+        {children}
+      </body>
     </html>
   );
 }

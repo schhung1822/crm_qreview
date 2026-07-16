@@ -18,6 +18,11 @@ const color = z
   .string()
   .max(9)
   .refine((v) => v === '' || /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(v.trim()), 'màu không hợp lệ');
+// Pixel ID: chỉ ký tự chữ+số (chống XSS khi nhúng inline script), hoặc rỗng = tắt.
+const pixelId = z
+  .string()
+  .max(40)
+  .refine((v) => v.trim() === '' || /^[A-Za-z0-9]+$/.test(v.trim()), 'Pixel ID không hợp lệ');
 const Schema = z.object({
   title: z.string().max(200).optional(),
   description: z.string().max(600).optional(),
@@ -39,6 +44,9 @@ const Schema = z.object({
   colorSocialWeakness: color.optional(),
   colorShareButton: color.optional(),
   colorShareBadge: color.optional(),
+  // Pixel ID: chỉ chữ+số (an toàn khi nhúng vào <script>), hoặc rỗng = tắt.
+  facebookPixelId: pixelId.optional(),
+  tiktokPixelId: pixelId.optional(),
   reset: z.boolean().optional(),
 });
 

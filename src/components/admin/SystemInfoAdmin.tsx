@@ -42,6 +42,8 @@ interface Branding {
   colorSocialWeakness: string;
   colorShareButton: string;
   colorShareBadge: string;
+  facebookPixelId: string;
+  tiktokPixelId: string;
 }
 
 // ─── Trạng thái máy chủ (cấu hình deploy, RAM, ổ đĩa, CPU, tốc độ mạng) ───
@@ -780,6 +782,39 @@ export function SystemInfoAdmin() {
                 }}
               />
             </BlockStack>
+          </BlockStack>
+        </Card>
+
+        {/* Pixel theo dõi — chèn toàn hệ thống (trang chủ, app, link chia sẻ...) */}
+        <Card>
+          <BlockStack gap="300">
+            <BlockStack gap="050">
+              <Text as="h4" variant="headingSm">
+                Pixel theo dõi (Facebook / TikTok)
+              </Text>
+              <Text as="p" tone="subdued" variant="bodySm">
+                Nhập Pixel ID để tự động chèn mã theo dõi trên MỌI trang của web (trang chủ, ứng dụng,
+                trang báo cáo chia sẻ...). Bỏ trống = tắt. Chỉ nhận ký tự chữ và số.
+              </Text>
+            </BlockStack>
+            <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+              <TextField
+                label="Facebook Pixel ID"
+                value={st.facebookPixelId}
+                onChange={(v) => set('facebookPixelId', v)}
+                autoComplete="off"
+                placeholder="Ví dụ: 1234567890123456"
+                helpText="Meta Pixel ID (dãy số) — lấy ở Meta Events Manager."
+              />
+              <TextField
+                label="TikTok Pixel ID"
+                value={st.tiktokPixelId}
+                onChange={(v) => set('tiktokPixelId', v)}
+                autoComplete="off"
+                placeholder="Ví dụ: C1A2B3C4D5E6F7G8H9I0"
+                helpText="TikTok Pixel ID — lấy ở TikTok Ads Manager → Assets → Events."
+              />
+            </InlineGrid>
           </BlockStack>
         </Card>
 

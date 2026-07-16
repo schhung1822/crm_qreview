@@ -28,6 +28,9 @@ export interface Branding {
   // Màu RIÊNG cho TRANG CHIA SẺ công khai (/share) — nút bấm & nhãn. Rỗng = xanh mặc định.
   colorShareButton: string; // màu nút trên trang chia sẻ (nút "Xem báo cáo" ở màn nhập mật khẩu)
   colorShareBadge: string; // màu nhãn ("Bảo mật" / "Chỉ xem") trên trang chia sẻ
+  // Pixel theo dõi — chèn TOÀN HỆ THỐNG (mọi trang: chủ, app, /share...). Rỗng = tắt.
+  facebookPixelId: string; // Meta Pixel ID (chuỗi số)
+  tiktokPixelId: string; // TikTok Pixel ID (chữ + số)
 }
 
 // Mặc định = đúng giá trị đang hard-code trước đây (giữ nguyên diện mạo khi chưa cấu hình).
@@ -53,6 +56,8 @@ export const DEFAULT_BRANDING: Branding = {
   colorSocialWeakness: '',
   colorShareButton: '', // để trống = xanh #0061ff mặc định
   colorShareBadge: '',
+  facebookPixelId: '', // để trống = không chèn pixel Facebook
+  tiktokPixelId: '',
 };
 
 const FILE = globalFile('branding.json');
