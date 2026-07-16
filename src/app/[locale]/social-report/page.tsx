@@ -27,6 +27,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HelpLabel, InfoHint } from '@/components/InfoHint';
+import { ShareLinksPanel } from '@/components/ShareLinksPanel';
 import { SocialAnalyzeModal } from '@/components/SocialAnalyzeModal';
 import { AiWorking } from '@/components/ui';
 import { localeNames, locales } from '@/i18n/config';
@@ -120,6 +121,7 @@ export default function SocialReportPage() {
   const [reports, setReports] = useState<SocialReportSummary[] | null>(null);
   const [hasApify, setHasApify] = useState<boolean | null>(null);
   const [filter, setFilter] = useState<'all' | SocialPlatform>('all');
+  const [mainTab, setMainTab] = useState(0); // 0 = báo cáo | 1 = link chia sẻ
   const [toast, setToast] = useState('');
   const [toastErr, setToastErr] = useState(false);
 
@@ -499,18 +501,31 @@ export default function SocialReportPage() {
           : !!(fbUrl.trim() || igUrl.trim() || thrUrl.trim() || ttUrl.trim() || ytUrl.trim())
         : !!URL_BY_PLATFORM[platform].trim();
 
+  // 2 tab chính: Tạo & xem báo cáo | Link chia sẻ báo cáo (gom quản lý link vào đây cho gọn).
+  const mainTabs = [
+    { id: 'reports', content: 'Tạo & xem báo cáo' },
+    { id: 'share-links', content: 'Link chia sẻ báo cáo' },
+  ];
+
   return (
     <Page
       title={t('title')}
       subtitle={t('subtitle')}
       titleMetadata={<InfoHint content={t('titleHelp')} label={t('title')} />}
-      primaryAction={{
-        content: t('create'),
-        onAction: openWizard,
-        disabled: hasApify === false,
-      }}
+      primaryAction={
+        mainTab === 0
+          ? { content: t('create'), onAction: openWizard, disabled: hasApify === false }
+          : undefined
+      }
     >
       <BlockStack gap="400">
+        <Card padding="0">
+          <Tabs tabs={mainTabs} selected={mainTab} onSelect={setMainTab} />
+        </Card>
+        {mainTab === 1 ? (
+          <ShareLinksPanel />
+        ) : (
+        <BlockStack gap="400">
         {hasApify === false ? (
           <Banner
             title={t('needApify')}
@@ -624,6 +639,8 @@ export default function SocialReportPage() {
             </BlockStack>
           </Box>
         </Card>
+        </BlockStack>
+        )}
       </BlockStack>
 
       {/* ── Wizard tạo báo cáo: bước 1 chọn kênh → bước 2 nhập nội dung phù hợp ── */}

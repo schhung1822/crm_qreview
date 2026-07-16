@@ -7,6 +7,7 @@ import {
   Badge,
   Banner,
   BlockStack,
+  Box,
   Button,
   Card,
   Checkbox,
@@ -118,6 +119,7 @@ export default function SocialReportViewPage() {
   const [coverProvider, setCoverProvider] = useState<ImgProvider>('');
   const [coverModel, setCoverModel] = useState('');
   const [coverBusy, setCoverBusy] = useState(false);
+  const [coverPreview, setCoverPreview] = useState(false); // modal xem ảnh bìa cỡ lớn
   // Giới hạn theo gói (từ server): viewLocked = ẩn phân tích sâu; exportLocked = chặn xuất file.
   const [gated, setGated] = useState<{ viewLocked: boolean; exportLocked: boolean }>({
     viewLocked: false,
@@ -186,16 +188,6 @@ export default function SocialReportViewPage() {
       setShareBusy(false);
     }
   }, [id, t, load]);
-
-  const copyShare = useCallback(async () => {
-    if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setToast(t('share.copied'));
-    } catch {
-      setToast(shareUrl);
-    }
-  }, [shareUrl, t]);
 
   // Tạo ảnh bìa AI cho link chia sẻ (lưu vào report.shareCover).
   const genCover = useCallback(async () => {
@@ -485,16 +477,9 @@ export default function SocialReportViewPage() {
                         </Text>
                       </BlockStack>
                     ) : null}
-                    <TextField
-                      label={t('share.linkLabel')}
-                      labelHidden
-                      value={shareUrl}
-                      readOnly
-                      autoComplete="off"
-                      connectedRight={<Button onClick={() => void copyShare()}>{t('share.copy')}</Button>}
-                    />
-                    <InlineStack gap="200">
-                      <Button url={shareUrl} external variant="plain">
+                    {/* Link gốc /share/<token> ĐƯỢC ẨN — chỉ dùng link rút gọn ở trên để chia sẻ. */}
+                    <InlineStack gap="200" wrap>
+                      <Button url={prettyUrl || shareUrl} external variant="plain">
                         {t('share.open')}
                       </Button>
                       <Button tone="critical" variant="plain" loading={shareBusy} onClick={() => void disableShare()}>
@@ -534,7 +519,10 @@ export default function SocialReportViewPage() {
                           display: 'block',
                         }}
                       />
-                      <InlineStack>
+                      <InlineStack gap="200" wrap>
+                        <Button variant="plain" onClick={() => setCoverPreview(true)}>
+                          Xem chi tiết
+                        </Button>
                         <Button variant="plain" tone="critical" loading={coverBusy} onClick={() => void removeCover()}>
                           Gỡ ảnh bìa
                         </Button>
@@ -629,6 +617,25 @@ export default function SocialReportViewPage() {
           <Text as="p">{t('deleteConfirm')}</Text>
         </Modal.Section>
       </Modal>
+
+      {/* Xem ảnh bìa chia sẻ cỡ lớn */}
+      {coverPreview && report?.shareCover ? (
+        <Modal open onClose={() => setCoverPreview(false)} title="Ảnh bìa chia sẻ" size="large">
+          <Modal.Section>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={report.shareCover}
+              alt="Ảnh bìa chia sẻ"
+              style={{ width: '100%', height: 'auto', borderRadius: 8, display: 'block' }}
+            />
+            <Box paddingBlockStart="300">
+              <Text as="p" tone="subdued" variant="bodySm" breakWord>
+                {report.shareCover}
+              </Text>
+            </Box>
+          </Modal.Section>
+        </Modal>
+      ) : null}
 
       {toast ? (
         <Toast

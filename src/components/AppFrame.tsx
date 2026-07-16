@@ -264,7 +264,6 @@ export function AppFrame({
     canWith(user.permissions,'content:write') ? item('image-settings', t('nav.imageSettings'), ImageIcon) : null,
     canWith(user.permissions,'content:write') ? item('image-compress', t('nav.imageCompress'), ImageIcon) : null,
     canWith(user.permissions,'content:write') ? item('image-library', 'Thư viện ảnh', ImageIcon) : null,
-    canWith(user.permissions,'content:write') ? item('share-links', 'Link chia sẻ', LinkIcon) : null,
     canWith(user.permissions,'content:write') ? item('article-settings', t('nav.articleSettings'), SettingsIcon) : null,
   ].filter(Boolean) as ReturnType<typeof item>[];
 
