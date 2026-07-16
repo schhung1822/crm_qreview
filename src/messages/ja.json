@@ -2848,6 +2848,8 @@
     "shareRevoke": "無効化",
     "shareCopy": "コピー",
     "shareOpen": "リンクを開く",
-    "shareLinkLabel": "共有リンク"
+    "shareLinkLabel": "共有リンク",
+    "tabMain": "作成・閲覧",
+    "tabShareLinks": "共有リンク"
   }
 }

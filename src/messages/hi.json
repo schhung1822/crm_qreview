@@ -2848,6 +2848,8 @@
     "shareRevoke": "रद्द करें",
     "shareCopy": "कॉपी करें",
     "shareOpen": "लिंक खोलें",
-    "shareLinkLabel": "साझा लिंक"
+    "shareLinkLabel": "साझा लिंक",
+    "tabMain": "बनाएँ और देखें",
+    "tabShareLinks": "शेयर लिंक"
   }
 }

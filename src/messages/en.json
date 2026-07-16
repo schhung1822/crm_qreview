@@ -2848,6 +2848,8 @@
     "shareRevoke": "Revoke",
     "shareCopy": "Copy",
     "shareOpen": "Open link",
-    "shareLinkLabel": "Share link"
+    "shareLinkLabel": "Share link",
+    "tabMain": "Create & view",
+    "tabShareLinks": "Share links"
   }
 }

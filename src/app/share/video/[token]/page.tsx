@@ -3,21 +3,50 @@
 // Tuân thủ gói CHỦ: mất quyền videoScriptAnalysis → khóa nội dung. noindex để không lộ token.
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { ShareGate } from '@/components/ShareGate';
 import { bizHasFeature } from '@/lib/billing/entitlement';
 import { runWithBiz } from '@/lib/biz/context';
 import { locales } from '@/i18n/config';
+import { GATE, pickGateLocale } from '@/lib/share/gate-strings';
+import { resolveScriptOgFields } from '@/lib/script-analysis/share-og';
 import type { ScriptAnalysisRecord } from '@/lib/script-analysis/types';
 import { videoEmbed } from '@/lib/script-analysis/embed';
 import { getScriptAnalysis } from '@/lib/store/script-analyses';
-import { resolveShare } from '@/lib/store/script-shares';
+import { checkShareAccess, resolveShare, shareAccessCookieName } from '@/lib/store/script-shares';
 import { getBranding } from '@/lib/store/branding';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
+
+// Metadata động → dán link chia sẻ vào Facebook/Zalo/Slack hiện Tiêu đề + Mô tả + Ảnh bìa.
+// GIỮ noindex (token bí mật). Khóa → không lộ tóm tắt ra thẻ mô tả.
+export async function generateMetadata({
+  params,
+}: {
+  params: { token: string };
+}): Promise<Metadata> {
+  const noindex = { index: false, follow: false } as const;
+  if (!TOKEN_RE.test(params.token)) return { robots: noindex };
+  const s = await resolveShare(params.token);
+  if (!s) return { robots: noindex };
+  const rec = await runWithBiz({ userId: s.ownerId, bizId: s.bizId }, () => getScriptAnalysis(s.analysisId));
+  if (!rec || rec.status !== 'done' || !rec.analysis) return { robots: noindex };
+  const b = await getBranding();
+  const { title, description, image } = resolveScriptOgFields(rec, b);
+  const desc = s.locked ? GATE[pickGateLocale(rec.locale)].metaLocked : description;
+  const images = image ? [image] : undefined;
+  return {
+    title,
+    description: desc,
+    robots: noindex,
+    openGraph: { title, description: desc, type: 'article', siteName: b.sourceText || undefined, images },
+    twitter: { card: 'summary_large_image', title, description: desc, images },
+  };
+}
 type Labels = Record<string, string>;
 
 const UI: Record<string, { viewOnly: string; unavailable: string }> = {
@@ -51,7 +80,7 @@ async function loadLabels(locale: string): Promise<Labels> {
 
 async function load(
   token: string,
-): Promise<{ rec: ScriptAnalysisRecord; available: boolean } | null> {
+): Promise<{ rec: ScriptAnalysisRecord; available: boolean; locked: boolean } | null> {
   if (!TOKEN_RE.test(token)) return null;
   const s = await resolveShare(token);
   if (!s) return null;
@@ -59,7 +88,7 @@ async function load(
   if (!rec || rec.status !== 'done' || !rec.analysis) return null;
   // Tuân thủ gói CHỦ: mất quyền → ẩn nội dung (không lộ kết quả của gói trả phí).
   const available = await bizHasFeature(s.bizId, 'videoScriptAnalysis');
-  return { rec, available };
+  return { rec, available, locked: s.locked };
 }
 
 const CSS = `
@@ -113,10 +142,29 @@ function Sec({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export default async function VideoSharePage({ params }: { params: { token: string } }) {
+export default async function VideoSharePage({
+  params,
+  searchParams,
+}: {
+  params: { token: string };
+  searchParams?: { e?: string };
+}) {
   const data = await load(params.token);
   if (!data) notFound();
-  const { rec, available } = data;
+  const { rec, available, locked } = data;
+
+  // KHÓA bằng mật khẩu: chưa mở khóa (cookie hợp lệ) → hiện màn nhập, KHÔNG dựng nội dung.
+  if (locked && !checkShareAccess(params.token, cookies().get(shareAccessCookieName(params.token))?.value)) {
+    return (
+      <ShareGate
+        locale={rec.locale}
+        action={`/api/share/video/${params.token}/unlock`}
+        err={searchParams?.e === '1'}
+        rate={searchParams?.e === 'rate'}
+      />
+    );
+  }
+
   const b = await getBranding();
   const ui = UI[localeKey(rec.locale)] ?? UI.vi;
 

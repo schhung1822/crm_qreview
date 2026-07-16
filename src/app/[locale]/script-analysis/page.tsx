@@ -10,18 +10,25 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
+  Collapsible,
   Divider,
   InlineGrid,
   InlineStack,
   List,
+  Modal,
   Page,
   Select,
   Spinner,
+  Tabs,
   Text,
   TextField,
+  Toast,
 } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ImageAiPicker, type ImgProvider } from '@/components/ImageAiPicker';
+import { ShareLinksPanel } from '@/components/ShareLinksPanel';
 import { videoEmbed, type VideoEmbed } from '@/lib/script-analysis/embed';
 
 type Platform = 'tiktok' | 'youtube' | 'facebook';
@@ -78,7 +85,8 @@ interface Record_ {
   metrics?: Metrics;
   transcript?: string;
   analysis?: Analysis;
-  share?: { token: string; createdAt: string };
+  share?: { token: string; createdAt: string; slug?: string; locked?: boolean };
+  shareCover?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -98,7 +106,9 @@ const PLATFORM_TONE: Record<Platform, 'info' | 'success' | 'attention'> = {
 
 export default function ScriptAnalysisPage() {
   const t = useTranslations('scriptAnalysis');
+  const ts = useTranslations('socialReport'); // tái dùng chuỗi share.* / shareLinks.* của báo cáo social
   const locale = useLocale();
+  const [mainTab, setMainTab] = useState(0); // 0 = Tạo & xem | 1 = Link chia sẻ
   const [items, setItems] = useState<Summary[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Record_ | null>(null);
@@ -111,7 +121,21 @@ export default function ScriptAnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [prettyUrl, setPrettyUrl] = useState(''); // link rút gọn /kich-ban-...
   const [shareBusy, setShareBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false); // thu gọn card khi đã có link
+  const [sharePw, setSharePw] = useState('');
+  const [sharePwBusy, setSharePwBusy] = useState(false);
+  const [toast, setToast] = useState('');
+  const [toastErr, setToastErr] = useState(false);
+  // Ảnh bìa AI/tải-lên cho link chia sẻ (Open Graph).
+  const [coverPrompt, setCoverPrompt] = useState('');
+  const [coverSD, setCoverSD] = useState(true);
+  const [coverProvider, setCoverProvider] = useState<ImgProvider>('');
+  const [coverModel, setCoverModel] = useState('');
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverPreview, setCoverPreview] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadList = useCallback(async () => {
@@ -127,6 +151,8 @@ export default function ScriptAnalysisPage() {
       const rec = d?.record as Record_ | null;
       setDetail(rec ?? null);
       setShareUrl(rec?.share ? `${window.location.origin}/share/video/${rec.share.token}` : '');
+      setPrettyUrl(rec?.share?.slug ? `${window.location.origin}/${rec.share.slug}` : '');
+      setShareOpen(!rec?.share); // đã có link → thu gọn; chưa có → mở để tạo
     }
   }, []);
 
@@ -155,13 +181,119 @@ export default function ScriptAnalysisPage() {
   );
 
   const copyShare = useCallback(async () => {
-    if (!shareUrl) return;
+    const link = prettyUrl || shareUrl;
+    if (!link) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(link);
+      setToast(ts('share.copied'));
     } catch {
-      /* clipboard bị chặn → user tự copy từ ô */
+      setToast(link);
     }
-  }, [shareUrl]);
+  }, [prettyUrl, shareUrl, ts]);
+
+  // Đặt/đổi/gỡ mật khẩu khóa link chia sẻ. remove=true → gỡ (công khai).
+  const saveSharePassword = useCallback(
+    async (remove: boolean) => {
+      if (!openId) return;
+      setSharePwBusy(true);
+      try {
+        const r = await fetch(`/api/script-analysis/${openId}/share/password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: remove ? '' : sharePw }),
+        });
+        const d = (await r.json().catch(() => null)) as { locked?: boolean; error?: string } | null;
+        if (r.ok) {
+          setDetail((rec) => (rec && rec.share ? { ...rec, share: { ...rec.share, locked: !!d?.locked } } : rec));
+          setSharePw('');
+          setToast(remove ? ts('share.passwordRemoved') : ts('share.passwordSet'));
+        } else {
+          setToast(d?.error ?? ts('share.updateFailed'));
+          setToastErr(true);
+        }
+      } finally {
+        setSharePwBusy(false);
+      }
+    },
+    [openId, sharePw, ts],
+  );
+
+  // Tạo ảnh bìa AI cho link chia sẻ (lưu vào rec.shareCover).
+  const genCover = useCallback(async () => {
+    if (!openId) return;
+    setCoverBusy(true);
+    try {
+      const r = await fetch(`/api/script-analysis/${openId}/cover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: coverPrompt.trim() || undefined,
+          useSystemDesign: coverSD,
+          provider: coverProvider || undefined,
+          model: coverProvider ? coverModel || undefined : undefined,
+        }),
+      });
+      const d = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (r.ok && d?.url) {
+        setDetail((rec) => (rec ? { ...rec, shareCover: d.url } : rec));
+        setToast(ts('share.coverCreated'));
+      } else {
+        setToast(d?.error ?? ts('share.coverError'));
+        setToastErr(true);
+      }
+    } finally {
+      setCoverBusy(false);
+    }
+  }, [openId, coverPrompt, coverSD, coverProvider, coverModel, ts]);
+
+  const removeCover = useCallback(async () => {
+    if (!openId) return;
+    setCoverBusy(true);
+    try {
+      await fetch(`/api/script-analysis/${openId}/cover`, { method: 'DELETE' });
+      setDetail((rec) => (rec ? { ...rec, shareCover: undefined } : rec));
+    } finally {
+      setCoverBusy(false);
+    }
+  }, [openId]);
+
+  // Tải ảnh bìa TỪ NGOÀI: file → data URI → server nén + chuyển JPEG.
+  const uploadCover = useCallback(
+    async (file: File | undefined) => {
+      if (!file || !openId) return;
+      if (file.size > 8 * 1024 * 1024) {
+        setToast(ts('share.coverUploadTooBig'));
+        setToastErr(true);
+        return;
+      }
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('read'));
+        reader.readAsDataURL(file);
+      }).catch(() => '');
+      if (!dataUri) return;
+      setCoverBusy(true);
+      try {
+        const r = await fetch(`/api/script-analysis/${openId}/cover`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri }),
+        });
+        const d = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (r.ok && d?.url) {
+          setDetail((rec) => (rec ? { ...rec, shareCover: d.url } : rec));
+          setToast(ts('share.coverCreated'));
+        } else {
+          setToast(d?.error ?? ts('share.coverError'));
+          setToastErr(true);
+        }
+      } finally {
+        setCoverBusy(false);
+      }
+    },
+    [openId, ts],
+  );
 
   useEffect(() => {
     void loadList();
@@ -288,9 +420,21 @@ export default function ScriptAnalysisPage() {
       </BlockStack>
     );
 
+  const mainTabs = [
+    { id: 'analyses', content: t('tabMain') },
+    { id: 'share-links', content: t('tabShareLinks') },
+  ];
+
   return (
     <Page title={t('title')} subtitle={t('subtitle')}>
       <BlockStack gap="400">
+        <Card padding="0">
+          <Tabs tabs={mainTabs} selected={mainTab} onSelect={setMainTab} />
+        </Card>
+        {mainTab === 1 ? (
+          <ShareLinksPanel kind="script" />
+        ) : (
+          <>
         {/* Form phân tích mới: [link] [AI] [model] [nút] trên một hàng (xuống dòng khi hẹp). */}
         <Card>
           <BlockStack gap="200">
@@ -386,34 +530,209 @@ export default function ScriptAnalysisPage() {
                 </BlockStack>
               ) : null}
 
-              {/* Chia sẻ công khai (chỉ-xem, thu gọn). Nội dung công khai vẫn theo gói của chủ. */}
+              {/* Chia sẻ công khai — link rút gọn, khóa mật khẩu, ảnh bìa OG. Thu gọn khi đã có link. */}
               {detail.status === 'done' ? (
                 <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                   <BlockStack gap="200">
-                    <Text as="span" variant="headingSm">{t('shareTitle')}</Text>
-                    {shareUrl ? (
-                      <BlockStack gap="200">
-                        <TextField
-                          label={t('shareLinkLabel')}
-                          labelHidden
-                          value={shareUrl}
-                          readOnly
-                          autoComplete="off"
-                          connectedRight={<Button onClick={() => void copyShare()}>{t('shareCopy')}</Button>}
-                        />
-                        <InlineStack gap="200">
-                          <Button variant="plain" url={shareUrl} external>{t('shareOpen')}</Button>
-                          <Button variant="plain" tone="critical" loading={shareBusy} onClick={() => void toggleShare(false)}>
-                            {t('shareRevoke')}
-                          </Button>
-                        </InlineStack>
-                      </BlockStack>
-                    ) : (
-                      <InlineStack gap="200" blockAlign="center">
-                        <Button loading={shareBusy} onClick={() => void toggleShare(true)}>{t('shareCreate')}</Button>
-                        <Text as="span" tone="subdued" variant="bodySm">{t('shareDesc')}</Text>
+                    <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+                      <InlineStack gap="200" blockAlign="center" wrap>
+                        <Text as="span" variant="headingSm">{ts('share.title')}</Text>
+                        {shareUrl ? (
+                          detail.share?.locked ? (
+                            <Badge tone="attention">{ts('share.lockedBadge')}</Badge>
+                          ) : (
+                            <Badge tone="success">{ts('share.publicBadge')}</Badge>
+                          )
+                        ) : null}
                       </InlineStack>
-                    )}
+                      <Button
+                        variant="plain"
+                        disclosure={shareOpen ? 'up' : 'down'}
+                        ariaExpanded={shareOpen}
+                        ariaControls="vshare-collapse"
+                        onClick={() => setShareOpen((o) => !o)}
+                      >
+                        {shareOpen ? ts('share.collapse') : ts('share.expand')}
+                      </Button>
+                    </InlineStack>
+                    <Collapsible open={shareOpen} id="vshare-collapse" transition={{ duration: '150ms' }}>
+                      <BlockStack gap="300">
+                        {shareUrl ? (
+                          <BlockStack gap="200">
+                            {prettyUrl ? (
+                              <BlockStack gap="100">
+                                <Text as="span" variant="bodySm" fontWeight="semibold">
+                                  {ts('share.socialLinkTitle')}
+                                </Text>
+                                <TextField
+                                  label={ts('share.shortLinkLabel')}
+                                  labelHidden
+                                  value={prettyUrl}
+                                  readOnly
+                                  autoComplete="off"
+                                  connectedRight={
+                                    <Button onClick={() => void copyShare()}>{ts('share.copy')}</Button>
+                                  }
+                                />
+                                <Text as="span" tone="subdued" variant="bodySm">
+                                  {ts('share.manageHint')}
+                                </Text>
+                              </BlockStack>
+                            ) : null}
+                            <InlineStack gap="200" wrap>
+                              <Button url={prettyUrl || shareUrl} external variant="plain">
+                                {ts('share.open')}
+                              </Button>
+                              <Button
+                                tone="critical"
+                                variant="plain"
+                                loading={shareBusy}
+                                onClick={() => void toggleShare(false)}
+                              >
+                                {ts('share.revoke')}
+                              </Button>
+                            </InlineStack>
+
+                            {/* Bảo mật: công khai hoặc khóa bằng mật khẩu */}
+                            <Box paddingBlockStart="200" borderColor="border" borderBlockStartWidth="025">
+                              <BlockStack gap="200">
+                                <InlineStack gap="150" blockAlign="center" wrap>
+                                  <Text as="span" variant="bodySm" fontWeight="semibold">
+                                    {ts('share.security')}
+                                  </Text>
+                                  {detail.share?.locked ? (
+                                    <Badge tone="attention">{ts('share.lockedBadge')}</Badge>
+                                  ) : (
+                                    <Badge tone="success">{ts('share.publicBadge')}</Badge>
+                                  )}
+                                </InlineStack>
+                                <InlineStack gap="200" wrap blockAlign="end">
+                                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                    <TextField
+                                      label={ts('share.passwordLabel')}
+                                      labelHidden
+                                      type="password"
+                                      value={sharePw}
+                                      onChange={setSharePw}
+                                      autoComplete="off"
+                                      placeholder={
+                                        detail.share?.locked
+                                          ? ts('share.pwPlaceholderChange')
+                                          : ts('share.pwPlaceholderSet')
+                                      }
+                                    />
+                                  </div>
+                                  <Button
+                                    loading={sharePwBusy}
+                                    disabled={!sharePw.trim()}
+                                    onClick={() => void saveSharePassword(false)}
+                                  >
+                                    {detail.share?.locked ? ts('share.changePassword') : ts('share.lockWithPassword')}
+                                  </Button>
+                                  {detail.share?.locked ? (
+                                    <Button
+                                      variant="plain"
+                                      tone="critical"
+                                      loading={sharePwBusy}
+                                      onClick={() => void saveSharePassword(true)}
+                                    >
+                                      {ts('share.unlock')}
+                                    </Button>
+                                  ) : null}
+                                </InlineStack>
+                                <Text as="span" tone="subdued" variant="bodySm">
+                                  {ts('share.lockHint')}
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                          </BlockStack>
+                        ) : (
+                          <InlineStack gap="200" blockAlign="center">
+                            <Button loading={shareBusy} onClick={() => void toggleShare(true)}>
+                              {ts('share.create')}
+                            </Button>
+                            <Text as="span" tone="subdued" variant="bodySm">
+                              {ts('share.desc')}
+                            </Text>
+                          </InlineStack>
+                        )}
+
+                        {/* Ảnh bìa AI / tải lên cho link chia sẻ (Open Graph) */}
+                        <BlockStack gap="200">
+                          <Text as="h3" variant="headingSm">
+                            {ts('share.coverTitle')}
+                          </Text>
+                          <Text as="p" tone="subdued" variant="bodySm">
+                            {ts('share.coverDesc')}
+                          </Text>
+                          {detail.shareCover ? (
+                            <BlockStack gap="200">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={detail.shareCover}
+                                alt=""
+                                style={{
+                                  maxWidth: 320,
+                                  width: '100%',
+                                  height: 'auto',
+                                  borderRadius: 8,
+                                  border: '1px solid #e3e7ee',
+                                  display: 'block',
+                                }}
+                              />
+                              <InlineStack gap="200" wrap>
+                                <Button variant="plain" onClick={() => setCoverPreview(true)}>
+                                  {ts('share.coverView')}
+                                </Button>
+                                <Button
+                                  variant="plain"
+                                  tone="critical"
+                                  loading={coverBusy}
+                                  onClick={() => void removeCover()}
+                                >
+                                  {ts('share.coverRemove')}
+                                </Button>
+                              </InlineStack>
+                            </BlockStack>
+                          ) : null}
+                          <TextField
+                            label={ts('share.coverPromptLabel')}
+                            value={coverPrompt}
+                            onChange={setCoverPrompt}
+                            autoComplete="off"
+                            multiline={2}
+                            placeholder={ts('share.coverPromptPlaceholder')}
+                          />
+                          <Checkbox label={ts('share.coverUseSD')} checked={coverSD} onChange={setCoverSD} />
+                          <ImageAiPicker
+                            provider={coverProvider}
+                            model={coverModel}
+                            onChange={(p, mm) => {
+                              setCoverProvider(p);
+                              setCoverModel(mm);
+                            }}
+                          />
+                          <InlineStack gap="200" wrap>
+                            <Button variant="primary" loading={coverBusy} onClick={() => void genCover()}>
+                              {detail.shareCover ? ts('share.coverRegenerate') : ts('share.coverGenerate')}
+                            </Button>
+                            <Button loading={coverBusy} onClick={() => coverFileRef.current?.click()}>
+                              {ts('share.coverUpload')}
+                            </Button>
+                            <input
+                              ref={coverFileRef}
+                              type="file"
+                              accept="image/*"
+                              hidden
+                              onChange={(e) => {
+                                void uploadCover(e.target.files?.[0]);
+                                e.target.value = '';
+                              }}
+                            />
+                          </InlineStack>
+                        </BlockStack>
+                      </BlockStack>
+                    </Collapsible>
                   </BlockStack>
                 </Box>
               ) : null}
@@ -528,7 +847,34 @@ export default function ScriptAnalysisPage() {
             )}
           </BlockStack>
         </Card>
+          </>
+        )}
       </BlockStack>
+
+      {/* Xem ảnh bìa chia sẻ cỡ lớn */}
+      {coverPreview && detail?.shareCover ? (
+        <Modal open onClose={() => setCoverPreview(false)} title={ts('share.coverModalTitle')} size="large">
+          <Modal.Section>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={detail.shareCover}
+              alt=""
+              style={{ width: '100%', height: 'auto', borderRadius: 8, display: 'block' }}
+            />
+          </Modal.Section>
+        </Modal>
+      ) : null}
+
+      {toast ? (
+        <Toast
+          content={toast}
+          error={toastErr}
+          onDismiss={() => {
+            setToast('');
+            setToastErr(false);
+          }}
+        />
+      ) : null}
     </Page>
   );
 }

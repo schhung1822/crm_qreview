@@ -2848,6 +2848,8 @@
     "shareRevoke": "Thu hồi",
     "shareCopy": "Sao chép",
     "shareOpen": "Mở link",
-    "shareLinkLabel": "Link chia sẻ"
+    "shareLinkLabel": "Link chia sẻ",
+    "tabMain": "Tạo & xem",
+    "tabShareLinks": "Link chia sẻ"
   }
 }

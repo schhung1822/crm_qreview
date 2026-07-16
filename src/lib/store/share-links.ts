@@ -5,10 +5,15 @@ import { globalFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 import { slugifyTitle } from '../social/share-og';
 
+// Loại đối tượng của link rút gọn: báo cáo social hay phân tích kịch bản video.
+// Không có (legacy) = 'social'. Quyết định prefix slug + trang đích (/share vs /share/video).
+export type ShareLinkKind = 'social' | 'script';
+
 export interface ShareLinkRow {
   slug: string; // id + path công khai
+  kind?: ShareLinkKind; // rỗng = 'social' (dữ liệu cũ)
   bizId: string;
-  reportId: string;
+  reportId: string; // id đối tượng: reportId (social) hoặc analysisId (script)
   ownerId: string;
   token: string; // token chia sẻ /share/<token> để redirect người dùng thật
   title?: string; // override OG
@@ -22,15 +27,21 @@ export interface ShareLinkRow {
 
 const FILE = globalFile('share-links.json');
 const SLUG_RE = /^[a-z0-9-]{3,120}$/;
+// Prefix slug theo loại — cũng dùng ở middleware để nhận diện link rút gọn.
+export const SLUG_PREFIX: Record<ShareLinkKind, string> = { social: 'bao-cao', script: 'kich-ban' };
 
 export function isValidSlug(slug: string): boolean {
   return SLUG_RE.test(slug);
 }
 
-// Tạo slug duy nhất: bao-cao-<ten-khong-dau>-<timestamp>.
-function makeSlug(reportTitle: string): string {
+export function shareLinkKind(row: Pick<ShareLinkRow, 'kind'>): ShareLinkKind {
+  return row.kind ?? 'social';
+}
+
+// Tạo slug duy nhất: <prefix>-<ten-khong-dau>-<timestamp>.
+function makeSlug(kind: ShareLinkKind, reportTitle: string): string {
   const base = slugifyTitle(reportTitle);
-  return `bao-cao-${base ? `${base}-` : ''}${Date.now()}`;
+  return `${SLUG_PREFIX[kind]}-${base ? `${base}-` : ''}${Date.now()}`;
 }
 
 export async function createShareLink(input: {
@@ -40,9 +51,12 @@ export async function createShareLink(input: {
   token: string;
   reportTitle: string;
   createdBy: string;
+  kind?: ShareLinkKind;
 }): Promise<ShareLinkRow> {
+  const kind = input.kind ?? 'social';
   const row: ShareLinkRow = {
-    slug: makeSlug(input.reportTitle),
+    slug: makeSlug(kind, input.reportTitle),
+    kind,
     bizId: input.bizId,
     reportId: input.reportId,
     ownerId: input.ownerId,
@@ -73,10 +87,11 @@ export async function getShareLinkManaged(bizId: string, slug: string): Promise<
 }
 
 // Danh sách link của 1 biz (cho trang quản lý — gồm cả đã thu hồi để hiển thị trạng thái).
-export async function listShareLinks(bizId: string): Promise<ShareLinkRow[]> {
+// kind: lọc theo loại (social | script). Bỏ trống = tất cả.
+export async function listShareLinks(bizId: string, kind?: ShareLinkKind): Promise<ShareLinkRow[]> {
   const rows = await readJson<ShareLinkRow[]>(FILE, []);
   return rows
-    .filter((r) => r.bizId === bizId)
+    .filter((r) => r.bizId === bizId && (!kind || shareLinkKind(r) === kind))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

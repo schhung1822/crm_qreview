@@ -58,7 +58,9 @@ export interface ScriptAnalysisRecord {
   analysis?: ScriptAnalysis;
   // Chia sẻ công khai (chỉ-xem). Có giá trị = đã bật link. token thô lưu ở đây (dữ liệu của chủ,
   // cô lập theo biz) để chủ copy lại; INDEX toàn cục chỉ lưu HASH (script-shares).
-  share?: { token: string; createdAt: string };
+  // slug = link rút gọn dạng blog; locked = đang khóa bằng mật khẩu.
+  share?: { token: string; createdAt: string; slug?: string; locked?: boolean };
+  shareCover?: string; // ảnh bìa OG (URL tuyệt đối) khi chia sẻ link — tạo bằng AI hoặc tải lên
   locale: string;
   error?: string;
   createdAt: string;

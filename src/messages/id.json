@@ -2848,6 +2848,8 @@
     "shareRevoke": "Cabut",
     "shareCopy": "Salin",
     "shareOpen": "Buka tautan",
-    "shareLinkLabel": "Tautan berbagi"
+    "shareLinkLabel": "Tautan berbagi",
+    "tabMain": "Buat & lihat",
+    "tabShareLinks": "Tautan berbagi"
   }
 }

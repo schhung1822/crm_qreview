@@ -17,18 +17,23 @@ const OG_BOT_RE =
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Link rút gọn dạng blog: /bao-cao-<ten>-<timestamp> → route xử lý (bot đọc OG, người thật redirect).
-  if (/^\/bao-cao-[a-z0-9-]+$/.test(pathname)) {
+  // Link rút gọn dạng blog: /bao-cao-... (báo cáo) hoặc /kich-ban-... (phân tích kịch bản)
+  // → route xử lý (bot đọc OG, người thật redirect).
+  if (/^\/(bao-cao|kich-ban)-[a-z0-9-]+$/.test(pathname)) {
     return NextResponse.rewrite(new URL(`/api/link${pathname}`, req.url));
   }
 
-  // Trang chia sẻ báo cáo công khai: nếu là BOT MXH → rewrite sang trang OG tối giản (chắc chắn đọc
-  // được thẻ). Người dùng thật → phục vụ trang /share đầy đủ, KHÔNG qua next-intl (tránh redirect locale).
+  // Trang chia sẻ công khai: nếu là BOT MXH → rewrite sang trang OG tối giản (chắc chắn đọc được thẻ).
+  // Người dùng thật → phục vụ trang /share đầy đủ, KHÔNG qua next-intl (tránh redirect locale).
+  // /share/video/<token> = phân tích kịch bản; /share/<token> = báo cáo social.
   if (pathname.startsWith('/share/')) {
     const ua = req.headers.get('user-agent') || '';
     if (OG_BOT_RE.test(ua)) {
-      const token = pathname.split('/')[2] || '';
-      return NextResponse.rewrite(new URL(`/api/og/share/${token}`, req.url));
+      const parts = pathname.split('/'); // ['', 'share', 'video'|token, token?]
+      if (parts[2] === 'video') {
+        return NextResponse.rewrite(new URL(`/api/og/video/${parts[3] || ''}`, req.url));
+      }
+      return NextResponse.rewrite(new URL(`/api/og/share/${parts[2] || ''}`, req.url));
     }
     return NextResponse.next();
   }

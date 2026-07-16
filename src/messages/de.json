@@ -2848,6 +2848,8 @@
     "shareRevoke": "Widerrufen",
     "shareCopy": "Kopieren",
     "shareOpen": "Link öffnen",
-    "shareLinkLabel": "Freigabelink"
+    "shareLinkLabel": "Freigabelink",
+    "tabMain": "Erstellen & ansehen",
+    "tabShareLinks": "Freigabelinks"
   }
 }

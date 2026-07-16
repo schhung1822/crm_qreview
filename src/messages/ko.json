@@ -2848,6 +2848,8 @@
     "shareRevoke": "취소",
     "shareCopy": "복사",
     "shareOpen": "링크 열기",
-    "shareLinkLabel": "공유 링크"
+    "shareLinkLabel": "공유 링크",
+    "tabMain": "만들기 및 보기",
+    "tabShareLinks": "공유 링크"
   }
 }

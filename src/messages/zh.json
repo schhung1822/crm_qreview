@@ -2848,6 +2848,8 @@
     "shareRevoke": "撤销",
     "shareCopy": "复制",
     "shareOpen": "打开链接",
-    "shareLinkLabel": "分享链接"
+    "shareLinkLabel": "分享链接",
+    "tabMain": "创建和查看",
+    "tabShareLinks": "分享链接"
   }
 }

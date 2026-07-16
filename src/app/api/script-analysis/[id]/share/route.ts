@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { bizHasFeature, entitlementsForBiz } from '@/lib/billing/entitlement';
 import { env } from '@/lib/env';
+import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getScriptAnalysis, updateScriptAnalysis } from '@/lib/store/script-analyses';
 import { createShare, revokeShareForAnalysis } from '@/lib/store/script-shares';
 
@@ -30,6 +31,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   if (parsed.data.action === 'disable') {
     await revokeShareForAnalysis(g.bizId, params.id);
+    await revokeShareLinksForReport(g.bizId, params.id);
     await updateScriptAnalysis(params.id, { share: undefined });
     return NextResponse.json({ ok: true, enabled: false });
   }
@@ -39,7 +41,27 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Gói của bạn không có quyền chia sẻ phân tích kịch bản.' }, { status: 403 });
   }
   const { ownerId } = await entitlementsForBiz(g.bizId);
+  await revokeShareLinksForReport(g.bizId, params.id); // dọn link rút gọn cũ (token cũ chết)
   const token = await createShare({ bizId: g.bizId, analysisId: params.id, ownerId, createdBy: g.user.id });
-  await updateScriptAnalysis(params.id, { share: { token, createdAt: new Date().toISOString() } });
-  return NextResponse.json({ ok: true, enabled: true, url: shareUrl(req, token) });
+  // Tự tạo LINK RÚT GỌN dạng blog (kich-ban-<ten>-<timestamp>) trỏ tới token này.
+  const link = await createShareLink({
+    bizId: g.bizId,
+    reportId: params.id,
+    ownerId,
+    token,
+    reportTitle: rec.title || rec.url,
+    createdBy: g.user.id,
+    kind: 'script',
+  });
+  await updateScriptAnalysis(params.id, {
+    share: { token, createdAt: new Date().toISOString(), slug: link.slug },
+  });
+  const base = env.appUrl || new URL(req.url).origin;
+  return NextResponse.json({
+    ok: true,
+    enabled: true,
+    url: shareUrl(req, token),
+    prettyUrl: `${base}/${link.slug}`,
+    slug: link.slug,
+  });
 }

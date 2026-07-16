@@ -2848,6 +2848,8 @@
     "shareRevoke": "เพิกถอน",
     "shareCopy": "คัดลอก",
     "shareOpen": "เปิดลิงก์",
-    "shareLinkLabel": "ลิงก์แชร์"
+    "shareLinkLabel": "ลิงก์แชร์",
+    "tabMain": "สร้างและดู",
+    "tabShareLinks": "ลิงก์แชร์"
   }
 }

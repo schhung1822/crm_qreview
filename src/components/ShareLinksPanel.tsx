@@ -36,7 +36,7 @@ const ELLIPSIS: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-export function ShareLinksPanel() {
+export function ShareLinksPanel({ kind = 'social' }: { kind?: 'social' | 'script' }) {
   const t = useTranslations('socialReport.shareLinks');
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -49,10 +49,10 @@ export function ShareLinksPanel() {
   const [fPassword, setFPassword] = useState(''); // đặt/đổi mật khẩu (để trống = không đổi)
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/share-links');
+    const r = await fetch(`/api/share-links?kind=${kind}`);
     const d = (await r.json().catch(() => null)) as { links?: ShareLink[] } | null;
     setLinks(d?.links ?? []);
-  }, []);
+  }, [kind]);
   useEffect(() => {
     void load();
   }, [load]);
