@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { guard } from '@/lib/auth/current';
 import { buildAuthUrl } from '@/lib/drive/client';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { getDriveCreds } from '@/lib/store/drive';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   // Redirect URI PHẢI khớp cái đăng ký ở Google Console và PHẢI là https ở production. Sau
   // Cloudflare/nginx, new URL(req.url).origin ra http://... → Google chặn (invalid_request). Ưu
   // tiên APP_URL (https://demo.noti.vn) đã cấu hình; chỉ fallback req.url cho dev không đặt APP_URL.
-  const origin = env.appUrl || new URL(req.url).origin;
+  const origin = requestBaseUrl(req);
   const redirectUri = `${origin}/api/drive/callback`;
   const state = randomUUID();
   // Trang quay về sau OAuth: CHỈ nhận referer cùng origin (chống open-redirect ra site ngoài).

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { buildCoverPrompt, generateImageB64, imageProviderAvailable } from '@/lib/ai/images';
 import { saveGeneratedImage } from '@/lib/ai/image-store';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { DEFAULT_IMAGE_CONFIG, getImageConfig } from '@/lib/store/image-config';
 import { getScriptAnalysis, updateScriptAnalysis } from '@/lib/store/script-analyses';
@@ -26,14 +26,7 @@ const Body = z.object({
 });
 
 function absoluteUrl(rel: string, req: Request): string {
-  let base = env.appUrl || '';
-  if (!base) {
-    try {
-      base = new URL(req.url).origin;
-    } catch {
-      /* bỏ qua */
-    }
-  }
+  const base = requestBaseUrl(req);
   return base ? `${base}${rel}` : rel;
 }
 

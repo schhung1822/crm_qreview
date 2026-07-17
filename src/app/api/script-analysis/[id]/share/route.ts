@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { bizHasFeature, entitlementsForBiz } from '@/lib/billing/entitlement';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getScriptAnalysis, updateScriptAnalysis } from '@/lib/store/script-analyses';
 import { createShare, revokeShareForAnalysis } from '@/lib/store/script-shares';
@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 const BodySchema = z.object({ action: z.enum(['enable', 'disable']) });
 
 function shareUrl(req: Request, token: string): string {
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   return `${base}/share/video/${token}`;
 }
 
@@ -56,7 +56,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   await updateScriptAnalysis(params.id, {
     share: { token, createdAt: new Date().toISOString(), slug: link.slug },
   });
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   return NextResponse.json({
     ok: true,
     enabled: true,

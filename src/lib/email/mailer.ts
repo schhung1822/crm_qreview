@@ -1,13 +1,13 @@
 // Lớp GỬI EMAIL cấp thấp (nodemailer). Server-only. Toàn hệ thống dùng 1 SMTP nền tảng
 // (store/platform-email.ts); nội dung + gửi theo sự kiện nằm ở đó (sendPlatformEvent/sendEventEmail).
 import nodemailer from 'nodemailer';
-import { env } from '../env';
+import { requestBaseUrl } from '../base-url';
 import type { GmailOAuthConfig, SmtpConfig } from '../store/email';
 
-// URL đăng nhập dùng trong email: ƯU TIÊN APP_URL (env) → origin request.
-// Tránh Host header injection tạo link phishing (kẻ tấn công đổi Host để link trỏ tên miền lạ).
+// URL đăng nhập dùng trong email: ƯU TIÊN APP_URL (env) → X-Forwarded-Host (sau proxy) → origin.
+// Đặt APP_URL để chống Host header injection tạo link phishing (xem lib/base-url.ts).
 export async function appLoginUrl(req: Request): Promise<string> {
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   return `${base}/login`;
 }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { entitlementsForBiz } from '@/lib/billing/entitlement';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getSocialReport, updateSocialReport } from '@/lib/store/social-reports';
 import { createShare, revokeShareForReport } from '@/lib/store/social-shares';
@@ -14,7 +14,7 @@ const ID_RE = /^sr_[a-f0-9]+$/;
 const BodySchema = z.object({ action: z.enum(['enable', 'disable']) });
 
 function shareUrl(req: Request, token: string): string {
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   return `${base}/share/${token}`;
 }
 
@@ -56,7 +56,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   await updateSocialReport(params.id, (r) => {
     r.share = { token, createdAt: new Date().toISOString(), slug: link.slug };
   });
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   return NextResponse.json({
     ok: true,
     enabled: true,

@@ -1,6 +1,6 @@
 // Trang OG TỐI GIẢN cho bot mạng xã hội khi truy cập /share/video/<token> (middleware rewrite sang đây).
 import { runWithBiz } from '@/lib/biz/context';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { buildShareOgHtml } from '@/lib/social/share-og';
 import { resolveScriptOgFields } from '@/lib/script-analysis/share-og';
 import { getBranding } from '@/lib/store/branding';
@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
 
   const b = await getBranding();
   const { title, description, image } = resolveScriptOgFields(rec, b);
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   const html = buildShareOgHtml({
     locale: rec.locale || 'vi',
     title,

@@ -3,7 +3,7 @@
 //  - Người thật → chuyển hướng 302 sang trang xem đầy đủ (/share/<token> hoặc /share/video/<token>).
 import { NextResponse } from 'next/server';
 import { runWithBiz } from '@/lib/biz/context';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { GATE, pickGateLocale } from '@/lib/share/gate-strings';
 import { resolveScriptOgFields } from '@/lib/script-analysis/share-og';
 import { buildShareOgHtml, resolveOgFields } from '@/lib/social/share-og';
@@ -21,7 +21,7 @@ const OG_BOT_RE =
   /facebookexternalhit|facebookcatalog|Facebot|Twitterbot|Slackbot|LinkedInBot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Google-InspectionTool|SkypeUriPreview|vkShare|Embedly|Iframely|Zalo|zalo/i;
 
 export async function GET(req: Request, { params }: { params: { slug: string } }) {
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   const link = await getShareLink(params.slug);
   if (!link) return NextResponse.redirect(base, 302); // link không tồn tại/đã thu hồi → về trang chủ
 

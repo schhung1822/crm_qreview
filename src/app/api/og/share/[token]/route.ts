@@ -1,6 +1,6 @@
 // Trang OG TỐI GIẢN cho bot mạng xã hội khi truy cập /share/<token> (middleware rewrite sang đây).
 import { runWithBiz } from '@/lib/biz/context';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { buildShareOgHtml, resolveOgFields } from '@/lib/social/share-og';
 import { getBranding } from '@/lib/store/branding';
 import { getSocialReport } from '@/lib/store/social-reports';
@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
 
   const b = await getBranding();
   const { title, description, image } = resolveOgFields(report, b);
-  const base = env.appUrl || new URL(req.url).origin;
+  const base = requestBaseUrl(req);
   const html = buildShareOgHtml({
     locale: report.locale || 'vi',
     title,

@@ -9,6 +9,11 @@ services:
     environment:
       # BẮT BUỘC ở production: 32 byte base64 (vd: openssl rand -base64 32)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Đặt ENCRYPTION_KEY trong .env}
+      # URL CÔNG KHAI của app (vd https://demo.noti.vn) — dùng dựng link tuyệt đối: redirect
+      # link chia sẻ, thẻ OG, link trong email, ảnh /generated/... Đặt trong .env khi chạy sau
+      # reverse-proxy; bỏ trống thì app tự suy từ X-Forwarded-Host (Caddy đặt sẵn, Nginx phải
+      # tự thêm proxy_set_header X-Forwarded-Host).
+      APP_URL: ${APP_URL:-}
       # Email chủ nền tảng (superadmin) — phân tách bằng dấu phẩy. THIẾU biến này thì không ai vào
       # được trang Quản trị nền tảng /admin (kể cả owner). Lấy từ .env.
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}

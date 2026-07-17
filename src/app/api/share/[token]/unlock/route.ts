@@ -1,7 +1,7 @@
 // POST /api/share/<token>/unlock → nhận mật khẩu (form hoặc JSON), đúng thì đặt cookie "đã mở khóa"
 // rồi chuyển về trang /share/<token>. Chống dò mật khẩu bằng rate-limit.
 import { NextResponse } from 'next/server';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import {
   shareAccessCookieName,
@@ -17,7 +17,7 @@ const TOKEN_RE = /^[a-f0-9]{64}$/;
 export async function POST(req: Request, { params }: { params: { token: string } }) {
   const token = params.token;
   // Redirect PHẢI là URL công khai. Sau Cloudflare/nginx, req.url = http://0.0.0.0:3000 → dùng APP_URL.
-  const origin = env.appUrl || new URL(req.url).origin;
+  const origin = requestBaseUrl(req);
   const back = `${origin}/share/${token}`;
   if (!TOKEN_RE.test(token)) return NextResponse.redirect(origin, 303);
 

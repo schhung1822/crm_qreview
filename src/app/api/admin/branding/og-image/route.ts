@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSuper } from '@/lib/admin/guard';
 import { saveGeneratedImage } from '@/lib/ai/image-store';
-import { env } from '@/lib/env';
+import { requestBaseUrl } from '@/lib/base-url';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -24,13 +24,6 @@ export async function POST(req: Request) {
 
   const rel = await saveGeneratedImage(m[1], 'og-cover'); // → /generated/og-cover-xxxx.webp
   // OG cần URL TUYỆT ĐỐI. Ưu tiên APP_URL; nếu chưa đặt, suy từ Origin của request.
-  let base = env.appUrl || '';
-  if (!base) {
-    try {
-      base = new URL(req.url).origin;
-    } catch {
-      /* bỏ qua */
-    }
-  }
+  const base = requestBaseUrl(req);
   return NextResponse.json({ url: base ? `${base}${rel}` : rel });
 }
