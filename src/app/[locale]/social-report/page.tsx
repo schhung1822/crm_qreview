@@ -106,7 +106,9 @@ function IconGrid({ kinds }: { kinds: SocialChannelKind[] }) {
 type WizardStep = 'channel' | 'subtype' | 'form';
 type OverallMode = 'keyword' | 'links';
 // Nhóm card gộp: bấm vào hỏi tiếp loại báo cáo (shop/sản phẩm; social/e-commerce với Tổng thể).
-type EcomGroup = 'shopee' | 'tiktokshop' | 'lazada' | 'overall';
+type EcomGroup = 'shopee' | 'tiktokshop' | 'lazada' | 'taobao' | 'overall';
+// Sản phẩm Taobao: dán LINK hoặc nhập TÊN sản phẩm (server tự dịch tiếng Trung rồi search).
+type TaobaoMode = 'link' | 'keyword';
 
 // Khu vực TikTok Shop (đồng bộ TTS_REGIONS phía server - giao vùng 3 nguồn dữ liệu hỗ trợ).
 const TTS_REGION_OPTIONS = ['VN', 'US', 'JP', 'ID', 'MY', 'PH', 'SG', 'TH', 'MX'];
@@ -147,6 +149,10 @@ export default function SocialReportPage() {
   const [ttsRegion, setTtsRegion] = useState('VN'); // khu vực TikTok Shop / tổng thể e-commerce
   const [lzUrl, setLzUrl] = useState(''); // link sản phẩm Lazada
   const [lzShopUrl, setLzShopUrl] = useState(''); // link shop Lazada
+  const [tbUrl, setTbUrl] = useState(''); // link sản phẩm Taobao/Tmall
+  const [taobaoMode, setTaobaoMode] = useState<TaobaoMode>('link'); // dán link | nhập tên sản phẩm
+  const [tbKeyword, setTbKeyword] = useState(''); // TÊN sản phẩm (mọi ngôn ngữ - server dịch tiếng Trung)
+  const [tbShopName, setTbShopName] = useState(''); // TÊN shop Taobao (hoặc URL có user_number_id)
   const [reportName, setReportName] = useState(''); // tên báo cáo tự đặt (kênh e-commerce - tuỳ chọn)
   const [reviewsLimit, setReviewsLimit] = useState('30'); // số đánh giá thu (Shopee/TikTok Shop)
   const [outLocale, setOutLocale] = useState(locale);
@@ -232,7 +238,7 @@ export default function SocialReportPage() {
     setCreating(true);
     setCreateError('');
     try {
-      const isEcom = ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop'].includes(platform);
+      const isEcom = ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop'].includes(platform);
       const options = {
         postsLimit: Number(postsLimit),
         reelsLimit: Number(postsLimit),
@@ -249,6 +255,15 @@ export default function SocialReportPage() {
       if (platform === 'ecom') {
         // Tổng thể E-COMMERCE: chỉ cần keyword - 3 kênh sàn sinh tự động phía server.
         body = { platform, locale: outLocale, options, keyword: keyword.trim() };
+      } else if (platform === 'taobao' && taobaoMode === 'keyword') {
+        // Sản phẩm Taobao theo TÊN: chỉ gửi keyword - server dịch tiếng Trung rồi search.
+        body = {
+          platform,
+          locale: outLocale,
+          options,
+          keyword: tbKeyword.trim(),
+          ...(reportName.trim() ? { title: reportName.trim() } : {}),
+        };
       } else if (platform === 'fbgroup' || isEcom) {
         const url =
           platform === 'fbgroup'
@@ -263,7 +278,11 @@ export default function SocialReportPage() {
                     ? ttshopName
                     : platform === 'lazada'
                       ? lzUrl
-                      : lzShopUrl;
+                      : platform === 'lazadashop'
+                        ? lzShopUrl
+                        : platform === 'taobao'
+                          ? tbUrl
+                          : tbShopName;
         body = {
           platform,
           locale: outLocale,
@@ -333,6 +352,9 @@ export default function SocialReportPage() {
       setTtshopName('');
       setLzUrl('');
       setLzShopUrl('');
+      setTbUrl('');
+      setTbKeyword('');
+      setTbShopName('');
       setReportName('');
       await load();
       runLoop(d.id);
@@ -340,7 +362,7 @@ export default function SocialReportPage() {
     } finally {
       setCreating(false);
     }
-  }, [platform, overallMode, keyword, fbUrl, ttUrl, ytUrl, grUrl, fbpUrl, igUrl, thrUrl, spUrl, shopUrl, ttspUrl, ttshopName, lzUrl, lzShopUrl, ttsRegion, reportName, reviewsLimit, groupSort, outLocale, postsLimit, includeReels, includeAds, includeComments, load, runLoop, t]);
+  }, [platform, overallMode, keyword, fbUrl, ttUrl, ytUrl, grUrl, fbpUrl, igUrl, thrUrl, spUrl, shopUrl, ttspUrl, ttshopName, lzUrl, lzShopUrl, tbUrl, taobaoMode, tbKeyword, tbShopName, ttsRegion, reportName, reviewsLimit, groupSort, outLocale, postsLimit, includeReels, includeAds, includeComments, load, runLoop, t]);
 
   const remove = useCallback(async () => {
     if (!deleteId) return;
@@ -378,12 +400,13 @@ export default function SocialReportPage() {
   // 'tiktokshop' gồm cả sản phẩm + shop TikTok Shop (khỏi 2 tab trùng tên).
   const FILTERS: Array<'all' | SocialPlatform> = [
     'all', 'facebook', 'fbgroup', 'fbprofile', 'instagram', 'threads', 'tiktok', 'youtube',
-    'shopee', 'tiktokshop', 'lazada', 'overall',
+    'shopee', 'tiktokshop', 'lazada', 'taobao', 'overall',
   ];
   const FILTER_GROUP: Partial<Record<SocialPlatform, SocialPlatform[]>> = {
     shopee: ['shopee', 'shopeeshop'],
     tiktokshop: ['tiktokshop', 'tiktokshopshop'],
     lazada: ['lazada', 'lazadashop'],
+    taobao: ['taobao', 'taobaoshop'],
     overall: ['overall', 'ecom'], // tab Tổng thể gồm cả social lẫn e-commerce
   };
   const filtered = (reports ?? []).filter(
@@ -426,6 +449,7 @@ export default function SocialReportPage() {
     { key: 'shopee', group: 'shopee', label: t('channelShopeeGroup'), desc: t('channelShopeeGroupDesc'), icon: <PlatformIcon kind="shopee" /> },
     { key: 'tiktokshop', group: 'tiktokshop', label: t('channelTiktokshopGroup'), desc: t('channelTiktokshopGroupDesc'), icon: <PlatformIcon kind="tiktokshop" /> },
     { key: 'lazada', group: 'lazada', label: t('channelLazadaGroup'), desc: t('channelLazadaGroupDesc'), icon: <PlatformIcon kind="lazada" /> },
+    { key: 'taobao', group: 'taobao', label: t('channelTaobaoGroup'), desc: t('channelTaobaoGroupDesc'), icon: <PlatformIcon kind="taobao" /> },
     {
       key: 'overall',
       group: 'overall',
@@ -460,6 +484,11 @@ export default function SocialReportPage() {
               { platform: 'lazada', label: t('channelLazadaProduct'), desc: t('channelLazadaProductDesc'), icon: <PlatformIcon kind="lazada" /> },
               { platform: 'lazadashop', label: t('channelLazadaShop'), desc: t('channelLazadaShopDesc'), icon: <PlatformIcon kind="lazadashop" /> },
             ]
+          : ecomGroup === 'taobao'
+            ? [
+                { platform: 'taobao', label: t('channelTaobao'), desc: t('channelTaobaoDesc'), icon: <PlatformIcon kind="taobao" /> },
+                { platform: 'taobaoshop', label: t('channelTaobaoShop'), desc: t('channelTaobaoShopDesc'), icon: <PlatformIcon kind="taobaoshop" /> },
+              ]
           : [
               {
                 platform: 'overall',
@@ -491,6 +520,8 @@ export default function SocialReportPage() {
     tiktokshopshop: ttshopName,
     lazada: lzUrl,
     lazadashop: lzShopUrl,
+    taobao: taobaoMode === 'link' ? tbUrl : tbKeyword,
+    taobaoshop: tbShopName,
   };
   const canCreate =
     platform === 'ecom'
@@ -667,7 +698,7 @@ export default function SocialReportPage() {
                   // Kênh e-commerce đi qua popup shop/sản phẩm → quay lại đúng bước đó.
                   onAction: () =>
                     setWizardStep(
-                      ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'overall', 'ecom'].includes(platform)
+                      ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop', 'overall', 'ecom'].includes(platform)
                         ? 'subtype'
                         : 'channel',
                     ),
@@ -971,6 +1002,65 @@ export default function SocialReportPage() {
                     maxLength={120}
                   />
                 </>
+              ) : platform === 'taobao' ? (
+                <>
+                  {/* 2 cách chọn sản phẩm: dán link/ID, hoặc nhập TÊN (server dịch tiếng Trung
+                      rồi search, lấy sản phẩm bán chạy nhất khớp từ khóa). */}
+                  <ChoiceList
+                    title={t('taobaoMode')}
+                    choices={[
+                      { label: t('taobaoModeLink'), value: 'link', helpText: t('taobaoModeLinkDesc') },
+                      { label: t('taobaoModeKeyword'), value: 'keyword', helpText: t('taobaoModeKeywordDesc') },
+                    ]}
+                    selected={[taobaoMode]}
+                    onChange={(v) => setTaobaoMode((v[0] as TaobaoMode) ?? 'link')}
+                  />
+                  {taobaoMode === 'link' ? (
+                    <TextField
+                      autoComplete="off"
+                      label={<HelpLabel label={t('taobaoUrl')} help={t('taobaoUrlHelp')} />}
+                      value={tbUrl}
+                      onChange={setTbUrl}
+                      placeholder="https://item.taobao.com/item.htm?id=123456789"
+                    />
+                  ) : (
+                    <TextField
+                      autoComplete="off"
+                      label={<HelpLabel label={t('taobaoKeyword')} help={t('taobaoKeywordHelp')} />}
+                      value={tbKeyword}
+                      onChange={setTbKeyword}
+                      placeholder={t('taobaoKeywordPlaceholder')}
+                      maxLength={200}
+                    />
+                  )}
+                  <TextField
+                    autoComplete="off"
+                    label={<HelpLabel label={t('reportName')} help={t('reportNameHelp')} />}
+                    value={reportName}
+                    onChange={setReportName}
+                    placeholder={t('reportNamePlaceholder')}
+                    maxLength={120}
+                  />
+                </>
+              ) : platform === 'taobaoshop' ? (
+                <>
+                  <TextField
+                    autoComplete="off"
+                    label={<HelpLabel label={t('taobaoShopName')} help={t('taobaoShopNameHelp')} />}
+                    value={tbShopName}
+                    onChange={setTbShopName}
+                    placeholder={t('taobaoShopNamePlaceholder')}
+                    maxLength={80}
+                  />
+                  <TextField
+                    autoComplete="off"
+                    label={<HelpLabel label={t('reportName')} help={t('reportNameHelp')} />}
+                    value={reportName}
+                    onChange={setReportName}
+                    placeholder={t('reportNamePlaceholder')}
+                    maxLength={120}
+                  />
+                </>
               ) : platform === 'tiktok' ? (
                 <TextField
                   autoComplete="off"
@@ -996,7 +1086,7 @@ export default function SocialReportPage() {
                   value={outLocale}
                   onChange={setOutLocale}
                 />
-                {platform === 'shopee' || platform === 'tiktokshop' || platform === 'lazada' ? (
+                {platform === 'shopee' || platform === 'tiktokshop' || platform === 'lazada' || platform === 'taobao' ? (
                   <Select
                     label={<HelpLabel label={t('reviewsLimit')} help={t('reviewsLimitHelp')} />}
                     options={['20', '30', '50', '100'].map((v) => ({ label: v, value: v }))}
@@ -1008,14 +1098,14 @@ export default function SocialReportPage() {
                     label={
                       <HelpLabel
                         label={t(
-                          platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop'
+                          platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop' || platform === 'taobaoshop'
                             ? 'productsLimit'
                             : platform === 'ecom'
                               ? 'ecomProductsLimit'
                               : 'postsLimit',
                         )}
                         help={t(
-                          platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop'
+                          platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop' || platform === 'taobaoshop'
                             ? 'productsLimitHelp'
                             : platform === 'ecom'
                               ? 'ecomProductsLimitHelp'
@@ -1024,7 +1114,7 @@ export default function SocialReportPage() {
                       />
                     }
                     options={
-                      platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop'
+                      platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop' || platform === 'taobaoshop'
                         ? ['10', '20', '30', '40'].map((v) => ({ label: v, value: v }))
                         : platform === 'ecom'
                           ? ['10', '20'].map((v) => ({ label: v, value: v }))
@@ -1034,7 +1124,7 @@ export default function SocialReportPage() {
                     onChange={setPostsLimit}
                   />
                 )}
-                {platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop' ? (
+                {platform === 'shopeeshop' || platform === 'tiktokshopshop' || platform === 'lazadashop' || platform === 'taobaoshop' ? (
                   <Select
                     label={<HelpLabel label={t('reviewsLimit')} help={t('reviewsLimitHelp')} />}
                     options={['20', '30', '50', '100'].map((v) => ({ label: v, value: v }))}
@@ -1066,7 +1156,7 @@ export default function SocialReportPage() {
                 />
               ) : null}
               {(platform === 'overall' && overallMode === 'keyword') ||
-              ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'ecom'].includes(platform) ? null : (
+              ['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop', 'ecom'].includes(platform) ? null : (
                 <Checkbox
                   label={<HelpLabel label={t('includeComments')} help={t('includeCommentsHelp')} />}
                   checked={includeComments}
@@ -1144,4 +1234,6 @@ const PLATFORM_LABEL: Record<SocialChannelKind, string> = {
   tiktokshopshop: 'TikTok Shop (Shop)',
   lazada: 'Lazada',
   lazadashop: 'Lazada (Shop)',
+  taobao: 'Taobao',
+  taobaoshop: 'Taobao (Shop)',
 };

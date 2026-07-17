@@ -443,7 +443,7 @@ export default function SocialReportViewPage() {
                 : []),
               // Style thương hiệu rút từ BÀI ĐĂNG → không áp dụng cho báo cáo sản phẩm/shop
               // (Shopee + TikTok Shop).
-              ...(!['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'ecom'].includes(report.platform)
+              ...(!['shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop', 'ecom'].includes(report.platform)
                 ? [{ content: t('style.button'), onAction: () => setStyleOpen(true) }]
                 : []),
               // Gói FREE không được xuất file → ẩn các nút xuất (đã chốt thêm ở server).

@@ -38,6 +38,8 @@ const PLATFORM_LABEL: Record<SocialPlatform, string> = {
   tiktokshopshop: 'TikTok Shop',
   lazada: 'Lazada',
   lazadashop: 'Lazada',
+  taobao: 'Taobao',
+  taobaoshop: 'Taobao',
   overall: 'mạng xã hội',
   ecom: 'sàn thương mại điện tử',
 };

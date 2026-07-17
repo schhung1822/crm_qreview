@@ -121,7 +121,7 @@ export async function createSocialReport(input: CreateSocialReportInput): Promis
     ? input.title!.trim()
     : input.platform === 'overall' || input.platform === 'ecom'
       ? (input.keyword?.trim() || input.channels.map((c) => c.kind).join(' + '))
-      : input.channels[0]?.url || input.platform;
+      : input.channels[0]?.url || input.keyword?.trim() || input.platform; // taobao theo TÊN: url rỗng → tạm dùng keyword
   const record: SocialReportRecord = {
     id: genId(),
     platform: input.platform,

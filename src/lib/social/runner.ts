@@ -29,6 +29,7 @@ import {
   analyzeShopSummary,
   analyzeSummary,
   analyzeTactics,
+  translateTaobaoKeyword,
 } from './analyze';
 import {
   APIFY_ACTORS,
@@ -73,6 +74,10 @@ import {
   normalizeShopeeSearchItems,
   normalizeThreadsItems,
   normalizeThreadsReply,
+  normalizeTaobaoProduct,
+  normalizeTaobaoReview,
+  normalizeTaobaoSearchItems,
+  pickTaobaoSeller,
   normalizeTtsProduct,
   normalizeTtsReview,
   normalizeTtsSearchProducts,
@@ -84,6 +89,12 @@ import {
   shopeeSearchInput,
   shopeeShopInput,
   shopeeShopReviewsInput,
+  taobaoDetailInput,
+  taobaoItemId,
+  taobaoReviewsInput,
+  taobaoSearchInput,
+  taobaoShopCatalogInput,
+  taobaoUserIdFromUrl,
   ttsDetailInput,
   ttsProductId,
   ttsReviewsInput,
@@ -156,6 +167,14 @@ function topTtsShopProducts(ch: SocialChannelData, n: number) {
     .slice(0, n);
 }
 
+// Top N sản phẩm bán chạy của shop Taobao (catalog có orderCount30Day → ưu tiên; fallback
+// tổng đã bán rồi thứ tự danh sách - catalog đã sort _sale sẵn).
+function topTaobaoShopProducts(ch: SocialChannelData, n: number) {
+  return [...(ch.shopProducts ?? [])]
+    .sort((a, b) => (b.sold30d ?? b.sold ?? 0) - (a.sold30d ?? a.sold ?? 0))
+    .slice(0, n);
+}
+
 // Top 3 bài tương tác cao nhất của MỘT kênh (có URL) để lấy bình luận.
 function topPostUrls(ch: SocialChannelData): string[] {
   return mergePosts(ch.posts, ch.reels)
@@ -201,6 +220,12 @@ async function startCollect(
           ppeChargeCap(3),
         );
       }
+      if (ch.kind === 'taobaoshop') {
+        // Tìm shop Taobao qua SEARCH theo TÊN shop (ch.url = tên/URL) để lấy userId của
+        // seller - shopCatalog cần userId. URL đã có user_number_id → khỏi search, skip bước.
+        if (taobaoUserIdFromUrl(ch.url)) return null;
+        return startActorRun(token, APIFY_ACTORS.taobao, taobaoSearchInput(ch.url, 2), 20, ppeChargeCap(20));
+      }
       if (ch.kind === 'tiktokshopshop') {
         // Sao/địa điểm shop TikTok Shop lấy từ seller{} khi detail 1 sản phẩm bán chạy
         // (bước search không trả 2 field này). Không có sản phẩm → skip.
@@ -217,6 +242,19 @@ async function startCollect(
       return startActorRun(token, APIFY_ACTORS.pages, pageInfoInput(ch.url), 3);
     }
     case 'shop': {
+      if (ch.kind === 'taobaoshop') {
+        // Danh mục qua shopCatalog (~30 sản phẩm/trang). userId từ bước 'page' (search) hoặc
+        // từ chính URL user_number_id. Không có userId → skip (chặn báo cáo rỗng ở cuối pha).
+        const userId = ch.shopUserId ?? taobaoUserIdFromUrl(ch.url);
+        if (!userId) return null;
+        return startActorRun(
+          token,
+          APIFY_ACTORS.taobao,
+          taobaoShopCatalogInput(userId, Math.ceil(o.postsLimit / 30)),
+          o.postsLimit,
+          ppeChargeCap(o.postsLimit),
+        );
+      }
       if (ch.kind === 'lazadashop') {
         // 1 run duy nhất: danh mục + đánh giá inline (maxReviews TÍNH TRÊN MỖI sản phẩm
         // → chia đều theo số sản phẩm dự kiến; maxItems trần tổng record product+review).
@@ -327,6 +365,16 @@ async function startCollect(
     case 'search': {
       const kw = r.keyword ?? '';
       if (!kw) return null;
+      // SẢN PHẨM Taobao theo TÊN: search bằng bản dịch tiếng Trung (runner đã dịch + lưu
+      // keywordZh trước khi start), sort bán chạy, 1 trang (10 kết quả) đủ chốt top khớp.
+      if (ch.kind === 'taobao')
+        return startActorRun(
+          token,
+          APIFY_ACTORS.taobao,
+          taobaoSearchInput(r.keywordZh ?? kw, 1),
+          10,
+          ppeChargeCap(10),
+        );
       // TỔNG THỂ E-COMMERCE: search top sản phẩm BÁN CHẠY theo keyword trên từng sàn.
       if (r.platform === 'ecom') {
         if (ch.kind === 'shopee')
@@ -402,6 +450,13 @@ async function startCollect(
           ppeChargeCap(10),
         );
       }
+      if (ch.kind === 'taobao') {
+        // Info sản phẩm Taobao/Tmall - ID tách từ link ?id= (route đã giải link rút gọn tb.cn).
+        // Actor bên thứ ba PPE → trần tiền bắt buộc.
+        const id = taobaoItemId(ch.url);
+        if (!id) return null;
+        return startActorRun(token, APIFY_ACTORS.taobao, taobaoDetailInput(id), 3, ppeChargeCap(10));
+      }
       // Info sản phẩm Shopee - cần shopId/itemId tách từ URL (URL sai dạng → skip, cảnh báo).
       // Actor bên thứ ba PPE → PHẢI truyền trần tiền, không sẽ bị ABORT (đã dính thực tế).
       const input = shopeeProductInput(ch.url);
@@ -410,6 +465,33 @@ async function startCollect(
     }
     case 'reviews': {
       // Đánh giá của khách - độc lập với bước product (product kẹt vẫn có review).
+      if (ch.kind === 'taobaoshop') {
+        // Đánh giá TOP 3 sản phẩm bán chạy - actor nhận 1 itemId/run → plan có 3 bước
+        // 'reviews'; bước hiện tại là sản phẩm thứ (số bước 'reviews' đã đi qua).
+        const idx = r.plan.slice(0, r.stepIndex).filter((s) => s.action === 'reviews').length;
+        const target = topTaobaoShopProducts(ch, 3)[idx];
+        if (!target?.itemId) return null;
+        const perProduct = Math.max(3, Math.ceil(o.commentsLimit / 3));
+        return startActorRun(
+          token,
+          APIFY_ACTORS.taobao,
+          taobaoReviewsInput(target.itemId, perProduct),
+          perProduct,
+          ppeChargeCap(perProduct),
+        );
+      }
+      if (ch.kind === 'taobao') {
+        // Cùng actor với bước product, đổi operation → productReviews (20 dòng/trang).
+        const id = ch.product?.itemId ?? taobaoItemId(ch.url);
+        if (!id) return null;
+        return startActorRun(
+          token,
+          APIFY_ACTORS.taobao,
+          taobaoReviewsInput(id, o.commentsLimit),
+          o.commentsLimit,
+          ppeChargeCap(o.commentsLimit),
+        );
+      }
       if (ch.kind === 'tiktokshop') {
         const id = ch.product?.itemId ?? ttsProductId(ch.url);
         if (!id) return null;
@@ -505,6 +587,18 @@ function applyCollected(
       } else warn('page:empty');
       return;
     }
+    if (ch.kind === 'taobaoshop') {
+      // Kết quả search theo TÊN shop → chốt seller khớp nhất: lấy userId (cho bước catalog)
+      // + tên shop làm header. Không thấy seller nào → cảnh báo (bước catalog sẽ skip).
+      const rows = normalizeTaobaoSearchItems(items);
+      const seller = pickTaobaoSeller(rows, ch.url);
+      if (seller) {
+        ch.shopUserId = seller.userId;
+        ch.shopInfo = { name: seller.shopName, url: '' };
+        if (!r.customTitle) r.title = seller.shopName;
+      } else warn('page:empty');
+      return;
+    }
     if (ch.kind === 'tiktokshopshop') {
       // Sao/địa điểm shop từ seller{} của detail 1 sản phẩm - GỘP vào shopInfo đã có
       // (tổng đã bán/GMV đến từ bước search, không ghi đè).
@@ -532,6 +626,19 @@ function applyCollected(
     return;
   }
   if (step.action === 'shop') {
+    if (ch.kind === 'taobaoshop') {
+      // Danh mục shopCatalog → ShopeeProduct[] (kèm orderCount30Day = đã bán 30 ngày).
+      // Bước 'page' bị skip (URL có user_number_id) → dựng shopInfo từ tên shop trong rows.
+      const rows = normalizeTaobaoSearchItems(items);
+      ch.shopProducts = rows.map((x) => x.product).slice(0, r.options.postsLimit);
+      const name = ch.shopProducts.find((p) => p.shopName)?.shopName;
+      if (!ch.shopInfo && name) {
+        ch.shopInfo = { name, url: '' };
+        if (!r.customTitle) r.title = name;
+      }
+      if (!ch.shopProducts.length) warn('shop:empty');
+      return;
+    }
     if (ch.kind === 'lazadashop') {
       // Dataset trộn product+review của 1 run: tách, gắn đánh giá theo sản phẩm (itemId),
       // info shop dựng từ vendor đa số (actor không có record shop riêng).
@@ -659,6 +766,16 @@ function applyCollected(
     return;
   }
   if (step.action === 'search') {
+    // SẢN PHẨM Taobao theo TÊN: chốt sản phẩm BÁN CHẠY NHẤT khớp từ khóa (kết quả đã sort
+    // theo lượt bán) làm ch.url → các bước product/reviews phía sau chạy y như dán link.
+    if (ch.kind === 'taobao' && r.platform === 'taobao') {
+      const top = normalizeTaobaoSearchItems(items)[0];
+      if (top) {
+        ch.url = top.product.url;
+        if (!r.customTitle) r.title = top.product.name;
+      } else warn('search:empty');
+      return;
+    }
     // TỔNG THỂ E-COMMERCE: kết quả search là SẢN PHẨM → gộp vào shopProducts của kênh
     // (khử trùng theo itemId - TikTok Shop chạy nhiều trang).
     if (r.platform === 'ecom' && ECOM_SEARCH_KINDS.includes(ch.kind)) {
@@ -711,12 +828,14 @@ function applyCollected(
       } else warn('product:not-found-in-search');
       return;
     }
-    // Info sản phẩm Shopee/TikTok Shop. Actor có thể trả item cảnh báo (không tính phí)
-    // → cảnh báo, vẫn đi tiếp: bước reviews độc lập vẫn thu được đánh giá.
+    // Info sản phẩm Shopee/TikTok Shop/Taobao. Actor có thể trả item cảnh báo (không tính
+    // phí) → cảnh báo, vẫn đi tiếp: bước reviews độc lập vẫn thu được đánh giá.
     const product =
       ch.kind === 'tiktokshop'
         ? normalizeTtsProduct(items, ch.url)
-        : normalizeShopeeProduct(items, ch.url);
+        : ch.kind === 'taobao'
+          ? normalizeTaobaoProduct(items, ch.url)
+          : normalizeShopeeProduct(items, ch.url);
     if (product) {
       ch.product = product;
       if (product.name && product.name !== ch.url && !r.customTitle) r.title = product.name;
@@ -725,9 +844,17 @@ function applyCollected(
   }
   if (step.action === 'reviews') {
     const isTts = ch.kind === 'tiktokshop' || ch.kind === 'tiktokshopshop';
-    ch.productReviews = items.map(isTts ? normalizeTtsReview : normalizeShopeeReview).filter(defined);
+    const reviewFn =
+      ch.kind === 'taobao' || ch.kind === 'taobaoshop'
+        ? normalizeTaobaoReview
+        : isTts
+          ? normalizeTtsReview
+          : normalizeShopeeReview;
+    const found = items.map(reviewFn).filter(defined);
+    // Shop Taobao chạy NHIỀU bước 'reviews' (1 sản phẩm/run) → GỘP thêm, không ghi đè.
+    ch.productReviews = ch.kind === 'taobaoshop' ? [...(ch.productReviews ?? []), ...found] : found;
     // Báo cáo SHOP: "đánh giá đi theo sản phẩm" - gắn tên sản phẩm vào từng review qua itemId.
-    if ((ch.kind === 'shopeeshop' || ch.kind === 'tiktokshopshop') && ch.shopProducts?.length) {
+    if ((ch.kind === 'shopeeshop' || ch.kind === 'tiktokshopshop' || ch.kind === 'taobaoshop') && ch.shopProducts?.length) {
       const byId = new Map(ch.shopProducts.map((p) => [p.itemId, p.name]));
       for (const rv of ch.productReviews) {
         if (rv.itemId && byId.has(rv.itemId)) rv.ofProduct = byId.get(rv.itemId);
@@ -923,8 +1050,14 @@ export async function runSocialReportStep(id: string): Promise<SocialReportRecor
                   ? 'Không thu được dữ liệu sản phẩm. Kiểm tra link sản phẩm TikTok Shop (còn bán, đúng khu vực đã chọn) rồi tạo báo cáo mới.'
                   : r.platform === 'tiktokshopshop'
                     ? 'Không tìm thấy sản phẩm nào của shop này. Kiểm tra TÊN shop đúng như hiển thị trên TikTok Shop (và đúng khu vực) rồi tạo báo cáo mới.'
-                    : r.platform === 'lazada'
-                      ? 'Không tìm thấy sản phẩm này trên Lazada. Kiểm tra link sản phẩm (dán link đầy đủ có tên sản phẩm trong đường dẫn, sản phẩm còn bán) rồi tạo báo cáo mới.'
+                    : r.platform === 'taobao'
+                      ? r.keyword
+                        ? 'Không tìm thấy sản phẩm nào trên Taobao/Tmall với tên này. Thử tên sản phẩm phổ biến/cụ thể hơn (hoặc dán thẳng link sản phẩm) rồi tạo báo cáo mới.'
+                        : 'Không thu được dữ liệu sản phẩm. Kiểm tra link sản phẩm Taobao/Tmall (dạng item.taobao.com/item.htm?id=... hoặc detail.tmall.com, sản phẩm còn bán) rồi tạo báo cáo mới.'
+                      : r.platform === 'taobaoshop'
+                        ? 'Không tìm thấy shop này trên Taobao/Tmall. Kiểm tra TÊN shop đúng như hiển thị trên Taobao (nên nhập tên tiếng Trung) rồi tạo báo cáo mới.'
+                      : r.platform === 'lazada'
+                        ? 'Không tìm thấy sản phẩm này trên Lazada. Kiểm tra link sản phẩm (dán link đầy đủ có tên sản phẩm trong đường dẫn, sản phẩm còn bán) rồi tạo báo cáo mới.'
                       : r.platform === 'lazadashop'
                         ? 'Không thu được danh mục sản phẩm của shop. Kiểm tra link shop Lazada (vd https://www.lazada.vn/shop/tenshop) rồi tạo báo cáo mới.'
                         : r.platform === 'ecom'
@@ -956,10 +1089,29 @@ export async function runSocialReportStep(id: string): Promise<SocialReportRecor
 
     // 3) Bước thu thập: start run Apify với KEY NGẪU NHIÊN + fallback (null → skip bước).
     if (!ANALYZE_ACTIONS.includes(step.action)) {
-      const started = await startCollectWithFallback(pool, r, step).catch((err) => {
+      // rec = bản ghi hiệu lực của bước này (có thể được làm mới sau khi lưu keywordZh).
+      let rec = r;
+      // Sản phẩm Taobao theo TÊN: dịch keyword sang tiếng Trung MỘT LẦN trước bước search
+      // (search tiếng Trung chính xác hơn hẳn). Dịch lỗi/không có AI key → dùng nguyên văn
+      // (actor vẫn search được tiếng Anh/hỗn hợp) + cảnh báo.
+      if (
+        step.action === 'search' &&
+        step.ch !== undefined &&
+        rec.channels[step.ch]?.kind === 'taobao' &&
+        rec.keyword &&
+        !rec.keywordZh
+      ) {
+        const zh = await translateTaobaoKeyword(rec.keyword).catch(() => undefined);
+        const saved = await updateSocialReport(id, (x) => {
+          x.keywordZh = zh || x.keyword;
+          if (!zh) x.warnings.push('taobao:search:translate-failed');
+        });
+        if (saved) rec = saved;
+      }
+      const started = await startCollectWithFallback(pool, rec, step).catch((err) => {
         // Mọi key trong pool đều lỗi (hoặc lỗi input/actor) → cảnh báo, đi tiếp.
-        r.warnings.push(
-          `${step.ch !== undefined ? r.channels[step.ch]?.kind : '?'}:${step.action}:start-failed:${
+        rec.warnings.push(
+          `${step.ch !== undefined ? rec.channels[step.ch]?.kind : '?'}:${step.action}:start-failed:${
             err instanceof Error ? err.message.slice(0, 120) : 'unknown'
           }`,
         );
@@ -967,7 +1119,7 @@ export async function runSocialReportStep(id: string): Promise<SocialReportRecor
       });
       if (!started) {
         return updateSocialReport(id, (x) => {
-          x.warnings = r.warnings;
+          x.warnings = rec.warnings;
           advance(x);
         });
       }

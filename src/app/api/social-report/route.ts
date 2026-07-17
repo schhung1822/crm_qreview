@@ -11,6 +11,7 @@ import {
   lazadaProductId,
   lazadaSlugKeyword,
   shopeeIds,
+  taobaoItemId,
   TTS_REGIONS,
   ttsProductId,
   validateApifyToken,
@@ -56,6 +57,14 @@ const URL_RE: Record<SocialChannelKind, RegExp> = {
   // Shop Lazada: URL shop dạng lazada.<tld>/shop/<slug>.
   lazadashop:
     /^https?:\/\/(www\.)?lazada\.(vn|co\.id|co\.th|com\.my|sg|com\.ph)\/shop\/[\w.-]+\/?(\?\S*)?$/i,
+  // Sản phẩm Taobao/Tmall: link có ?id=<số> (item.taobao.com / detail.tmall.com /
+  // main.m.taobao.com...), dạng world.taobao.com/item/<số>.htm, link rút gọn chia sẻ từ app
+  // (e.tb.cn / m.tb.cn - server tự giải) hoặc ID sản phẩm trần.
+  taobao:
+    /^(https?:\/\/([\w-]+\.)*(taobao|tmall)\.(com|hk)\/\S*[?&]id=\d{8,16}\S*|https?:\/\/([\w-]+\.)*taobao\.com\/item\/\d{8,16}(\.htm)?\S*|https?:\/\/(e|m)\.tb\.cn\/\S+|\d{8,16})$/i,
+  // Shop Taobao: TÊN shop hiển thị trên Taobao (chữ tự do 2-80 ký tự - server search theo tên
+  // rồi chốt seller khớp nhất), hoặc URL shop dạng store.taobao.com/...user_number_id=<số>.
+  taobaoshop: /^(https?:\/\/\S*user_number_id=\d{5,15}\S*|.{2,80})$/i,
 };
 
 // Link rút gọn Shopee/TikTok → theo redirect tới link đầy đủ (host cố định s.shopee.* /
@@ -91,7 +100,7 @@ const CreateSchema = z
   .object({
     platform: z.enum([
       'facebook', 'tiktok', 'youtube', 'fbgroup', 'fbprofile', 'instagram', 'threads',
-      'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop',
+      'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop',
       'overall', 'ecom',
     ]),
     locale: z.string().refine((v) => (locales as readonly string[]).includes(v)),
@@ -104,7 +113,7 @@ const CreateSchema = z
         z.object({
           kind: z.enum([
             'facebook', 'tiktok', 'youtube', 'fbgroup', 'fbprofile', 'instagram', 'threads',
-            'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop',
+            'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop',
           ]),
           url: z.string().max(500),
         }),
@@ -127,7 +136,7 @@ const CreateSchema = z
       const kinds = v.channels.map((c) => c.kind);
       if (
         kinds.some((k) =>
-          ['fbgroup', 'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop'].includes(k),
+          ['fbgroup', 'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop'].includes(k),
         )
       )
         ctx.addIssue({ code: 'custom', message: 'nhóm Facebook/kênh e-commerce không tham gia báo cáo tổng thể social' });
@@ -137,6 +146,8 @@ const CreateSchema = z
         if (!URL_RE[c.kind].test(c.url.trim()))
           ctx.addIssue({ code: 'custom', message: `URL kênh ${c.kind} không hợp lệ` });
     } else {
+      // Sản phẩm Taobao theo TÊN: chỉ cần keyword (kênh sinh tự động phía server, url rỗng).
+      if (v.platform === 'taobao' && v.keyword?.trim() && v.channels.length === 0) return;
       if (v.channels.length !== 1 || v.channels[0].kind !== v.platform)
         ctx.addIssue({ code: 'custom', message: 'cần đúng 1 kênh trùng nền tảng' });
       if (!URL_RE[v.platform].test(v.channels[0]?.url.trim() ?? ''))
@@ -151,7 +162,9 @@ const CreateSchema = z
                   ? 'link sản phẩm Lazada không hợp lệ - dùng link sản phẩm ĐẦY ĐỦ có tên trong đường dẫn (dạng lazada.vn/products/ten-san-pham-i123456.html) hoặc link chia sẻ s.lazada.vn từ app'
                   : v.platform === 'lazadashop'
                     ? 'link shop Lazada không hợp lệ - dùng link shop (dạng lazada.vn/shop/tenshop)'
-                    : 'URL kênh không hợp lệ',
+                    : v.platform === 'taobao'
+                      ? 'link sản phẩm Taobao/Tmall không hợp lệ - dùng link sản phẩm có ?id= (dạng item.taobao.com/item.htm?id=123456), link chia sẻ e.tb.cn/m.tb.cn từ app hoặc ID sản phẩm'
+                      : 'URL kênh không hợp lệ',
         });
     }
   });
@@ -188,7 +201,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          'Gói hiện tại chỉ tạo được báo cáo cho fanpage Facebook. Nâng cấp gói để phân tích nhóm Facebook, Instagram, Threads, TikTok, YouTube, Shopee, TikTok Shop và báo cáo tổng thể.',
+          'Gói hiện tại chỉ tạo được báo cáo cho fanpage Facebook. Nâng cấp gói để phân tích nhóm Facebook, Instagram, Threads, TikTok, YouTube, Shopee, TikTok Shop, Lazada, Taobao và báo cáo tổng thể.',
         planLimited: true,
       },
       { status: 403 },
@@ -274,6 +287,26 @@ export async function POST(req: Request) {
     v.channels[0].url = url;
   }
 
+  // Taobao/Tmall: link rút gọn chia sẻ từ app (e.tb.cn / m.tb.cn) → giải về link đầy đủ
+  // TRƯỚC khi tạo (bước product/reviews cần ?id= trong link). Chỉ áp cho chế độ DÁN LINK -
+  // chế độ nhập TÊN sản phẩm (keyword) không có channels.
+  if (v.platform === 'taobao' && v.channels.length) {
+    let url = v.channels[0].url.trim();
+    if (/^https?:\/\/(e|m)\.tb\.cn\//i.test(url)) {
+      const resolved = await resolveShopeeShortUrl(url);
+      if (resolved) url = resolved;
+    }
+    if (!taobaoItemId(url))
+      return NextResponse.json(
+        {
+          error:
+            'Không đọc được ID sản phẩm từ link. Mở sản phẩm Taobao/Tmall trên trình duyệt và dán link đầy đủ có ?id= (dạng item.taobao.com/item.htm?id=123456) hoặc dán thẳng ID sản phẩm.',
+        },
+        { status: 400 },
+      );
+    v.channels[0].url = url;
+  }
+
   // Overall SOCIAL theo keyword: tự sinh kênh "kết quả tìm kiếm" trên từng nền tảng.
   // Tổng thể E-COMMERCE: tự sinh 3 kênh sàn (Shopee/TikTok Shop/Lazada).
   const channels =
@@ -281,7 +314,9 @@ export async function POST(req: Request) {
       ? ECOM_SEARCH_KINDS.map((kind) => ({ kind, url: '' }))
       : v.platform === 'overall' && v.keyword?.trim()
         ? SOCIAL_CHANNEL_KINDS.map((kind) => ({ kind, url: '' }))
-        : v.channels.map((c) => ({ kind: c.kind, url: c.url.trim() }));
+        : v.platform === 'taobao' && v.channels.length === 0
+          ? [{ kind: 'taobao' as const, url: '' }] // chế độ nhập TÊN sản phẩm
+          : v.channels.map((c) => ({ kind: c.kind, url: c.url.trim() }));
 
   const report = await createSocialReport({
     platform: v.platform,

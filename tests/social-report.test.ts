@@ -952,6 +952,151 @@ describe('Lazada + Tổng thể E-commerce (07-2026)', () => {
     expect(lazadaCountry('https://www.lazada.co.th/x')).toBe('th');
   });
 
+  it('buildPlan: taobao = product + reviews + 3 AI e-commerce; KHÔNG tham gia tổng thể e-commerce', async () => {
+    const tb = buildPlan({ platform: 'taobao', channels: [{ kind: 'taobao' }], options });
+    expect(tb.map((s) => s.action)).toEqual([
+      'product', 'reviews', 'analyzeShopeeProduct', 'analyzeShopeeReviews', 'analyzeShopeeSummary',
+    ]);
+    // Tổng thể e-commerce chỉ gồm 3 sàn Shopee/TikTok Shop/Lazada - Taobao đứng riêng.
+    const { ECOM_SEARCH_KINDS, ECOM_KINDS } = await import('../src/lib/social/types');
+    expect(ECOM_SEARCH_KINDS).not.toContain('taobao');
+    expect(ECOM_KINDS).toContain('taobao'); // vẫn là kind e-commerce (chỉ số/gate/render dùng chung)
+  });
+
+  it('buildPlan: taobao theo TÊN có bước search trước; taobaoshop = page + shop + 3 reviews + 3 AI shop', () => {
+    const byName = buildPlan({
+      platform: 'taobao',
+      keyword: 'tai nghe bluetooth',
+      channels: [{ kind: 'taobao' }],
+      options,
+    });
+    expect(byName.map((s) => s.action)).toEqual([
+      'search', 'product', 'reviews', 'analyzeShopeeProduct', 'analyzeShopeeReviews', 'analyzeShopeeSummary',
+    ]);
+    const shop = buildPlan({ platform: 'taobaoshop', channels: [{ kind: 'taobaoshop' }], options });
+    expect(shop.map((s) => s.action)).toEqual([
+      'page', 'shop', 'reviews', 'reviews', 'reviews',
+      'analyzeShopCatalog', 'analyzeShopCustomers', 'analyzeShopSummary',
+    ]);
+  });
+
+  it('taobaoUserIdFromUrl + input search/shopCatalog + chọn seller khớp tên shop', async () => {
+    const {
+      taobaoUserIdFromUrl, taobaoSearchInput, taobaoShopCatalogInput,
+      normalizeTaobaoSearchItems, pickTaobaoSeller,
+    } = await import('../src/lib/social/apify');
+    expect(
+      taobaoUserIdFromUrl('https://store.taobao.com/shop/view_shop.htm?user_number_id=123456789'),
+    ).toBe('123456789');
+    expect(taobaoUserIdFromUrl('https://shop104050320.taobao.com/')).toBeUndefined();
+    expect(taobaoSearchInput('降噪蓝牙耳机', 1)).toEqual({
+      operation: 'keywordSearch', keyword: '降噪蓝牙耳机', sort: '_sale', maxPages: 1,
+    });
+    // ~30 sản phẩm/trang → postsLimit 40 = 2 trang.
+    expect(taobaoShopCatalogInput('123', 2)).toEqual({
+      operation: 'shopCatalog', userId: '123', catalogVersion: 'v1', sort: '_sale', maxPages: 2,
+    });
+
+    const rows = normalizeTaobaoSearchItems([
+      { itemId: '111', title: '小米耳机 Pro', priceYuan: 199, shopId: 1, shopName: '小米官方旗舰店', userId: '901', orderCount30Day: 500 },
+      { itemId: '222', title: '小米耳机 Lite', priceYuan: 99, shopId: 1, shopName: '小米官方旗舰店', userId: '901' },
+      { itemId: '333', title: '耳机套', priceYuan: 9, shopId: 2, shopName: '别的小店', userId: '902' },
+      { status: 'error' },
+    ]);
+    expect(rows).toHaveLength(3);
+    expect(rows[0].product.currency).toBe('CNY');
+    expect(rows[0].product.sold30d).toBe(500);
+    expect(rows[0].userId).toBe('901');
+    // Khớp theo tên shop (bỏ dấu/thường hóa) → chọn đúng seller, không lấy shop khác.
+    const seller = pickTaobaoSeller(rows, '小米官方旗舰店');
+    expect(seller?.shopName).toBe('小米官方旗舰店');
+    expect(seller?.userId).toBe('901');
+    // Không khớp tên nào → rơi về seller xuất hiện nhiều nhất.
+    expect(pickTaobaoSeller(rows, 'khong-ton-tai')?.userId).toBe('901');
+  });
+
+  it('taobaoItemId + input actor Taobao (sian.agency): detail v9, reviews maxPages theo limit', async () => {
+    const { APIFY_ACTORS, taobaoItemId, taobaoDetailInput, taobaoReviewsInput } =
+      await import('../src/lib/social/apify');
+    expect(APIFY_ACTORS.taobao).toBe('sian.agency~taobao-tmall-product-scraper');
+    expect(taobaoItemId('https://item.taobao.com/item.htm?id=744983869996')).toBe('744983869996');
+    expect(taobaoItemId('https://detail.tmall.com/item.htm?spm=a21n57&id=683250696645&skuId=1')).toBe('683250696645');
+    expect(taobaoItemId('https://world.taobao.com/item/744983869996.htm')).toBe('744983869996');
+    expect(taobaoItemId('744983869996')).toBe('744983869996');
+    expect(taobaoItemId('https://shopee.vn/x-i.1.2')).toBeUndefined();
+    expect(taobaoDetailInput('744983869996')).toEqual({
+      operation: 'productDetail', itemId: '744983869996', detailVersion: 'v9',
+    });
+    // 20 đánh giá/trang → 30 cần 2 trang; trần 5 trang (100 đánh giá).
+    expect(taobaoReviewsInput('744983869996', 30)).toEqual({
+      operation: 'productReviews', itemId: '744983869996', orderType: 'feedbackdate', maxPages: 2,
+    });
+    expect((taobaoReviewsInput('1', 100) as { maxPages: number }).maxPages).toBe(5);
+  });
+
+  it('normalizeTaobaoProduct/Review: row productDetail + productReviews của sian.agency', async () => {
+    const { normalizeTaobaoProduct, normalizeTaobaoReview } = await import('../src/lib/social/apify');
+    const p = normalizeTaobaoProduct(
+      [
+        {
+          _operation: 'productDetail',
+          itemId: '744983869996',
+          title: '无线蓝牙耳机 降噪',
+          priceYuan: 129,
+          promotionPriceYuan: 99,
+          priceRange: '99-159',
+          discountPct: 23,
+          sellCount: '2000+',
+          commentCount: 512,
+          itemGradeAvg: 4.8,
+          skus: [
+            { propName: '星空黑', price: 99, quantity: 120 },
+            { propName: '云雾白', price: 109, quantity: 80 },
+          ],
+          imageUrls: ['https://img.alicdn.com/a.jpg'],
+          attributes: [{ name: '品牌', value: 'XYZ' }],
+          shopId: 104050320,
+          shopName: 'XYZ官方旗舰店',
+          location: '广东深圳',
+        },
+      ],
+      'https://item.taobao.com/item.htm?id=744983869996',
+    );
+    expect(p?.name).toBe('无线蓝牙耳机 降噪');
+    expect(p?.itemId).toBe('744983869996');
+    expect(p?.currency).toBe('CNY');
+    expect(p?.priceMin).toBe(99);
+    expect(p?.priceMax).toBe(159);
+    expect(p?.discount).toBe('23%');
+    expect(p?.ratingStar).toBe(4.8);
+    expect(p?.sold).toBe(2000); // "2000+" → 2000
+    expect(p?.stock).toBe(200); // tổng quantity các SKU
+    expect(p?.variants?.map((v) => v.name)).toEqual(['星空黑', '云雾白']);
+    expect(p?.attributes).toEqual({ 品牌: 'XYZ' });
+    expect(p?.shopName).toBe('XYZ官方旗舰店');
+
+    const rv = normalizeTaobaoReview({
+      _operation: 'productReviews',
+      _sourceItemId: '744983869996',
+      reviewContent: '音质很好，降噪效果明显',
+      reviewAppend: '用了一个月依然很好',
+      reviewDate: '2026-03-14',
+      reviewRatingStars: 5,
+      reviewSkuLabel: '颜色分类: 星空黑',
+      reviewPhotos: ['https://img.alicdn.com/r.jpg'],
+      reviewUsefulCount: 3,
+      reviewerNick: '小***明',
+    });
+    expect(rv?.rating).toBe(5);
+    expect(rv?.text).toBe('音质很好，降噪效果明显 | 用了一个月依然很好');
+    expect(rv?.variant).toBe('颜色分类: 星空黑');
+    expect(rv?.time?.slice(0, 10)).toBe('2026-03-14');
+    expect(rv?.mediaCount).toBe(1);
+    expect(rv?.itemId).toBe('744983869996');
+    // Row không có cả sao lẫn chữ → bỏ.
+    expect(normalizeTaobaoReview({ _operation: 'productReviews' })).toBeUndefined();
+  });
+
   it('normalizeLzItems: dạng record thật (product + review), parse "11.1K sold"/"42% Off"', async () => {
     const { normalizeLzItems, lazadaShopInfoFromProducts } = await import('../src/lib/social/apify');
     const { products, reviews } = normalizeLzItems(

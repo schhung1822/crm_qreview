@@ -10,6 +10,11 @@
 // 'tiktokshop'/'tiktokshopshop' = SẢN PHẨM / SHOP trên TikTok Shop - TÁI DÙNG toàn bộ mô hình
 // dữ liệu Shopee (ShopeeProduct/Review/ShopInfo + cùng actions/analysis), chỉ khác actor + prompt.
 // 'lazada'/'lazadashop' = SẢN PHẨM / SHOP trên Lazada (cùng mô hình Shopee).
+// 'taobao' = SẢN PHẨM Taobao/Tmall (Trung Quốc) - cùng mô hình Shopee; nhập link/ID HOẶC
+// TÊN sản phẩm (tự dịch sang tiếng Trung rồi search, lấy sản phẩm bán chạy nhất khớp).
+// 'taobaoshop' = SHOP Taobao: tìm shop qua search theo TÊN (lấy userId của seller) → danh mục
+// qua shopCatalog → đánh giá top sản phẩm. Cả hai là báo cáo RIÊNG, KHÔNG tham gia tổng thể
+// e-commerce (thị trường khác, tiền tệ CNY).
 export type SocialChannelKind =
   | 'facebook'
   | 'tiktok'
@@ -23,17 +28,19 @@ export type SocialChannelKind =
   | 'tiktokshop'
   | 'tiktokshopshop'
   | 'lazada'
-  | 'lazadashop';
+  | 'lazadashop'
+  | 'taobao'
+  | 'taobaoshop';
 // 'overall' = tổng thể SOCIAL (nhiều kênh social); 'ecom' = tổng thể E-COMMERCE: nghiên cứu
 // thị trường theo TỪ KHÓA - top sản phẩm bán chạy trên Shopee + TikTok Shop + Lazada.
 export type SocialPlatform = SocialChannelKind | 'overall' | 'ecom';
 
 // Kind e-commerce (dùng chung khắp nơi: gate dữ liệu, metrics, render, ẩn nút style).
 export const ECOM_KINDS: SocialChannelKind[] = [
-  'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop',
+  'shopee', 'shopeeshop', 'tiktokshop', 'tiktokshopshop', 'lazada', 'lazadashop', 'taobao', 'taobaoshop',
 ];
-export const ECOM_SHOP_KINDS: SocialChannelKind[] = ['shopeeshop', 'tiktokshopshop', 'lazadashop'];
-// 3 sàn tham gia báo cáo TỔNG THỂ E-COMMERCE theo keyword.
+export const ECOM_SHOP_KINDS: SocialChannelKind[] = ['shopeeshop', 'tiktokshopshop', 'lazadashop', 'taobaoshop'];
+// 3 sàn tham gia báo cáo TỔNG THỂ E-COMMERCE theo keyword (Taobao đứng RIÊNG - không gộp).
 export const ECOM_SEARCH_KINDS: SocialChannelKind[] = ['shopee', 'tiktokshop', 'lazada'];
 // Các nền tảng tham gia báo cáo "tổng thể" theo keyword (nhóm FB không search được;
 // Shopee là sản phẩm, không phải kênh → cả hai không gồm). Instagram search theo
@@ -213,6 +220,7 @@ export interface SocialChannelData {
   kind: SocialChannelKind;
   url: string; // URL kênh; RỖNG khi thu theo keyword (kênh = "kết quả tìm kiếm nền tảng")
   groupId?: string; // ID SỐ của nhóm FB (lấy từ output bài viết) - actor info nhóm cần URL dạng ID
+  shopUserId?: string; // userId SỐ của seller Taobao (tìm ra ở bước search) - shopCatalog cần
   page?: SocialPageInfo;
   posts: SocialPost[];
   reels: SocialPost[]; // Facebook + Instagram
@@ -525,7 +533,8 @@ export interface SocialReportRecord {
   platform: SocialPlatform;
   title: string; // tên hiển thị: tên kênh chính / keyword / tên tổng hợp
   customTitle?: boolean; // true = user tự đặt tên → runner KHÔNG ghi đè bằng tên kênh/sản phẩm
-  keyword?: string; // báo cáo tổng thể theo keyword
+  keyword?: string; // báo cáo tổng thể theo keyword; taobao: TÊN sản phẩm user nhập (mọi ngôn ngữ)
+  keywordZh?: string; // bản dịch tiếng Trung của keyword (dịch 1 lần trước bước search Taobao)
   locale: string; // ngôn ngữ đầu ra của phần phân tích
   // 2 pha: 'running' (thu thập HOẶC phân tích) → 'collected' (đã có dữ liệu thô, chờ chọn
   // AI/model) → 'running' → 'done'. 'error' dừng ở bước lỗi, Thử lại được.
@@ -640,6 +649,34 @@ export function buildPlan(input: {
       { action: 'analyzeEcomMarket' },
       { action: 'analyzeEcomCompetitors' },
       { action: 'analyzeEcomSummary' },
+    );
+    return plan;
+  }
+  if (input.platform === 'taobao') {
+    // Báo cáo SẢN PHẨM Taobao/Tmall: cùng khung với Shopee - info sản phẩm (operation
+    // productDetail) → đánh giá (operation productReviews, cùng actor) → 3 bước AI
+    // e-commerce (prompt riêng cho Taobao). KHÔNG tham gia tổng thể e-commerce.
+    // Nhập TÊN sản phẩm (keyword) thay vì link → thêm bước search TRƯỚC: dịch keyword sang
+    // tiếng Trung, search bán chạy, chốt sản phẩm khớp nhất làm ch.url rồi đi tiếp như link.
+    if (input.keyword?.trim()) plan.push({ action: 'search', ch: 0 });
+    plan.push({ action: 'product', ch: 0 }, { action: 'reviews', ch: 0 });
+    plan.push(
+      { action: 'analyzeShopeeProduct' },
+      { action: 'analyzeShopeeReviews' },
+      { action: 'analyzeShopeeSummary' },
+    );
+    return plan;
+  }
+  if (input.platform === 'taobaoshop') {
+    // Báo cáo SHOP Taobao: 'page' = tìm shop qua search theo TÊN shop → lấy userId của seller
+    // (bỏ qua nếu URL đã có user_number_id) → 'shop' = danh mục qua shopCatalog (userId)
+    // → 3 bước 'reviews' = đánh giá TOP 3 sản phẩm (actor nhận 1 itemId/run) → 3 bước AI shop.
+    plan.push({ action: 'page', ch: 0 }, { action: 'shop', ch: 0 });
+    for (let i = 0; i < 3; i++) plan.push({ action: 'reviews', ch: 0 });
+    plan.push(
+      { action: 'analyzeShopCatalog' },
+      { action: 'analyzeShopCustomers' },
+      { action: 'analyzeShopSummary' },
     );
     return plan;
   }

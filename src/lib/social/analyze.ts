@@ -692,10 +692,12 @@ const ShopeeSummarySchema = z.object({
 const PRODUCT_PROMPT_PREFIX: Record<string, string> = {
   tiktokshop: 'social_tiktokshop',
   lazada: 'social_lazada',
+  taobao: 'social_taobao',
 };
 const SHOP_PROMPT_PREFIX: Record<string, string> = {
   tiktokshopshop: 'social_tiktokshopshop',
   lazadashop: 'social_lazadashop',
+  taobaoshop: 'social_taobaoshop',
 };
 const productPrompt = (r: SocialReportRecord, suffix: string) =>
   `${PRODUCT_PROMPT_PREFIX[r.platform] ?? 'social_shopee'}_${suffix}`;
@@ -824,6 +826,7 @@ export function buildShopDigest(r: SocialReportRecord): string {
       rating: p.ratingStar,
       ratingCount: p.ratingCount,
       sold: p.sold,
+      sold30d: p.sold30d, // catalog Taobao: đã bán 30 ngày → AI nhận định nhịp bán
     })),
     reviewMetrics: ch.productMetrics,
     reviews: (ch.productReviews ?? []).slice(0, 40).map((rv, idx) => ({
@@ -1080,6 +1083,29 @@ export async function analyzeEcomSummary(r: SocialReportRecord): Promise<SocialE
       'AI trả về phần tổng kết thị trường rỗng (thường do output bị cắt cụt). Bấm Thử lại hoặc chọn model mạnh hơn.',
     );
   return out;
+}
+
+// ── Dịch từ khóa sản phẩm sang tiếng Trung giản thể cho search Taobao ──
+// Chạy MỘT LẦN trước bước search (runner lưu vào record.keywordZh). Dùng tier 'fast' (rẻ),
+// không cần user chọn AI (pha thu thập); lỗi → caller rơi về keyword gốc (actor vẫn search
+// được tiếng Anh/hỗn hợp, chỉ kém chính xác hơn).
+const TranslateSchema = z.object({ zh: s() });
+
+export async function translateTaobaoKeyword(keyword: string): Promise<string | undefined> {
+  if (/[一-鿿]/.test(keyword)) return keyword; // đã là tiếng Trung → khỏi dịch
+  const p = await renderPrompt('social_taobao_translate', { tu_khoa: keyword });
+  const result = await complete(
+    'analysis',
+    { system: p.system, prompt: p.user, maxTokens: 300, json: true },
+    'fast',
+  );
+  if (!result) return undefined;
+  const raw = extractJson(result.text);
+  if (raw == null) return undefined;
+  const zh = TranslateSchema.safeParse(raw);
+  const out = zh.success ? zh.data.zh.trim() : '';
+  // Kết quả phải THẬT SỰ chứa chữ Hán - chặn model trả lại nguyên văn/giải thích lan man.
+  return out && /[一-鿿]/.test(out) ? out.slice(0, 60) : undefined;
 }
 
 // So sánh xuyên kênh - chỉ chạy cho báo cáo tổng thể (≥2 kênh).

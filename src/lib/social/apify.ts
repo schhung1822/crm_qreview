@@ -84,6 +84,11 @@ export const APIFY_ACTORS = {
   // detail đầy đủ TỪNG sản phẩm (kèm shop{} có TÊN shop - search thường bị Shopee chặn field
   // sold/rating_count/shop_name). ~$0.012/sản phẩm khi bật fetchDetail.
   shopeeSearch: 'xtracto~shopee-search',
+  // Taobao/Tmall (báo cáo SẢN PHẨM): sian.agency all-in-one (cùng nhà với fbTranscripts) -
+  // 1 actor 5 operation (productDetail/productReviews/keywordSearch/shopCatalog/productQA),
+  // pay-per-event ~$0.01/kết quả → PHẢI truyền trần tiền (ppeChargeCap). Detail dùng
+  // detailVersion v9 (fresh, đủ giá/khuyến mãi/đã bán/sao/seller); reviews 20 dòng/trang.
+  taobao: 'sian.agency~taobao-tmall-product-scraper',
 } as const;
 
 interface ApifyErrorBody {
@@ -1353,6 +1358,241 @@ export function lazadaShopInfoFromProducts(
   if (!top) return undefined;
   const sample = products.find((p) => p.shopName === top[0]);
   return { name: top[0], url: shopUrl, location: sample?.shopLocation };
+}
+
+// ═══ Taobao/Tmall (báo cáo SẢN PHẨM - sian.agency all-in-one, tái dùng kiểu dữ liệu Shopee) ═══
+
+// Tách ID sản phẩm từ link Taobao/Tmall: item.taobao.com/item.htm?id=NNN ·
+// detail.tmall.com/item.htm?id=NNN · world.taobao.com / m.intl.taobao.com / main.m.taobao.com
+// (đều mang ?id=NNN) hoặc ID trần. (Link rút gọn e.tb.cn/m.tb.cn được route giải redirect trước.)
+export function taobaoItemId(input: string): string | undefined {
+  const s = input.trim();
+  const m =
+    s.match(/[?&]id=(\d{8,16})/i) ??
+    s.match(/\/item\/(\d{8,16})(?:\.htm)?/i) ?? // world.taobao.com/item/NNN.htm
+    s.match(/^(\d{8,16})$/);
+  return m?.[1];
+}
+
+export function taobaoProductUrl(itemId: string): string {
+  return `https://item.taobao.com/item.htm?id=${itemId}`;
+}
+
+// Info sản phẩm: operation productDetail, v9 = bản fresh đầy đủ (giá sau coupon, thuộc tính,
+// specs, seller) - mặc định của actor, ghi tường minh để không phụ thuộc default.
+export function taobaoDetailInput(itemId: string): Record<string, unknown> {
+  return { operation: 'productDetail', itemId, detailVersion: 'v9' };
+}
+
+// Đánh giá: operation productReviews, 20 dòng/trang → maxPages theo số cần (trần 5 trang
+// = 100 đánh giá, khớp trần commentsLimit của schema).
+export function taobaoReviewsInput(itemId: string, limit: number): Record<string, unknown> {
+  return {
+    operation: 'productReviews',
+    itemId,
+    orderType: 'feedbackdate',
+    maxPages: Math.max(1, Math.min(5, Math.ceil(limit / 20))),
+  };
+}
+
+// userId SỐ của seller từ URL shop dạng store.taobao.com/shop/view_shop.htm?user_number_id=NNN
+// (dạng shopXXX.taobao.com chỉ có shopId - KHÔNG đủ cho shopCatalog v1 → phải search theo tên).
+export function taobaoUserIdFromUrl(input: string): string | undefined {
+  return input.match(/[?&]user_number_id=(\d{5,15})/i)?.[1];
+}
+
+// Search theo keyword (đã dịch tiếng Trung) - sort theo LƯỢT BÁN để dòng đầu là bán chạy nhất.
+// 10 kết quả/trang.
+export function taobaoSearchInput(keyword: string, maxPages: number): Record<string, unknown> {
+  return { operation: 'keywordSearch', keyword, sort: '_sale', maxPages: Math.max(1, Math.min(5, maxPages)) };
+}
+
+// Danh mục shop qua userId (catalogVersion v1 - chỉ cần userId, ~30 sản phẩm/trang).
+export function taobaoShopCatalogInput(userId: string, maxPages: number): Record<string, unknown> {
+  return {
+    operation: 'shopCatalog',
+    userId,
+    catalogVersion: 'v1',
+    sort: '_sale',
+    maxPages: Math.max(1, Math.min(5, maxPages)),
+  };
+}
+
+// "45.8-88" / "¥45.80" → {min, max}. priceRange của Taobao dùng CHẤM thập phân.
+function parseTaobaoPriceRange(v: unknown): { min?: number; max?: number } {
+  const s = str(v);
+  if (!s) return {};
+  const nums = s.replace(/[^\d.\-~]/g, '').split(/[-~]/).map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0);
+  if (!nums.length) return {};
+  return { min: Math.min(...nums), max: nums.length > 1 ? Math.max(...nums) : undefined };
+}
+
+// Output sian.agency (đối chiếu schema 07-2026): row productDetail {itemId, title, titleEn,
+// priceYuan, promotionPriceYuan, originalPriceYuan, afterCouponAmountPrice, priceRange,
+// discountPct, sellCount, commentCount, itemGradeAvg, skus[{propPath, price, quantity}],
+// imageUrls[], attributes[], specs{}, shopId, shopName, userId, sellerType, location}.
+// Giá là NHÂN DÂN TỆ → currency 'CNY'.
+export function normalizeTaobaoProduct(items: unknown[], inputUrl: string): ShopeeProduct | undefined {
+  for (const v of items) {
+    const r = asRaw(v);
+    if ((firstStr(r, ['status']) ?? '').toLowerCase() === 'error') continue;
+    const name = firstStr(r, ['title', 'titleEn', 'name']);
+    if (!name) continue;
+    const range = parseTaobaoPriceRange(r.priceRange);
+    const priceMin =
+      firstNum(r, ['afterCouponAmountPrice', 'promotionPriceYuan', 'priceYuan']) ?? range.min;
+    const priceMax = range.max;
+    const discount = num(r.discountPct);
+    const itemId = firstStr(r, ['itemId']) ?? (num(r.itemId) !== undefined ? String(num(r.itemId)) : undefined) ?? taobaoItemId(inputUrl);
+    const skus = Array.isArray(r.skus) ? (r.skus as unknown[]).map(asRaw) : [];
+    const variants = skus
+      .map((s0) => ({
+        name: firstStr(s0, ['propName', 'skuName', 'name', 'propText', 'propPath']) ?? '',
+        price: firstNum(s0, ['price', 'priceYuan']),
+        stock: firstNum(s0, ['quantity', 'stock']),
+      }))
+      .filter((x) => x.name)
+      .slice(0, 20);
+    const stockTotal = skus
+      .map((s0) => firstNum(s0, ['quantity', 'stock']))
+      .filter((n): n is number => n !== undefined)
+      .reduce((a, b) => a + b, 0);
+    // attributes[] có thể là [{name, value}] hoặc chuỗi "tên: giá trị" → gom về Record.
+    const attrs: Record<string, string> = {};
+    const rawAttrs = Array.isArray(r.attributes) ? (r.attributes as unknown[]) : [];
+    for (const a of rawAttrs.slice(0, 25)) {
+      const ar = asRaw(a);
+      const k = firstStr(ar, ['name', 'key', 'attrName']);
+      const val = firstStr(ar, ['value', 'attrValue']);
+      if (k && val) attrs[k] = val;
+      else {
+        const sv = str(a);
+        const idx = sv?.indexOf(':') ?? -1;
+        if (sv && idx > 0) attrs[sv.slice(0, idx).trim()] = sv.slice(idx + 1).trim();
+      }
+    }
+    const specs = asRaw(r.specs);
+    for (const [k, sv] of Object.entries(specs).slice(0, 25)) {
+      const val = str(sv);
+      if (val && !(k in attrs)) attrs[k] = val;
+    }
+    const rating = num(r.itemGradeAvg);
+    const imgs = Array.isArray(r.imageUrls)
+      ? (r.imageUrls as unknown[]).map((x) => str(x) ?? '').filter(Boolean).slice(0, 5)
+      : undefined;
+    const single = firstStr(r, ['imageUrl']);
+    return {
+      name,
+      url: itemId ? taobaoProductUrl(itemId) : inputUrl,
+      itemId,
+      shopId: firstStr(r, ['shopId']) ?? (num(r.shopId) !== undefined ? String(num(r.shopId)) : undefined),
+      description: firstStr(r, ['description', 'descriptionText']),
+      currency: 'CNY',
+      priceMin,
+      priceMax: priceMax !== undefined && priceMax !== priceMin ? priceMax : undefined,
+      discount: discount !== undefined && discount > 0 ? `${discount}%` : firstStr(r, ['discount']),
+      ratingStar: rating !== undefined && rating > 0 ? rating : undefined,
+      ratingCount: firstNum(r, ['commentCount']) ?? parseApproxCount(firstStr(r, ['commentCount'])),
+      sold: firstNum(r, ['sellCount']) ?? parseApproxCount(firstStr(r, ['sellCount'])),
+      stock: stockTotal > 0 ? stockTotal : undefined,
+      images: imgs?.length ? imgs : single ? [single] : undefined,
+      variants: variants.length ? variants : undefined,
+      attributes: Object.keys(attrs).length ? attrs : undefined,
+      shopName: firstStr(r, ['shopName']),
+      shopLocation: firstStr(r, ['location']),
+    };
+  }
+  return undefined;
+}
+
+// 1 row search/catalog Taobao → ShopeeProduct + userId của seller (row search có userId -
+// nguồn duy nhất để chạy shopCatalog). Row search: itemId/title/titleEn/priceYuan/imageUrl/
+// shopId/shopName/userId/commentCount/itemGradeAvg; row catalog thêm promotionPrice/
+// orderCount30Day (đã bán 30 ngày).
+function taobaoRowToProduct(r: Raw): { product: ShopeeProduct; userId?: string } | undefined {
+  const name = firstStr(r, ['title', 'titleEn', 'name']);
+  const itemId =
+    firstStr(r, ['itemId']) ?? (num(r.itemId) !== undefined ? String(num(r.itemId)) : undefined);
+  if (!name || !itemId) return undefined;
+  const rating = num(r.itemGradeAvg);
+  const img = firstStr(r, ['imageUrl']);
+  const promo = firstNum(r, ['promotionPrice', 'promotionPriceYuan']);
+  return {
+    product: {
+      name,
+      url: taobaoProductUrl(itemId),
+      itemId,
+      shopId: firstStr(r, ['shopId']) ?? (num(r.shopId) !== undefined ? String(num(r.shopId)) : undefined),
+      currency: 'CNY',
+      priceMin: promo ?? firstNum(r, ['priceYuan', 'price']),
+      ratingStar: rating !== undefined && rating > 0 ? rating : undefined,
+      ratingCount: firstNum(r, ['commentCount']) ?? parseApproxCount(firstStr(r, ['commentCount'])),
+      sold: firstNum(r, ['sellCount']) ?? parseApproxCount(firstStr(r, ['sellCount'])),
+      // Catalog: orderCount30Day = đã bán 30 ngày gần đây → nhịp bán của digest shop.
+      sold30d: firstNum(r, ['orderCount30Day']) ?? parseApproxCount(firstStr(r, ['orderCount30Day'])),
+      images: img ? [img] : undefined,
+      shopName: firstStr(r, ['shopName']),
+    },
+    userId: firstStr(r, ['userId']) ?? (num(r.userId) !== undefined ? String(num(r.userId)) : undefined),
+  };
+}
+
+export function normalizeTaobaoSearchItems(
+  items: unknown[],
+): Array<{ product: ShopeeProduct; userId?: string }> {
+  const out: Array<{ product: ShopeeProduct; userId?: string }> = [];
+  for (const v of items) {
+    const r = asRaw(v);
+    if ((firstStr(r, ['status']) ?? '').toLowerCase() === 'error') continue;
+    const row = taobaoRowToProduct(r);
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+// Chọn SELLER khớp tên shop nhất từ kết quả search theo tên shop: ưu tiên shopName khớp
+// (bỏ dấu/thường hóa, chứa nhau); không có → seller xuất hiện NHIỀU NHẤT trong kết quả.
+export function pickTaobaoSeller(
+  rows: Array<{ product: ShopeeProduct; userId?: string }>,
+  shopQuery: string,
+): { shopName: string; userId?: string; shopId?: string } | undefined {
+  const q = foldName(shopQuery);
+  const withShop = rows.filter((r) => r.product.shopName);
+  const matched = withShop.filter((r) => {
+    const n = foldName(r.product.shopName!);
+    return n.includes(q) || q.includes(n);
+  });
+  const pool = matched.length ? matched : withShop;
+  if (!pool.length) return undefined;
+  const count = new Map<string, number>();
+  for (const r of pool) count.set(r.product.shopName!, (count.get(r.product.shopName!) ?? 0) + 1);
+  const top = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const sample = pool.find((r) => r.product.shopName === top);
+  return { shopName: top, userId: sample?.userId, shopId: sample?.product.shopId };
+}
+
+// Row productReviews (đối chiếu schema): reviewContent/reviewAppend/reviewDate/
+// reviewRatingStars/reviewSkuLabel/reviewPhotos[]/reviewVideoUrl/reviewUsefulCount/
+// reviewerNick/_sourceItemId. reviewAppend = nhận xét BỔ SUNG sau thời gian dùng → nối vào text.
+export function normalizeTaobaoReview(v: unknown): ShopeeReview | undefined {
+  const r = asRaw(v);
+  const rating = num(r.reviewRatingStars);
+  const main = firstStr(r, ['reviewContent']);
+  const append = firstStr(r, ['reviewAppend']);
+  const text = [main, append].filter(Boolean).join(' | ') || undefined;
+  if (rating === undefined && !text) return undefined;
+  const photos = Array.isArray(r.reviewPhotos) ? r.reviewPhotos.length : 0;
+  const media = photos + (firstStr(r, ['reviewVideoUrl']) ? 1 : 0);
+  return {
+    rating,
+    text,
+    author: firstStr(r, ['reviewerNick']),
+    time: iso(r.reviewDate),
+    variant: firstStr(r, ['reviewSkuLabel']),
+    likes: firstNum(r, ['reviewUsefulCount']),
+    mediaCount: media > 0 ? media : undefined,
+    itemId: firstStr(r, ['_sourceItemId', 'itemId']),
+  };
 }
 
 // ═══ Search Shopee theo keyword (tổng thể e-commerce - xtracto~shopee-search) ═══
