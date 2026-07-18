@@ -1,7 +1,7 @@
 'use client';
 
-// Thư viện ảnh: xem toàn bộ ảnh trong public/generated (AI tạo + tải lên), đổi tên, xóa, tải lên,
-// copy URL. Ảnh dùng chung nền tảng (public/generated). Gate content:write ở API.
+// Thư viện ảnh: xem ảnh của BIZ HIỆN TẠI (AI tạo + tải lên), đổi tên, xóa, tải lên, copy URL.
+// Ảnh cô lập theo biz (index metadata riêng mỗi biz); gate content:write + kiểm chủ ở API.
 import {
   Badge,
   BlockStack,
