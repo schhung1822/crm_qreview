@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { requireSuper } from '@/lib/admin/guard';
+import { requestBaseUrl } from '@/lib/base-url';
 import { exchangeGmailCode } from '@/lib/email/gmail-oauth';
 import {
   getPlatformGmailCreds,
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
   if ('error' in chk) return chk.error;
 
   const url = new URL(req.url);
-  const origin = url.origin;
+  // Base CÔNG KHAI - redirectUri PHẢI khớp cái đã dùng ở bước gmail-auth (cùng requestBaseUrl).
+  const origin = requestBaseUrl(req);
   const back = cookies().get('gmail_oauth_return')?.value || `${origin}/`;
 
   const finish = (params: string) => {

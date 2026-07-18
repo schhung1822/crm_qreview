@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { requireSuper } from '@/lib/admin/guard';
+import { requestBaseUrl } from '@/lib/base-url';
 import { buildGmailAuthUrl } from '@/lib/email/gmail-oauth';
 import { getPlatformGmailCreds } from '@/lib/store/platform-email';
 
@@ -22,7 +23,8 @@ export async function GET(req: Request) {
     );
   }
 
-  const origin = new URL(req.url).origin;
+  // Base CÔNG KHAI (APP_URL/X-Forwarded) - origin nội bộ sau proxy sẽ làm redirectUri sai.
+  const origin = requestBaseUrl(req);
   const redirectUri = `${origin}/api/admin/platform-email/gmail-callback`;
   const state = randomUUID();
   // Trang quay về sau OAuth: CHỈ nhận referer cùng origin (chống open-redirect ra site ngoài).

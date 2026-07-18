@@ -21,8 +21,8 @@ export async function GET(req: Request) {
     );
   }
   // Redirect URI PHẢI khớp cái đăng ký ở Google Console và PHẢI là https ở production. Sau
-  // Cloudflare/nginx, new URL(req.url).origin ra http://... → Google chặn (invalid_request). Ưu
-  // tiên APP_URL (https://demo.noti.vn) đã cấu hình; chỉ fallback req.url cho dev không đặt APP_URL.
+  // Cloudflare/nginx, origin của request là địa chỉ nội bộ http → Google chặn (invalid_request).
+  // requestBaseUrl ưu tiên APP_URL/X-Forwarded; chỉ rơi về origin request khi chạy dev trực tiếp.
   const origin = requestBaseUrl(req);
   const redirectUri = `${origin}/api/drive/callback`;
   const state = randomUUID();
