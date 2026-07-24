@@ -17,7 +17,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postinstall": "prisma generate",
+    "prebuild": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
