@@ -2,8 +2,10 @@
 // Dùng để hiện bộ đếm + bảng chi phí dự kiến ở trang Tổng quan. Server-only.
 import { SESSION_COOKIE, getSessionUserId } from '../auth/session';
 import { bizContext } from '../biz/context';
-import { bizFile } from '../data/biz-path';
+import { activeBizId, bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { storageDriver } from '../data/repos';
+import { prisma } from '../prisma';
 import { rowCostUsd } from './pricing';
 
 // Ai đang gọi AI (để quy token theo nhân viên). Ưu tiên ngữ cảnh biz (đặt bằng runWithBiz - đáng
@@ -41,6 +43,8 @@ const NAME = 'ai-usage.json'; // CÔ LẬP THEO BIZ
 const SERIES_NAME = 'ai-usage-series.json';
 const BYUSER_NAME = 'ai-usage-by-user.json'; // token theo từng nhân viên (userId → tổng)
 const keyOf = (provider: string, model: string) => `${provider}::${model}`;
+const isDb = () => storageDriver() === 'prisma';
+const biz = () => { const id = activeBizId(); if (!id) throw new Error('Missing active biz context.'); return id; };
 const today = () => new Date().toISOString().slice(0, 10);
 
 // Cộng dồn token (và số ảnh) cho 1 lần gọi. Bỏ qua nếu không có gì để ghi.

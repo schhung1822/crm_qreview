@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import {
   deleteIntegrationKey,
   getIntegrationKey,
@@ -21,13 +22,15 @@ export async function GET(req: Request) {
     if (!INTEGRATIONS.some((i) => i.id === reveal)) {
       return NextResponse.json({ error: 'id không hợp lệ' }, { status: 400 });
     }
-    const key = await getIntegrationKey(reveal);
+    const ctx = { userId: g.user.id, bizId: g.bizId };
+    const key = await runWithBiz(ctx, () => getIntegrationKey(reveal));
     if (!key) return NextResponse.json({ error: 'Chưa có API key' }, { status: 404 });
     return NextResponse.json({ key });
   }
   const g = await guard();
   if ('response' in g) return g.response;
-  return NextResponse.json({ integrations: await integrationStatus() });
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  return NextResponse.json({ integrations: await runWithBiz(ctx, () => integrationStatus()) });
 }
 
 const ids = INTEGRATIONS.map((i) => i.id) as [string, ...string[]];
@@ -44,8 +47,9 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
   }
-  await setIntegrationKey(parsed.data.id, parsed.data.value);
-  return NextResponse.json({ integrations: await integrationStatus() });
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => setIntegrationKey(parsed.data.id, parsed.data.value));
+  return NextResponse.json({ integrations: await runWithBiz(ctx, () => integrationStatus()) });
 }
 
 // DELETE /api/integration-keys?id=... → xóa 1 khóa.
@@ -56,6 +60,7 @@ export async function DELETE(req: Request) {
   if (!id || !INTEGRATIONS.some((i) => i.id === id)) {
     return NextResponse.json({ error: 'id không hợp lệ' }, { status: 400 });
   }
-  await deleteIntegrationKey(id);
-  return NextResponse.json({ integrations: await integrationStatus() });
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => deleteIntegrationKey(id));
+  return NextResponse.json({ integrations: await runWithBiz(ctx, () => integrationStatus()) });
 }

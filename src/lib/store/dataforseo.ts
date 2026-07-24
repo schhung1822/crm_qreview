@@ -1,10 +1,8 @@
 // Kho lưu credential DataForSEO (Basic auth: login + password) - file .data/dataforseo.json (gitignored).
 // login lưu thô (không nhạy cảm - thường là email), password mã hóa AES-GCM. Server-only.
 // Ưu tiên credential người dùng nhập ở UI; fallback biến môi trường DATAFORSEO_LOGIN/PASSWORD.
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { decryptWith, encryptWith } from '../crypto';
-import { bizFile } from '../data/biz-path';
+import { readBizConfig, writeBizConfig } from '../data/config-store';
 import { env } from '../env';
 import { resolveEncryptionKey } from '../secrets/key';
 
@@ -17,17 +15,11 @@ interface DataForSeoData {
 const NAME = 'dataforseo.json'; // CÔ LẬP THEO BIZ
 
 async function read(): Promise<DataForSeoData> {
-  try {
-    return JSON.parse(await fs.readFile(bizFile(NAME), 'utf8')) as DataForSeoData;
-  } catch {
-    return {};
-  }
+  return readBizConfig<DataForSeoData>(NAME, {});
 }
 
 async function write(d: DataForSeoData): Promise<void> {
-  const file = bizFile(NAME);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(d, null, 2), { mode: 0o600 });
+  await writeBizConfig(NAME, d);
 }
 
 function safeDecrypt(payload: string): string | undefined {

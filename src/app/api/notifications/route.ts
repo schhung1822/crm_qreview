@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { listNotifs, markRead } from '@/lib/store/notifications';
+import { runWithBiz } from '@/lib/biz/context';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const g = await guard();
   if ('response' in g) return g.response;
-  const notifs = await listNotifs(g.user.id);
+  const notifs = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => listNotifs(g.user.id));
   return NextResponse.json({ notifs, unread: notifs.filter((n) => !n.read).length });
 }
 
@@ -21,6 +22,6 @@ export async function POST(req: Request) {
   if ('response' in g) return g.response;
   const parsed = Schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
-  await markRead(g.user.id, parsed.data.id);
+  await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => markRead(g.user.id, parsed.data.id));
   return NextResponse.json({ ok: true });
 }

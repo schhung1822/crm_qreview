@@ -1,8 +1,7 @@
 // Cấu hình bài viết (toàn cục, 1 bản) - lưu .data/article-config.json. Server-only.
 // Hiện chứa: danh sách QUY TẮC THAY THẾ keyword/ký tự áp dụng khi AI viết/tối ưu bài.
 import { applyReplacements, applyReplacementsCounted, type ReplaceRule } from '../content/replace';
-import { bizFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateBizConfig, readBizConfig } from '../data/config-store';
 
 export type { ReplaceRule };
 
@@ -49,7 +48,7 @@ function normJsonLd(j?: Partial<JsonLdConfig>): JsonLdConfig {
 }
 
 export async function getArticleConfig(): Promise<ArticleConfig> {
-  const saved = await readJson<Partial<ArticleConfig>>(bizFile(NAME), {});
+  const saved = await readBizConfig<Partial<ArticleConfig>>(NAME, {});
   return {
     replacements: Array.isArray(saved.replacements) ? saved.replacements : [],
     pipelineEnabled: saved.pipelineEnabled !== false, // mặc định true
@@ -61,7 +60,7 @@ export async function getArticleConfig(): Promise<ArticleConfig> {
 }
 
 export async function saveArticleConfig(patch: Partial<ArticleConfig>): Promise<ArticleConfig> {
-  return mutateJson<Partial<ArticleConfig>, ArticleConfig>(bizFile(NAME), {}, (cur) => {
+  return mutateBizConfig<Partial<ArticleConfig>, ArticleConfig>(NAME, {}, (cur) => {
     const next: ArticleConfig = {
       replacements: patch.replacements ?? cur.replacements ?? [],
       pipelineEnabled: patch.pipelineEnabled ?? cur.pipelineEnabled ?? true,

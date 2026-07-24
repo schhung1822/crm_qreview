@@ -31,7 +31,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -45,10 +45,33 @@ model User {
   passwordHash String
   salt         String
   active       Boolean  @default(true)
-  permissions  Json? // Permission[] tùy chỉnh (vắng = mặc định vai trò)
-  createdAt    DateTime @default(now())
+  permissions  Json? // Permission[] tuy chinh (vang = mac dinh vai tro)
+  emailVerified Boolean  @default(true)
+  firstTouchUtm Json?
+  lastTouchUtm  Json?
+  fbp           String?  @db.VarChar(255)
+  fbc           String?  @db.VarChar(255)
+  ttclid        String?  @db.VarChar(255)
+  ttp           String?  @db.VarChar(255)
+  gclid         String?  @db.VarChar(255)
+  gaClientId    String?  @db.VarChar(255)
+  landingPage   String?  @db.Text
+  referrer      String?  @db.Text
+  signupIp      Bytes?
+  signupUserAgent String? @db.Text
+  lastIp        Bytes?
+  lastUserAgent String?  @db.Text
+  lastSeenAt    DateTime?
+  createdAt     DateTime @default(now())
 
   memberships BizMember[]
+
+  @@index([createdAt])
+  @@index([lastSeenAt])
+  @@index([fbp])
+  @@index([fbc])
+  @@index([ttclid])
+  @@index([gclid])
 }
 
 model Session {

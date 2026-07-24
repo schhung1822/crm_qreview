@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { locales } from '@/i18n/config';
 import { assertPublicUrl } from '@/lib/security/ssrf';
+import { runWithBiz } from '@/lib/biz/context';
 import {
   createConnection,
   deleteConnection,
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const g = await guard();
   if ('response' in g) return g.response;
-  return NextResponse.json({ connections: await listConnections() });
+  return NextResponse.json({ connections: await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => listConnections()) });
 }
 
 const CreateSchema = z.object({
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const created = await createConnection(parsed.data);
+  const created = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => createConnection(parsed.data));
   return NextResponse.json({ connection: created });
 }
 
@@ -57,6 +58,6 @@ export async function DELETE(req: Request) {
 
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'thiếu id' }, { status: 400 });
-  await deleteConnection(id);
-  return NextResponse.json({ connections: await listConnections() });
+  await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => deleteConnection(id));
+  return NextResponse.json({ connections: await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => listConnections()) });
 }

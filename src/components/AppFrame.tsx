@@ -102,6 +102,7 @@ export function AppFrame({
   const [bizCreateOpen, setBizCreateOpen] = useState(false);
   const [newBizName, setNewBizName] = useState('');
   const [creatingBiz, setCreatingBiz] = useState(false);
+  const [bizCreateError, setBizCreateError] = useState<string | null>(null);
 
   // Chuyển biz đang hoạt động → tải lại để mọi dữ liệu theo biz mới.
   const switchBiz = useCallback(
@@ -122,13 +123,19 @@ export function AppFrame({
   const createBiz = useCallback(async () => {
     if (!newBizName.trim()) return;
     setCreatingBiz(true);
+    setBizCreateError(null);
     try {
       const res = await fetch('/api/biz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newBizName.trim() }),
       });
-      if (res.ok) window.location.href = `/${locale}/dashboard`;
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        window.location.href = `/${locale}/dashboard`;
+        return;
+      }
+      setBizCreateError(data?.error ?? 'Khong tao duoc biz moi.');
     } finally {
       setCreatingBiz(false);
     }
@@ -795,7 +802,7 @@ export function AppFrame({
       {bizCreateOpen ? (
         <Modal
           open
-          onClose={() => setBizCreateOpen(false)}
+          onClose={() => { setBizCreateOpen(false); setBizCreateError(null); }}
           title={t('biz.createNew')}
           primaryAction={{
             content: t('biz.create'),
@@ -803,7 +810,7 @@ export function AppFrame({
             loading: creatingBiz,
             disabled: !newBizName.trim(),
           }}
-          secondaryActions={[{ content: t('biz.cancel'), onAction: () => setBizCreateOpen(false) }]}
+          secondaryActions={[{ content: t('biz.cancel'), onAction: () => { setBizCreateOpen(false); setBizCreateError(null); } }]}
         >
           <Modal.Section>
             <TextField
@@ -812,6 +819,7 @@ export function AppFrame({
               onChange={setNewBizName}
               autoComplete="off"
               placeholder={t('biz.createPlaceholder')}
+              error={bizCreateError || undefined}
               autoFocus
             />
           </Modal.Section>

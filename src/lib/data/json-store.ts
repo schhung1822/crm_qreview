@@ -17,6 +17,11 @@ function isPrismaDriver(): boolean {
   return process.env.STORAGE_DRIVER === 'prisma';
 }
 
+function databaseProvider(): 'mysql' | 'postgresql' {
+  const url = process.env.DATABASE_URL || '';
+  return url.startsWith('mysql://') || url.startsWith('mysql2://') ? 'mysql' : 'postgresql';
+}
+
 // Client Prisma nạp ĐỘNG (chỉ khi driver=prisma) để driver file KHÔNG kéo @prisma/client vào.
 type PrismaClientT = (typeof import('../prisma'))['prisma'];
 let cachedClient: PrismaClientT | null = null;
@@ -110,8 +115,33 @@ export async function mutateJson<T, R>(
     return p.$transaction(
       async (tx) => {
         // Đảm bảo hàng tồn tại (không khóa được hàng chưa có) rồi khóa nó để đọc-sửa-ghi atomic.
+        const initialJson = JSON.stringify(fallback);
+        if (databaseProvider() === 'mysql') {
+          await tx.$executeRawUnsafe(
+            'INSERT INTO JsonBlob (scope,name,data,version,updatedAt) VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE scope=scope',
+            scope,
+            name,
+            initialJson,
+          );
+          const rows = await tx.$queryRawUnsafe<Array<{ data: T | string }>>(
+            'SELECT data FROM JsonBlob WHERE scope=? AND name=? FOR UPDATE',
+            scope,
+            name,
+          );
+          const raw = rows.length ? rows[0].data : fallback;
+          const current = (typeof raw === 'string' ? JSON.parse(raw) : raw) as T;
+          const [nextData, result] = await mutator(current);
+          await tx.$executeRawUnsafe(
+            'UPDATE JsonBlob SET data=?, version=version+1, updatedAt=CURRENT_TIMESTAMP(3) WHERE scope=? AND name=?',
+            JSON.stringify(nextData),
+            scope,
+            name,
+          );
+          return result;
+        }
+
         await tx.$executeRaw`INSERT INTO "JsonBlob" ("scope","name","data","version","updatedAt")
-          VALUES (${scope}, ${name}, ${JSON.stringify(fallback)}::jsonb, 0, now())
+          VALUES (${scope}, ${name}, ${initialJson}::jsonb, 0, now())
           ON CONFLICT ("scope","name") DO NOTHING`;
         const rows = await tx.$queryRaw<Array<{ data: T }>>`SELECT "data" FROM "JsonBlob"
           WHERE "scope"=${scope} AND "name"=${name} FOR UPDATE`;

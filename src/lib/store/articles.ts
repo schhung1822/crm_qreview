@@ -2,6 +2,7 @@
 import { randomBytes } from 'node:crypto';
 import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { getRepos, storageDriver } from '../data/repos';
 
 export interface ArticleRecord {
   id: string;
@@ -65,6 +66,7 @@ const UPDATABLE: Array<keyof ArticleRecord> = [
 ];
 
 async function readAll(): Promise<ArticleRecord[]> {
+  if (storageDriver() === 'prisma') return (await getRepos()).articles.all();
   return readJson<ArticleRecord[]>(bizFile(NAME), []);
 }
 
@@ -73,6 +75,7 @@ export async function listArticles(): Promise<ArticleRecord[]> {
 }
 
 export async function getArticle(id: string): Promise<ArticleRecord | null> {
+  if (storageDriver() === 'prisma') return (await getRepos()).articles.get(id);
   return (await readAll()).find((a) => a.id === id) ?? null;
 }
 
@@ -80,6 +83,42 @@ export async function upsertArticle(
   input: Partial<ArticleRecord> & { title: string; locale: string },
 ): Promise<ArticleRecord> {
   const now = new Date().toISOString();
+  if (storageDriver() === 'prisma') {
+    const repo = (await getRepos()).articles;
+    if (input.id) {
+      const updated = await repo.update(input.id, input);
+      if (updated) return updated;
+    }
+    const record: ArticleRecord = {
+      id: 'art_' + randomBytes(8).toString('hex'),
+      title: input.title,
+      slug: input.slug ?? '',
+      metaDescription: input.metaDescription ?? '',
+      markdown: input.markdown ?? '',
+      locale: input.locale,
+      targetKeyword: input.targetKeyword,
+      tags: input.tags,
+      categories: input.categories,
+      coverImageUrl: input.coverImageUrl,
+      translationGroupId: input.translationGroupId,
+      source: input.source ?? 'new',
+      seoScore: input.seoScore ?? 0,
+      aeoScore: input.aeoScore ?? 0,
+      geoScore: input.geoScore ?? 0,
+      status: input.status ?? 'draft',
+      approved: input.approved,
+      reviewNote: input.reviewNote,
+      submittedBy: input.submittedBy,
+      reviewedBy: input.reviewedBy,
+      assignedTo: input.assignedTo,
+      connectionId: input.connectionId,
+      cmsPostId: input.cmsPostId,
+      publishedUrl: input.publishedUrl,
+      updatedAt: now,
+    };
+    await repo.insert(record);
+    return record;
+  }
   return mutateJson<ArticleRecord[], ArticleRecord>(bizFile(NAME), [], (rows) => {
     if (input.id) {
       const existing = rows.find((a) => a.id === input.id);
@@ -130,6 +169,7 @@ export async function updateArticleFields(
     >
   >,
 ): Promise<ArticleRecord | null> {
+  if (storageDriver() === 'prisma') return (await getRepos()).articles.update(id, patch);
   return mutateJson<ArticleRecord[], ArticleRecord | null>(bizFile(NAME), [], (rows) => {
     const a = rows.find((r) => r.id === id);
     if (!a) return [rows, null];
@@ -145,6 +185,10 @@ export async function updateArticleFields(
 }
 
 export async function deleteArticle(id: string): Promise<void> {
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).articles.remove(id);
+    return;
+  }
   await mutateJson<ArticleRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((a) => a.id !== id),
     undefined,

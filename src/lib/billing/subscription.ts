@@ -1,6 +1,7 @@
-// Đăng ký gói (subscription) theo TÀI KHOẢN CHỦ - lưu toàn cục .data/subscriptions.json. Server-only.
 import { globalFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { storageDriver } from '../data/repos';
+import { prisma } from '../prisma';
 import type { PlanId } from './plans';
 
 export type SubStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'free';
@@ -10,10 +11,10 @@ export interface Subscription {
   plan: PlanId;
   status: SubStatus;
   billingCycle: 'monthly' | 'yearly';
-  trialEndsAt?: string; // ISO - hết hạn dùng thử
-  currentPeriodEnd?: string; // ISO - hết kỳ đã trả (dùng khi nối thanh toán)
-  overageArticles?: number; // số bài mua thêm còn dùng trong kỳ
-  unlimitedArticles?: boolean; // superadmin cấp: KHÔNG giới hạn bài AI (bỏ qua cap của gói)
+  trialEndsAt?: string;
+  currentPeriodEnd?: string;
+  overageArticles?: number;
+  unlimitedArticles?: boolean;
   updatedAt: string;
 }
 
@@ -21,9 +22,9 @@ type Store = Record<string, Subscription>;
 const FILE = globalFile('subscriptions.json');
 const TRIAL_DAYS = 14;
 const DAY = 86_400_000;
-// Thời gian ân hạn sau khi hết kỳ đã trả: trong khoảng này vẫn giữ quyền lợi gói nhưng đánh dấu
-// past_due (UI nhắc gia hạn); quá ân hạn mà chưa gia hạn → hạ hẳn về Free.
 const GRACE_DAYS = 3;
+
+const isDb = () => storageDriver() === 'prisma';
 
 function isExpired(iso: string | undefined, graceDays = 0): boolean {
   if (!iso) return false;
@@ -31,77 +32,93 @@ function isExpired(iso: string | undefined, graceDays = 0): boolean {
   return Number.isFinite(t) && t + graceDays * DAY < Date.now();
 }
 
-// Plan HIỆU LỰC: tính khi ĐỌC (KHÔNG ghi lại, tránh ghi mỗi lần). Xử lý cả 2 kiểu hết hạn:
-//  1) Hết dùng thử → Free.
-//  2) Gói ĐÃ TRẢ TIỀN hết kỳ mà CHƯA gia hạn → trong ân hạn: past_due (giữ quyền lợi tạm);
-//     quá ân hạn: hạ về Free (ngừng quyền lợi gói + xóa overage/unlimited của kỳ cũ).
-// Không cưỡng chế mốc currentPeriodEnd ở đây thì gói hết hạn vẫn "active" vĩnh viễn → rò doanh thu.
 function effective(s: Subscription): Subscription {
-  if (s.status === 'trialing' && isExpired(s.trialEndsAt)) {
-    return { ...s, plan: 'free', status: 'free' };
-  }
+  if (s.status === 'trialing' && isExpired(s.trialEndsAt)) return { ...s, plan: 'free', status: 'free' };
   if ((s.status === 'active' || s.status === 'past_due') && s.currentPeriodEnd) {
-    if (isExpired(s.currentPeriodEnd, GRACE_DAYS)) {
-      return { ...s, plan: 'free', status: 'free', unlimitedArticles: false, overageArticles: 0 };
-    }
-    if (isExpired(s.currentPeriodEnd)) {
-      return { ...s, status: 'past_due' };
-    }
+    if (isExpired(s.currentPeriodEnd, GRACE_DAYS)) return { ...s, plan: 'free', status: 'free', unlimitedArticles: false, overageArticles: 0 };
+    if (isExpired(s.currentPeriodEnd)) return { ...s, status: 'past_due' };
   }
   return s;
 }
 
-// Các subscription SẮP hết hạn trong `days` ngày tới (và chưa hết) — dùng cho job nhắc gia hạn.
-// Trả về sau khi đã áp effective() (bỏ qua bản đã về free/hết hạn).
-export async function listExpiringSubscriptions(days: number): Promise<Subscription[]> {
-  const store = await readJson<Store>(FILE, {});
-  const now = Date.now();
-  const horizon = now + days * DAY;
-  return Object.values(store)
-    .map(effective)
-    .filter((s) => {
-      if (s.status !== 'active' && s.status !== 'trialing') return false;
-      const endIso = s.status === 'trialing' ? s.trialEndsAt : s.currentPeriodEnd;
-      if (!endIso) return false;
-      const t = Date.parse(endIso);
-      return Number.isFinite(t) && t > now && t <= horizon;
-    });
+function subOut(r: { userId: string; plan: string; status: string; billingCycle: string; trialEndsAt?: Date | null; currentPeriodEnd?: Date | null; overageArticles?: number | null; unlimitedArticles?: boolean | null; updatedAt: Date }): Subscription {
+  return {
+    userId: r.userId,
+    plan: r.plan as PlanId,
+    status: r.status as SubStatus,
+    billingCycle: r.billingCycle as 'monthly' | 'yearly',
+    trialEndsAt: r.trialEndsAt?.toISOString(),
+    currentPeriodEnd: r.currentPeriodEnd?.toISOString(),
+    overageArticles: r.overageArticles ?? undefined,
+    unlimitedArticles: r.unlimitedArticles ?? undefined,
+    updatedAt: r.updatedAt.toISOString(),
+  };
 }
 
-// Đọc subscription. Tài khoản CHƯA có bản ghi → tạo DÙNG THỬ PRO 14 NGÀY (ghi 1 lần duy nhất).
+function subData(s: Subscription) {
+  return {
+    plan: s.plan,
+    status: s.status,
+    billingCycle: s.billingCycle,
+    trialEndsAt: s.trialEndsAt ? new Date(s.trialEndsAt) : null,
+    currentPeriodEnd: s.currentPeriodEnd ? new Date(s.currentPeriodEnd) : null,
+    overageArticles: s.overageArticles ?? null,
+    unlimitedArticles: s.unlimitedArticles ?? null,
+    updatedAt: new Date(s.updatedAt),
+  };
+}
+
+export async function listExpiringSubscriptions(days: number): Promise<Subscription[]> {
+  const rows = isDb() ? (await prisma.subscription.findMany()).map(subOut) : Object.values(await readJson<Store>(FILE, {}));
+  const now = Date.now();
+  const horizon = now + days * DAY;
+  return rows.map(effective).filter((s) => {
+    if (s.status !== 'active' && s.status !== 'trialing') return false;
+    const endIso = s.status === 'trialing' ? s.trialEndsAt : s.currentPeriodEnd;
+    if (!endIso) return false;
+    const t = Date.parse(endIso);
+    return Number.isFinite(t) && t > now && t <= horizon;
+  });
+}
+
 export async function getSubscription(userId: string): Promise<Subscription> {
+  if (isDb()) {
+    const existing = await prisma.subscription.findUnique({ where: { userId } });
+    if (existing) return effective(subOut(existing));
+    const now = Date.now();
+    const created: Subscription = {
+      userId,
+      plan: 'pro',
+      status: 'trialing',
+      billingCycle: 'monthly',
+      trialEndsAt: new Date(now + TRIAL_DAYS * DAY).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    };
+    await prisma.subscription.create({ data: { userId, ...subData(created) } }).catch(() => {});
+    return created;
+  }
   const store = await readJson<Store>(FILE, {});
   const existing = store[userId];
   if (existing) return effective(existing);
   const now = Date.now();
-  const created: Subscription = {
-    userId,
-    plan: 'pro',
-    status: 'trialing',
-    billingCycle: 'monthly',
-    trialEndsAt: new Date(now + TRIAL_DAYS * DAY).toISOString(),
-    updatedAt: new Date(now).toISOString(),
-  };
+  const created: Subscription = { userId, plan: 'pro', status: 'trialing', billingCycle: 'monthly', trialEndsAt: new Date(now + TRIAL_DAYS * DAY).toISOString(), updatedAt: new Date(now).toISOString() };
   await mutateJson<Store, void>(FILE, {}, (cur) => {
-    if (!cur[userId]) cur[userId] = created; // tránh ghi đè nếu 2 request đua nhau
+    if (!cur[userId]) cur[userId] = created;
     return [cur, undefined];
   });
   return created;
 }
 
-// Đặt/đổi gói (superadmin gán, hoặc sau này webhook thanh toán). Trả bản ghi mới.
-export async function setSubscription(
-  userId: string,
-  patch: Partial<Omit<Subscription, 'userId' | 'updatedAt'>>,
-): Promise<Subscription> {
+export async function setSubscription(userId: string, patch: Partial<Omit<Subscription, 'userId' | 'updatedAt'>>): Promise<Subscription> {
+  if (isDb()) {
+    const baseRow = await prisma.subscription.findUnique({ where: { userId } });
+    const base: Subscription = baseRow ? subOut(baseRow) : { userId, plan: 'free', status: 'free', billingCycle: 'monthly', updatedAt: '' };
+    const next: Subscription = { ...base, ...patch, userId, updatedAt: new Date().toISOString() };
+    const saved = await prisma.subscription.upsert({ where: { userId }, create: { userId, ...subData(next) }, update: subData(next) });
+    return subOut(saved);
+  }
   return mutateJson<Store, Subscription>(FILE, {}, (cur) => {
-    const base: Subscription = cur[userId] ?? {
-      userId,
-      plan: 'free',
-      status: 'free',
-      billingCycle: 'monthly',
-      updatedAt: '',
-    };
+    const base: Subscription = cur[userId] ?? { userId, plan: 'free', status: 'free', billingCycle: 'monthly', updatedAt: '' };
     const next: Subscription = { ...base, ...patch, userId, updatedAt: new Date().toISOString() };
     cur[userId] = next;
     return [cur, next];
@@ -109,16 +126,13 @@ export async function setSubscription(
 }
 
 export async function addOverageArticles(userId: string, n: number): Promise<void> {
+  if (isDb()) {
+    const base = await getSubscription(userId);
+    await setSubscription(userId, { overageArticles: Math.max(0, (base.overageArticles ?? 0) + n) });
+    return;
+  }
   await mutateJson<Store, void>(FILE, {}, (cur) => {
-    // UPSERT: nếu tài khoản CHƯA có bản ghi subscription (dùng thử mặc định tính lười, chưa ghi) thì
-    // TẠO bản ghi để cộng overage - tránh mất số bài đã mua/được cấp.
-    const base: Subscription = cur[userId] ?? {
-      userId,
-      plan: 'free',
-      status: 'free',
-      billingCycle: 'monthly',
-      updatedAt: '',
-    };
+    const base: Subscription = cur[userId] ?? { userId, plan: 'free', status: 'free', billingCycle: 'monthly', updatedAt: '' };
     base.overageArticles = Math.max(0, (base.overageArticles ?? 0) + n);
     base.updatedAt = new Date().toISOString();
     cur[userId] = base;
@@ -127,6 +141,7 @@ export async function addOverageArticles(userId: string, n: number): Promise<voi
 }
 
 export async function listSubscriptions(): Promise<Subscription[]> {
+  if (isDb()) return (await prisma.subscription.findMany()).map(subOut).map(effective);
   const store = await readJson<Store>(FILE, {});
   return Object.values(store).map(effective);
 }

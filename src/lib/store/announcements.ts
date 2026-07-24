@@ -2,8 +2,7 @@
 // Nội dung do superadmin soạn (không dịch), chạy lặp liên tục, tốc độ + link nhúng chỉnh được.
 // Nội dung công khai (mọi user đăng nhập đều thấy) nên KHÔNG mã hóa. Server-only.
 import { randomBytes } from 'node:crypto';
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 
 export interface AnnouncementItem {
   id: string;
@@ -17,7 +16,7 @@ export interface AnnouncementConfig {
   items: AnnouncementItem[];
 }
 
-const FILE = globalFile('announcements.json');
+const FILE = 'announcements.json';
 const DEFAULT: AnnouncementConfig = { enabled: false, speed: 60, items: [] };
 
 function clampSpeed(n: unknown): number {
@@ -41,7 +40,7 @@ function normItem(raw: Partial<AnnouncementItem>): AnnouncementItem {
 
 // Cấu hình đầy đủ cho admin sửa.
 export async function readAnnouncements(): Promise<AnnouncementConfig> {
-  const d = await readJson<Partial<AnnouncementConfig>>(FILE, DEFAULT);
+  const d = await readGlobalConfig<Partial<AnnouncementConfig>>(FILE, DEFAULT);
   return {
     enabled: d.enabled === true,
     speed: clampSpeed(d.speed),
@@ -65,7 +64,7 @@ export interface AnnouncementPatch {
 
 // Lưu toàn bộ cấu hình (admin gửi cả danh sách). Chuẩn hóa lại trước khi ghi.
 export async function saveAnnouncements(patch: AnnouncementPatch): Promise<AnnouncementConfig> {
-  return mutateJson<Partial<AnnouncementConfig>, AnnouncementConfig>(FILE, DEFAULT, (cur) => {
+  return mutateGlobalConfig<Partial<AnnouncementConfig>, AnnouncementConfig>(FILE, DEFAULT, (cur) => {
     const next: AnnouncementConfig = {
       enabled: patch.enabled !== undefined ? patch.enabled === true : cur.enabled === true,
       speed: patch.speed !== undefined ? clampSpeed(patch.speed) : clampSpeed(cur.speed),

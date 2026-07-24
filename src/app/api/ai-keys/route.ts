@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import {
   AI_PROVIDERS,
   AI_TASKS,
@@ -18,7 +19,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const g = await guard();
   if ('response' in g) return g.response;
-  return NextResponse.json(await getProvidersStatus());
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
 }
 
 const ProviderEnum = z.enum(AI_PROVIDERS);
@@ -41,22 +43,25 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  switch (body.action) {
-    case 'setKey':
-      await setProviderKey(body.provider, body.key);
-      break;
-    case 'enable':
-      await setProviderEnabled(body.provider, body.enabled);
-      break;
-    case 'model':
-      await setProviderModel(body.provider, body.model);
-      break;
-    case 'routing':
-      await setRouting(body.task, body.provider);
-      break;
-  }
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, async () => {
+    switch (body.action) {
+      case 'setKey':
+        await setProviderKey(body.provider, body.key);
+        break;
+      case 'enable':
+        await setProviderEnabled(body.provider, body.enabled);
+        break;
+      case 'model':
+        await setProviderModel(body.provider, body.model);
+        break;
+      case 'routing':
+        await setRouting(body.task, body.provider);
+        break;
+    }
+  });
 
-  return NextResponse.json(await getProvidersStatus());
+  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
 }
 
 // DELETE /api/ai-keys?provider=openai → xóa key đã lưu của provider.
@@ -69,6 +74,7 @@ export async function DELETE(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'provider không hợp lệ' }, { status: 400 });
   }
-  await deleteProviderKey(parsed.data);
-  return NextResponse.json(await getProvidersStatus());
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => deleteProviderKey(parsed.data));
+  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
 }

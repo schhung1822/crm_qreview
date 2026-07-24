@@ -4,6 +4,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { globalFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { storageDriver } from '../data/repos';
+import { prisma } from '../prisma';
 
 export interface ApiTokenRecord {
   id: string; // tok_<hex>
@@ -31,6 +33,8 @@ export interface ApiTokenPublic {
 const NAME = 'api-tokens.json'; // TOÀN CỤC
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
+const isDb = () => storageDriver() === 'prisma';
+function tokenOut(r: { id: string; bizId: string; name: string; prefix: string; hash: string; createdBy: string; lastUsedAt?: Date | null; revoked: boolean; createdAt: Date }): ApiTokenRecord { return { id: r.id, bizId: r.bizId, name: r.name, prefix: r.prefix, hash: r.hash, createdAt: r.createdAt.toISOString(), createdBy: r.createdBy, lastUsedAt: r.lastUsedAt?.toISOString(), revoked: r.revoked }; }
 
 async function readAll(): Promise<ApiTokenRecord[]> {
   return readJson<ApiTokenRecord[]>(globalFile(NAME), []);

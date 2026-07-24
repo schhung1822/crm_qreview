@@ -1,10 +1,9 @@
 // Kho lưu API key AI - mã hóa AES-GCM, lưu file .data/ai-secrets.json (gitignored).
 // Chạy được không cần DB. Khi có DB, có thể thay read()/write() bằng Prisma.
 // QUAN TRỌNG: chỉ dùng ở server. KHÔNG bao giờ trả plaintext key ra client.
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { decryptWith, encryptWith } from '../crypto';
-import { activeBizId, bizFile } from '../data/biz-path';
+import { activeBizId } from '../data/biz-path';
+import { readBizConfig, writeBizConfig } from '../data/config-store';
 import { env } from '../env';
 import { resolveEncryptionKey } from './key';
 import { getBiz } from '../store/biz';
@@ -105,19 +104,12 @@ function emptyData(): SecretsData {
 }
 
 async function read(): Promise<SecretsData> {
-  try {
-    const raw = await fs.readFile(bizFile(NAME), 'utf8');
-    const parsed = JSON.parse(raw) as SecretsData;
-    return { ...emptyData(), ...parsed, routing: { ...emptyData().routing, ...parsed.routing } };
-  } catch {
-    return emptyData();
-  }
+  const parsed = await readBizConfig<Partial<SecretsData>>(NAME, {});
+  return { ...emptyData(), ...parsed, routing: { ...emptyData().routing, ...(parsed.routing ?? {}) } };
 }
 
 async function write(data: SecretsData): Promise<void> {
-  const file = bizFile(NAME);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(data, null, 2), { mode: 0o600 });
+  await writeBizConfig(NAME, data);
 }
 
 // BYO-key SaaS: key AI trong biến môi trường (ENV) là key CỦA CHỦ NỀN TẢNG. Chỉ được dùng làm

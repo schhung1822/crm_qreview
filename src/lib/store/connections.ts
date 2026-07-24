@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { decrypt, encrypt } from '../crypto';
 import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { getRepos, storageDriver } from '../data/repos';
 import { getCmsAdapter, type CmsAdapter, type CmsProvider } from '../cms';
 
 export type { CmsProvider };
@@ -37,6 +38,7 @@ export type ConnectionPublic = Omit<ConnectionRecord, 'encrypted'>;
 const NAME = 'connections.json';
 
 async function readAll(): Promise<ConnectionRecord[]> {
+  if (storageDriver() === 'prisma') return (await getRepos()).connections.all() as Promise<ConnectionRecord[]>;
   return readJson<ConnectionRecord[]>(bizFile(NAME), []);
 }
 
@@ -67,6 +69,10 @@ export async function createConnection(input: ConnectionInput): Promise<Connecti
     createdAt: new Date().toISOString(),
     encrypted: encrypt(JSON.stringify(input.credentials)),
   };
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).connections.insert(record);
+    return toPublic(record);
+  }
   return mutateJson<ConnectionRecord[], ConnectionPublic>(bizFile(NAME), [], (rows) => [
     [...rows, record],
     toPublic(record),
@@ -74,6 +80,10 @@ export async function createConnection(input: ConnectionInput): Promise<Connecti
 }
 
 export async function deleteConnection(id: string): Promise<void> {
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).connections.remove(id);
+    return;
+  }
   await mutateJson<ConnectionRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((r) => r.id !== id),
     undefined,
@@ -84,6 +94,10 @@ export async function setConnectionStatus(
   id: string,
   status: 'active' | 'error',
 ): Promise<void> {
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).connections.setStatus(id, status);
+    return;
+  }
   await mutateJson<ConnectionRecord[], void>(bizFile(NAME), [], (rows) => {
     const row = rows.find((r) => r.id === id);
     if (row) row.status = status;
@@ -95,7 +109,9 @@ export async function setConnectionStatus(
 export async function getConnectionCreds(
   id: string,
 ): Promise<{ record: ConnectionRecord; credentials: Record<string, string> } | null> {
-  const record = (await readAll()).find((r) => r.id === id);
+  const record = storageDriver() === 'prisma'
+    ? ((await (await getRepos()).connections.get(id)) as ConnectionRecord | null) ?? undefined
+    : (await readAll()).find((r) => r.id === id);
   if (!record) return null; // thực sự không tồn tại
   try {
     return { record, credentials: JSON.parse(decrypt(record.encrypted)) };

@@ -3,8 +3,7 @@
 // Manager. Access token/API secret mã hóa AES-GCM. Server-only.
 import { randomBytes } from 'node:crypto';
 import { decryptWith, encryptWith } from '../crypto';
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 import { resolveEncryptionKey } from '../secrets/key';
 
 export interface FbPixel {
@@ -55,11 +54,11 @@ interface Data {
   gtmContainerId?: string;
 }
 
-const FILE = globalFile('tracking-config.json');
+const FILE = 'tracking-config.json';
 
 // Đọc/ghi qua json-store: KHÓA theo file + ghi ATOMIC (chống mất token pixel/CAPI đã mã hóa).
 async function read(): Promise<Data> {
-  return readJson<Data>(FILE, {});
+  return readGlobalConfig<Data>(FILE, {});
 }
 function safeDecrypt(payload?: string): string {
   if (!payload) return '';
@@ -182,7 +181,7 @@ export async function getTrackingPublic(): Promise<TrackingPublic> {
 const clip = (s: string | undefined, n = 64) => (s ?? '').trim().slice(0, n);
 
 export async function saveTrackingConfig(patch: SavePatch): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
   const oldFb = new Map((d.fb ?? []).map((p) => [p.id, p]));
   const oldTt = new Map((d.tt ?? []).map((p) => [p.id, p]));
 

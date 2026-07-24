@@ -2,8 +2,7 @@
 // Khác email theo-biz: dùng cho email hệ thống (biên nhận đơn, thông báo nền tảng...). Mật khẩu
 // mã hóa AES-GCM như store email theo-biz. Server-only.
 import { decryptWith, encryptWith } from '../crypto';
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 import { sendMail, sendMailGmail } from '../email/mailer';
 import {
   PLATFORM_EMAIL_EVENTS,
@@ -33,11 +32,11 @@ interface Data {
   templates?: Partial<Record<PlatformEmailEvent, EmailTemplate>>; // ghi đè nội dung
 }
 
-const FILE = globalFile('platform-email.json');
+const FILE = 'platform-email.json';
 
 // Đọc/ghi qua json-store: KHÓA theo file + ghi ATOMIC (chống mất mật khẩu SMTP đã mã hóa / cấu hình).
 async function read(): Promise<Data> {
-  return readJson<Data>(FILE, {});
+  return readGlobalConfig<Data>(FILE, {});
 }
 function safeDecrypt(payload: string): string | undefined {
   try {
@@ -57,7 +56,7 @@ export async function getPlatformSmtp(): Promise<{ config?: SmtpConfig; source: 
 }
 
 export async function setPlatformSmtp(config: SmtpConfig): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     // pass rỗng = giữ mật khẩu cũ.
     const encPass = config.pass
       ? encryptWith(resolveEncryptionKey(), config.pass)
@@ -68,7 +67,7 @@ export async function setPlatformSmtp(config: SmtpConfig): Promise<void> {
 }
 
 export async function clearPlatformSmtp(): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     delete d.smtp;
     return [d, undefined];
   });
@@ -113,7 +112,7 @@ export async function setPlatformGmail(input: {
   senderEmail: string;
   fromName?: string;
 }): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     const prev = d.gmail;
     const encSecret = input.clientSecret
       ? encryptWith(resolveEncryptionKey(), input.clientSecret)
@@ -133,7 +132,7 @@ export async function setPlatformGmail(input: {
 
 // Lưu refresh token (đã lấy từ callback OAuth) - mã hóa trước khi ghi.
 export async function setPlatformGmailRefreshToken(refreshToken: string): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     if (!d.gmail) return [d, undefined];
     d.gmail.refreshToken = encryptWith(resolveEncryptionKey(), refreshToken);
     return [d, undefined];
@@ -141,7 +140,7 @@ export async function setPlatformGmailRefreshToken(refreshToken: string): Promis
 }
 
 export async function clearPlatformGmail(): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     delete d.gmail;
     return [d, undefined];
   });
@@ -152,7 +151,7 @@ export async function getPlatformTransport(): Promise<MailTransport> {
   return (await read()).transport ?? 'smtp';
 }
 export async function setPlatformTransport(transport: MailTransport): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     d.transport = transport;
     return [d, undefined];
   });
@@ -182,7 +181,7 @@ async function activeFromName(): Promise<string> {
 }
 
 export async function setPlatformEmailEnabled(enabled: boolean): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     d.enabled = enabled;
     return [d, undefined];
   });
@@ -196,7 +195,7 @@ export async function setPlatformEventEnabled(
   event: PlatformEmailEvent,
   enabled: boolean,
 ): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     d.events = { ...(d.events ?? {}), [event]: enabled };
     return [d, undefined];
   });
@@ -208,13 +207,13 @@ export async function setPlatformTemplate(
   event: PlatformEmailEvent,
   tpl: EmailTemplate,
 ): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     d.templates = { ...(d.templates ?? {}), [event]: tpl };
     return [d, undefined];
   });
 }
 export async function resetPlatformTemplate(event: PlatformEmailEvent): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     if (d.templates) delete d.templates[event];
     return [d, undefined];
   });

@@ -2,6 +2,7 @@
 import { randomBytes } from 'node:crypto';
 import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
+import { getRepos, storageDriver } from '../data/repos';
 
 export interface PlanItem {
   title: string;
@@ -26,6 +27,7 @@ export interface PlanRecord {
 const NAME = 'plans.json'; // CÔ LẬP THEO BIZ
 
 async function readAll(): Promise<PlanRecord[]> {
+  if (storageDriver() === 'prisma') return (await getRepos()).plans.all();
   return readJson<PlanRecord[]>(bizFile(NAME), []);
 }
 
@@ -41,10 +43,15 @@ export async function savePlan(input: {
     createdAt: new Date().toISOString(),
     ...input,
   };
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).plans.insert(record);
+    return record;
+  }
   return mutateJson<PlanRecord[], PlanRecord>(bizFile(NAME), [], (rows) => [[...rows, record], record]);
 }
 
 export async function getPlan(id: string): Promise<PlanRecord | null> {
+  if (storageDriver() === 'prisma') return (await getRepos()).plans.get(id);
   return (await readAll()).find((r) => r.id === id) ?? null;
 }
 
@@ -57,6 +64,10 @@ export async function latestPlan(): Promise<PlanRecord | null> {
 }
 
 export async function deletePlan(id: string): Promise<void> {
+  if (storageDriver() === 'prisma') {
+    await (await getRepos()).plans.remove(id);
+    return;
+  }
   await mutateJson<PlanRecord[], void>(bizFile(NAME), [], (rows) => [
     rows.filter((r) => r.id !== id),
     undefined,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { validateApifyToken } from '@/lib/social/apify';
 import {
@@ -28,8 +29,9 @@ export async function GET() {
   const g = await guard();
   if ('response' in g) return g.response;
   // Chỉ migrate key đơn cũ vào pool khi người xem CÓ quyền quản lý key (tránh ghi dữ liệu bởi editor).
-  if (g.permissions.includes('aikeys:manage')) await migrateLegacyApifyKey();
-  return NextResponse.json(await poolPayload());
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  if (g.permissions.includes('aikeys:manage')) await runWithBiz(ctx, () => migrateLegacyApifyKey());
+  return NextResponse.json(await runWithBiz(ctx, () => poolPayload()));
 }
 
 const BodySchema = z.object({
@@ -63,8 +65,9 @@ export async function POST(req: Request) {
   if (!check.ok) {
     return NextResponse.json({ ok: false, error: check.error ?? 'Key không khả dụng.' }, { status: 400 });
   }
-  const { duplicate } = await addApifyKey(parsed.data.value);
-  return NextResponse.json({ ok: true, duplicate, ...(await poolPayload()) });
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  const { duplicate } = await runWithBiz(ctx, () => addApifyKey(parsed.data.value));
+  return NextResponse.json({ ok: true, duplicate, ...(await runWithBiz(ctx, () => poolPayload())) });
 }
 
 // DELETE /api/integration-keys/apify?id=... → xóa 1 key khỏi pool.
@@ -73,6 +76,7 @@ export async function DELETE(req: Request) {
   if ('response' in g) return g.response;
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 });
-  await deleteApifyKey(id);
-  return NextResponse.json(await poolPayload());
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => deleteApifyKey(id));
+  return NextResponse.json(await runWithBiz(ctx, () => poolPayload()));
 }

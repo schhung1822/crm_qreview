@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { setBizCookie } from '@/lib/auth/cookie';
 import { canAddBiz } from '@/lib/billing/entitlement';
-import { createBiz, listBizesForUser } from '@/lib/store/biz';
+import { BizPlanLimitError, createBiz, listBizesForUser } from '@/lib/store/biz';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,8 +32,18 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
-  const biz = await createBiz(parsed.data.name, g.user.id);
-  const res = NextResponse.json({ biz: { id: biz.id, name: biz.name } });
-  setBizCookie(res, biz.id); // tự chuyển sang biz vừa tạo
-  return res;
+  try {
+    const biz = await createBiz(parsed.data.name, g.user.id, { maxOwnedBiz: lim.max });
+    const res = NextResponse.json({ biz: { id: biz.id, name: biz.name } });
+    setBizCookie(res, biz.id); // tu dong chuyen sang biz vua tao
+    return res;
+  } catch (err) {
+    if (err instanceof BizPlanLimitError) {
+      return NextResponse.json(
+        { error: `Goi hien tai chi cho phep ${err.max} biz. Nang cap goi de tao them.`, code: 'plan_limit', max: err.max, current: err.current },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Khong tao duoc biz.' }, { status: 500 });
+  }
 }

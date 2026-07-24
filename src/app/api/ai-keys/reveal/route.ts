@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import { AI_PROVIDERS, getRevealableKey } from '@/lib/secrets/store';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { appendAudit } from '@/lib/store/admin-audit';
@@ -32,7 +33,8 @@ export async function GET(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'provider không hợp lệ' }, { status: 400 });
   }
-  const key = await getRevealableKey(parsed.data);
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  const key = await runWithBiz(ctx, () => getRevealableKey(parsed.data));
   if (!key) {
     return NextResponse.json({ error: 'Chưa có API key của biz' }, { status: 404 });
   }

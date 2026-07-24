@@ -17,6 +17,7 @@ import {
 } from '../auth/permissions';
 import { bizDir, globalFile } from '../data/biz-path';
 import { mutateJson, readJson, withFileLock } from '../data/json-store';
+import { storageDriver } from '../data/repos';
 
 // Vai trò trong biz = vai trò ứng dụng (RBAC). Giữ tên BizRole cho tương thích chỗ gọi cũ.
 export type BizRole = Role;
@@ -55,6 +56,10 @@ export interface BizPublic {
 
 const FILE = globalFile('bizes.json');
 
+function isPrismaDriver(): boolean {
+  return storageDriver() === 'prisma';
+}
+
 // Migration CÓ PHIÊN BẢN: mỗi lần chuyển thêm store sang per-biz, tăng version + thêm file vào
 // LEGACY_FILES. Marker .data/.biz-migrated lưu version đã chạy → dời nốt file mới vào biz mặc định
 // dù đã migrate lần trước. CHỈ liệt kê file mà store TƯƠNG ỨNG đã dùng bizFile().
@@ -85,12 +90,41 @@ const LEGACY_FILES = [
   'email.json',
 ];
 
+async function prismaBizRows(): Promise<BizRecord[]> {
+  const { prisma } = await import('../prisma');
+  const rows = await prisma.biz.findMany({ include: { members: true } });
+  return rows.map((b) => ({
+    id: b.id,
+    name: b.name,
+    ownerId: b.ownerId,
+    createdAt: b.createdAt.toISOString(),
+    phone: b.phone ?? undefined,
+    email: b.email ?? undefined,
+    website: b.website ?? undefined,
+    description: b.description ?? undefined,
+    suspended: b.suspended || undefined,
+    members: b.members.map((m) => ({
+      userId: m.userId,
+      role: m.role as Role,
+      permissions: (m.permissions as Permission[] | null) ?? undefined,
+    })),
+  }));
+}
+
 async function readAll(): Promise<BizRecord[]> {
+  if (storageDriver() === 'prisma') return prismaBizRows();
   return readJson<BizRecord[]>(FILE, []);
 }
 
 function genId(): string {
   return 'biz_' + randomBytes(8).toString('hex');
+}
+
+export class BizPlanLimitError extends Error {
+  constructor(public max: number, public current: number) {
+    super(`Goi hien tai chi cho phep ${max} biz.`);
+    this.name = 'BizPlanLimitError';
+  }
 }
 
 export async function getBiz(id: string): Promise<BizRecord | undefined> {
@@ -110,6 +144,11 @@ export async function listAllBizes(): Promise<BizRecord[]> {
 
 // Tạm khóa / mở khóa biz (quản trị nền tảng).
 export async function setBizSuspended(bizId: string, suspended: boolean): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    await prisma.biz.update({ where: { id: bizId }, data: { suspended } }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (b) b.suspended = suspended;
@@ -149,7 +188,11 @@ export async function listBizesForUser(userId: string): Promise<BizPublic[]> {
     }));
 }
 
-export async function createBiz(name: string, ownerId: string): Promise<BizRecord> {
+export async function createBiz(
+  name: string,
+  ownerId: string,
+  options: { maxOwnedBiz?: number } = {},
+): Promise<BizRecord> {
   const record: BizRecord = {
     id: genId(),
     name: name.trim() || 'Biz mới',
@@ -157,7 +200,34 @@ export async function createBiz(name: string, ownerId: string): Promise<BizRecor
     createdAt: new Date().toISOString(),
     members: [{ userId: ownerId, role: 'owner' }],
   };
-  await mutateJson<BizRecord[], void>(FILE, [], (rows) => [[...rows, record], undefined]);
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    await prisma.$transaction(async (tx) => {
+      if (options.maxOwnedBiz !== undefined) {
+        const current = await tx.biz.count({ where: { ownerId } });
+        if (current >= options.maxOwnedBiz) throw new BizPlanLimitError(options.maxOwnedBiz, current);
+      }
+      await tx.biz.create({
+        data: {
+          id: record.id,
+          name: record.name,
+          ownerId: record.ownerId,
+          createdAt: new Date(record.createdAt),
+        },
+      });
+      await tx.bizMember.create({
+        data: { bizId: record.id, userId: ownerId, role: 'owner' },
+      });
+    });
+    return record;
+  }
+  await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
+    if (options.maxOwnedBiz !== undefined) {
+      const current = rows.filter((b) => b.ownerId === ownerId).length;
+      if (current >= options.maxOwnedBiz) throw new BizPlanLimitError(options.maxOwnedBiz, current);
+    }
+    return [[...rows, record], undefined];
+  });
   await fs.mkdir(bizDir(record.id), { recursive: true });
   return record;
 }
@@ -167,6 +237,17 @@ export async function updateBizProfile(
   bizId: string,
   patch: Partial<Pick<BizRecord, 'name' | 'phone' | 'email' | 'website' | 'description'>>,
 ): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    const data: Record<string, string | null> = {};
+    if (patch.name !== undefined) data.name = patch.name.trim();
+    if (patch.phone !== undefined) data.phone = patch.phone.trim() || null;
+    if (patch.email !== undefined) data.email = patch.email.trim() || null;
+    if (patch.website !== undefined) data.website = patch.website.trim() || null;
+    if (patch.description !== undefined) data.description = patch.description.trim() || null;
+    if (Object.keys(data).length) await prisma.biz.update({ where: { id: bizId }, data }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (b) {
@@ -186,6 +267,14 @@ export async function addMember(
   role: Role,
   permissions?: Permission[] | null,
 ): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    const r: Role = role === 'owner' ? 'admin' : role;
+    const member: { bizId: string; userId: string; role: string; permissions?: object } = { bizId, userId, role: r };
+    if (!isFullAccessRole(r) && permissions != null) member.permissions = sanitizePermissions(permissions) as unknown as object;
+    await prisma.bizMember.create({ data: member }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (b && !b.members.some((m) => m.userId === userId)) {
@@ -201,6 +290,17 @@ export async function addMember(
 }
 
 export async function setMemberRole(bizId: string, userId: string, role: Role): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    const b = await prisma.biz.findUnique({ where: { id: bizId } });
+    if (b?.ownerId === userId) throw new Error('Khong the doi vai tro chu so huu biz.');
+    const nextRole = role === 'owner' ? 'admin' : role;
+    await prisma.bizMember.update({
+      where: { bizId_userId: { bizId, userId } },
+      data: { role: nextRole, ...(isFullAccessRole(nextRole) ? { permissions: undefined } : {}) },
+    }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (!b) return [rows, undefined];
@@ -220,6 +320,17 @@ export async function setMemberPermissions(
   userId: string,
   permissions: Permission[] | null,
 ): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    const m = await prisma.bizMember.findUnique({ where: { bizId_userId: { bizId, userId } } });
+    if (m && !isFullAccessRole(m.role as Role)) {
+      await prisma.bizMember.update({
+        where: { bizId_userId: { bizId, userId } },
+        data: { permissions: permissions === null ? undefined : (sanitizePermissions(permissions) as unknown as object) },
+      });
+    }
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (!b) return [rows, undefined];
@@ -235,6 +346,21 @@ export async function setMemberPermissions(
 // CHUYỂN QUYỀN SỞ HỮU biz cho user khác (superadmin). Chủ cũ hạ xuống 'admin' (vẫn là thành viên),
 // chủ mới lên 'owner' (thêm vào thành viên nếu chưa có). Bỏ qua giới hạn ghế (thao tác quản trị).
 export async function transferBizOwnership(bizId: string, newOwnerId: string): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    await prisma.$transaction(async (tx) => {
+      const b = await tx.biz.findUnique({ where: { id: bizId } });
+      if (!b || b.ownerId === newOwnerId) return;
+      await tx.biz.update({ where: { id: bizId }, data: { ownerId: newOwnerId } });
+      await tx.bizMember.upsert({
+        where: { bizId_userId: { bizId, userId: newOwnerId } },
+        create: { bizId, userId: newOwnerId, role: 'owner' },
+        update: { role: 'owner', permissions: undefined },
+      });
+      await tx.bizMember.update({ where: { bizId_userId: { bizId, userId: b.ownerId } }, data: { role: 'admin', permissions: undefined } }).catch(() => {});
+    });
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (!b) return [rows, undefined];
@@ -258,6 +384,13 @@ export async function transferBizOwnership(bizId: string, newOwnerId: string): P
 }
 
 export async function removeMember(bizId: string, userId: string): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    const b = await prisma.biz.findUnique({ where: { id: bizId } });
+    if (b?.ownerId === userId) throw new Error('Khong the xoa chu so huu khoi biz.');
+    await prisma.bizMember.delete({ where: { bizId_userId: { bizId, userId } } }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => {
     const b = rows.find((x) => x.id === bizId);
     if (!b) return [rows, undefined];
@@ -269,6 +402,11 @@ export async function removeMember(bizId: string, userId: string): Promise<void>
 
 // Xóa biz + TOÀN BỘ dữ liệu workspace của biz (.data/biz/<id>/). Chỉ owner được gọi (kiểm ở route).
 export async function deleteBiz(bizId: string): Promise<void> {
+  if (isPrismaDriver()) {
+    const { prisma } = await import('../prisma');
+    await prisma.biz.delete({ where: { id: bizId } }).catch(() => {});
+    return;
+  }
   await mutateJson<BizRecord[], void>(FILE, [], (rows) => [rows.filter((b) => b.id !== bizId), undefined]);
   await fs.rm(bizDir(bizId), { recursive: true, force: true }).catch(() => {});
 }
@@ -317,6 +455,10 @@ async function anyLegacyDataExists(): Promise<boolean> {
 let migrated = false;
 export async function ensureMigrated(): Promise<void> {
   if (migrated) return;
+  if (isPrismaDriver()) {
+    migrated = true;
+    return;
+  }
   await withFileLock(FILE, async () => {
     if ((await markerVersion()) >= MIGRATION_VERSION) {
       migrated = true;

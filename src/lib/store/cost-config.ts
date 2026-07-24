@@ -1,6 +1,5 @@
 // Cấu hình chi phí/hạn mức token theo biz - lưu .data/biz/<bizId>/cost-config.json. Server-only.
-import { bizFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateBizConfig, readBizConfig } from '../data/config-store';
 
 export interface CostConfig {
   // Trần token (in+out) mỗi THÁNG cho cả biz. 0 = không giới hạn. Vượt trần → chặn gọi AI.
@@ -16,12 +15,12 @@ function normBudget(v: unknown): number {
 }
 
 export async function getCostConfig(): Promise<CostConfig> {
-  const saved = await readJson<Partial<CostConfig>>(bizFile(NAME), {});
+  const saved = await readBizConfig<Partial<CostConfig>>(NAME, {});
   return { monthlyTokenBudget: normBudget(saved.monthlyTokenBudget) };
 }
 
 export async function saveCostConfig(patch: Partial<CostConfig>): Promise<CostConfig> {
-  return mutateJson<Partial<CostConfig>, CostConfig>(bizFile(NAME), {}, (cur) => {
+  return mutateBizConfig<Partial<CostConfig>, CostConfig>(NAME, {}, (cur) => {
     const next: CostConfig = {
       monthlyTokenBudget: normBudget(patch.monthlyTokenBudget ?? cur.monthlyTokenBudget),
     };

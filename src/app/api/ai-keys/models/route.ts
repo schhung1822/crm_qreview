@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import { friendlyProviderError, listProviderModels } from '@/lib/ai/providers';
 import { AI_PROVIDERS, getActiveKey } from '@/lib/secrets/store';
 
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
   const g = await guard(rawKey ? 'aikeys:manage' : 'content:write');
   if ('response' in g) return g.response;
 
-  const key = rawKey || (await getActiveKey(parsed.data.provider));
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  const key = rawKey || (await runWithBiz(ctx, () => getActiveKey(parsed.data.provider)));
   if (!key) {
     return NextResponse.json({ error: 'Chưa có API key' }, { status: 400 });
   }

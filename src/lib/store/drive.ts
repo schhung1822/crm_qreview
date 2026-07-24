@@ -1,9 +1,7 @@
 // Kho lưu kết nối Google Drive - refresh token mã hóa AES-GCM, file .data/drive.json (gitignored).
 // Server-only. KHÔNG bao giờ trả token ra client.
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { decryptWith, encryptWith } from '../crypto';
-import { bizFile } from '../data/biz-path';
+import { readBizConfig, writeBizConfig } from '../data/config-store';
 import { env } from '../env';
 import { resolveEncryptionKey } from '../secrets/key';
 
@@ -19,17 +17,11 @@ interface DriveData {
 const NAME = 'drive.json'; // CÔ LẬP THEO BIZ
 
 async function read(): Promise<DriveData> {
-  try {
-    return JSON.parse(await fs.readFile(bizFile(NAME), 'utf8')) as DriveData;
-  } catch {
-    return {};
-  }
+  return readBizConfig<DriveData>(NAME, {});
 }
 
 async function write(d: DriveData): Promise<void> {
-  const file = bizFile(NAME);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(d, null, 2), { mode: 0o600 });
+  await writeBizConfig(NAME, d);
 }
 
 function safeDecrypt(payload: string): string | undefined {

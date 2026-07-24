@@ -19,6 +19,33 @@ const BodySchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+function cookieValue(req: Request, name: string): string | undefined {
+  const cookie = req.headers.get('cookie') || '';
+  const prefix = name + '=';
+  const part = cookie
+    .split(';')
+    .map((x) => x.trim())
+    .find((x) => x.startsWith(prefix));
+  if (!part) return undefined;
+  return decodeURIComponent(part.slice(prefix.length));
+}
+
+function requestTracking(req: Request) {
+  const url = new URL(req.url);
+  return {
+    fbp: url.searchParams.get('fbp') || cookieValue(req, '_fbp'),
+    fbc: url.searchParams.get('fbc') || cookieValue(req, '_fbc'),
+    ttp: url.searchParams.get('ttp') || cookieValue(req, '_ttp'),
+    ttclid: url.searchParams.get('ttclid') || cookieValue(req, 'ttclid'),
+    gclid: url.searchParams.get('gclid') || cookieValue(req, 'gclid'),
+    gaClientId: cookieValue(req, '_ga'),
+    landingPage: req.headers.get('referer') || url.toString(),
+    referrer: req.headers.get('referer') || undefined,
+    ip: clientIp(req),
+    userAgent: req.headers.get('user-agent') || undefined,
+  };
+}
+
 // POST /api/auth/register → tạo tài khoản từ trang đăng nhập.
 // - Tài khoản ĐẦU TIÊN → Chủ sở hữu (owner), toàn quyền.
 // - Các tài khoản sau → mặc định "Chỉ xem" (viewer) cho an toàn; owner/admin nâng
@@ -62,6 +89,7 @@ export async function POST(req: Request) {
       role: 'viewer',
       firstIsOwner: true,
       emailVerified: false,
+      tracking: requestTracking(req),
     });
     const loginUrl = await appLoginUrl(req);
 

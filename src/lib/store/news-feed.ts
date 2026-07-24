@@ -2,8 +2,7 @@
 // Mỗi tin: tiêu đề + nội dung (markdown) + phân loại + ngày đăng + ảnh + link. Sắp theo ghim → ngày.
 // Nội dung công khai (mọi user đọc) nên KHÔNG mã hóa. Server-only. Lưu .data/news-feed.json (toàn cục).
 import { randomBytes } from 'node:crypto';
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 
 // Phân loại tin — cố định, có nhãn i18n phía client (news.cat_*). "important" = tin quan trọng.
 export const NEWS_CATEGORIES = ['important', 'update', 'feature', 'event', 'webinar', 'guide'] as const;
@@ -26,7 +25,7 @@ export interface NewsFeedConfig {
   items: NewsItem[];
 }
 
-const FILE = globalFile('news-feed.json');
+const FILE = 'news-feed.json';
 const DEFAULT: NewsFeedConfig = { enabled: false, items: [] };
 const MAX_ITEMS = 100;
 
@@ -73,7 +72,7 @@ function sortItems(items: NewsItem[]): NewsItem[] {
 
 // Cấu hình đầy đủ cho admin sửa (đã sắp xếp sẵn để hiển thị nhất quán).
 export async function readNews(): Promise<NewsFeedConfig> {
-  const d = await readJson<Partial<NewsFeedConfig>>(FILE, DEFAULT);
+  const d = await readGlobalConfig<Partial<NewsFeedConfig>>(FILE, DEFAULT);
   const fb = new Date().toISOString();
   const items = Array.isArray(d.items) ? d.items.map((it) => normItem(it, fb)) : [];
   return { enabled: d.enabled === true, items: sortItems(items) };
@@ -93,7 +92,7 @@ export interface NewsPatch {
 
 // Lưu toàn bộ (admin gửi cả danh sách). Chuẩn hóa + sắp xếp trước khi ghi.
 export async function saveNews(patch: NewsPatch): Promise<NewsFeedConfig> {
-  return mutateJson<Partial<NewsFeedConfig>, NewsFeedConfig>(FILE, DEFAULT, (cur) => {
+  return mutateGlobalConfig<Partial<NewsFeedConfig>, NewsFeedConfig>(FILE, DEFAULT, (cur) => {
     const fb = new Date().toISOString();
     const src = Array.isArray(patch.items) ? patch.items : Array.isArray(cur.items) ? cur.items : [];
     const items = sortItems(src.slice(0, MAX_ITEMS).map((it) => normItem(it, fb)));

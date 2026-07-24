@@ -1,8 +1,7 @@
 // Thông tin hệ thống / thương hiệu DÙNG CHUNG toàn nền tảng - .data/branding.json (toàn cục).
 // KHÔNG chứa bí mật → đọc được công khai (layout, trang đăng nhập) mà không lộ gì nhạy cảm.
 // Superadmin sửa ở Quản trị nền tảng → tab "Thông tin hệ thống". Server-only.
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 
 export interface Branding {
   title: string; // tiêu đề (tab trình duyệt + metadata)
@@ -39,8 +38,8 @@ export const DEFAULT_BRANDING: Branding = {
   description:
     'Nghiên cứu từ khóa, viết bài mới & tối ưu bài cũ bằng AI, tự động nghiên cứu → tạo báo cáo social và sàn TMĐT',
   favicon: 'https://noti.vn/image/new/favicon.png',
-  logoAmBan: 'https://noti.vn/image/new/logo-am-ban.png',
-  logoDuongBan: 'https://noti.vn/image/new/logo-duong-ban.png',
+  logoAmBan: 'https://nextgency.vn/assets/images/footer/footerlogo.png',
+  logoDuongBan: 'https://nextgency.vn/assets/images/header/navbarlogoblack.png',
   bizLogo: 'https://noti.vn/image/new/favicon.png',
   ogImage: '', // rỗng = dùng logoDuongBan làm ảnh chia sẻ; superadmin đặt ảnh bìa riêng ở đây
   sourceText: 'by: noti.vn',
@@ -60,7 +59,7 @@ export const DEFAULT_BRANDING: Branding = {
   tiktokPixelId: '',
 };
 
-const FILE = globalFile('branding.json');
+const FILE = 'branding.json';
 
 // Bỏ các trường rỗng/chỉ có khoảng trắng → trường bị xóa sẽ TRỞ VỀ mặc định (không để tiêu đề trống).
 function nonEmpty(d: Partial<Branding>): Partial<Branding> {
@@ -72,12 +71,12 @@ function nonEmpty(d: Partial<Branding>): Partial<Branding> {
 }
 
 export async function getBranding(): Promise<Branding> {
-  const d = await readJson<Partial<Branding>>(FILE, {});
+  const d = await readGlobalConfig<Partial<Branding>>(FILE, {});
   return { ...DEFAULT_BRANDING, ...nonEmpty(d) };
 }
 
 export async function saveBranding(patch: Partial<Branding>): Promise<Branding> {
-  await mutateJson<Partial<Branding>, void>(FILE, {}, (cur) => {
+  await mutateGlobalConfig<Partial<Branding>, void>(FILE, {}, (cur) => {
     return [{ ...cur, ...patch }, undefined];
   });
   return getBranding();
@@ -85,6 +84,6 @@ export async function saveBranding(patch: Partial<Branding>): Promise<Branding> 
 
 // Khôi phục toàn bộ về mặc định (xóa file cấu hình).
 export async function resetBranding(): Promise<Branding> {
-  await mutateJson<Partial<Branding>, void>(FILE, {}, () => [{}, undefined]);
+  await mutateGlobalConfig<Partial<Branding>, void>(FILE, {}, () => [{}, undefined]);
   return getBranding();
 }

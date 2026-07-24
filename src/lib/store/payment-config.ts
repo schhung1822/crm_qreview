@@ -1,8 +1,7 @@
 // Cấu hình PHƯƠNG THỨC THANH TOÁN cấp nền tảng (Sepay) - .data/payment-config.json (toàn cục,
 // gitignored). API key Sepay mã hóa AES-GCM. Server-only.
 import { decryptWith, encryptWith } from '../crypto';
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 import { resolveEncryptionKey } from '../secrets/key';
 
 // Cách webhook Sepay tự xác thực: API Key (header Authorization: Apikey) HOẶC HMAC-SHA256
@@ -40,12 +39,12 @@ function normMethod(m?: string): PaymentAuthMethod {
   return m === 'hmac' ? 'hmac' : 'apikey';
 }
 
-const FILE = globalFile('payment-config.json');
+const FILE = 'payment-config.json';
 
 // Đọc/ghi qua json-store: có KHÓA theo file (chống mất ghi khi lưu đồng thời) + ghi ATOMIC
 // (file tạm rồi rename, mode 0600) → không bao giờ để lại file cụt làm MẤT apiKey đã mã hóa.
 async function read(): Promise<Data> {
-  return readJson<Data>(FILE, {});
+  return readGlobalConfig<Data>(FILE, {});
 }
 function safeDecrypt(payload?: string): string {
   if (!payload) return '';
@@ -95,7 +94,7 @@ export async function getPaymentConfigPublic(): Promise<
 export async function savePaymentConfig(
   patch: Partial<Omit<PaymentConfig, 'provider'>>,
 ): Promise<void> {
-  await mutateJson<Data, void>(FILE, {}, (d) => {
+  await mutateGlobalConfig<Data, void>(FILE, {}, (d) => {
     d.provider = 'sepay';
     if (patch.enabled !== undefined) d.enabled = patch.enabled;
     if (patch.bankAccount !== undefined) d.bankAccount = patch.bankAccount.trim();

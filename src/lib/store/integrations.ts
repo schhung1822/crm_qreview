@@ -2,8 +2,7 @@
 // Lưu mã hóa AES-256-GCM ở .data/integrations.json (không bao giờ trả key thô ra client).
 // Ưu tiên key đã nhập ở UI; fallback biến môi trường. Server-only.
 import { decrypt, encrypt } from '../crypto';
-import { bizFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateBizConfig, readBizConfig } from '../data/config-store';
 
 export interface IntegrationMeta {
   id: string;
@@ -24,7 +23,7 @@ type Store = Record<string, string>; // id -> chuỗi đã mã hóa
 const NAME = 'integrations.json'; // CÔ LẬP THEO BIZ
 
 async function readAll(): Promise<Store> {
-  return readJson<Store>(bizFile(NAME), {});
+  return readBizConfig<Store>(NAME, {});
 }
 
 function mask(k: string): string {
@@ -62,14 +61,14 @@ export async function getStoredIntegrationKey(id: string): Promise<string | unde
 }
 
 export async function setIntegrationKey(id: string, value: string): Promise<void> {
-  await mutateJson<Store, void>(bizFile(NAME), {}, (cur) => {
+  await mutateBizConfig<Store, void>(NAME, {}, (cur) => {
     cur[id] = encrypt(value.trim());
     return [cur, undefined];
   });
 }
 
 export async function deleteIntegrationKey(id: string): Promise<void> {
-  await mutateJson<Store, void>(bizFile(NAME), {}, (cur) => {
+  await mutateBizConfig<Store, void>(NAME, {}, (cur) => {
     delete cur[id];
     return [cur, undefined];
   });

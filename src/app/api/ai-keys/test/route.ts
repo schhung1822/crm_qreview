@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import { testProviderKey } from '@/lib/ai/providers';
 import { AI_PROVIDERS, getActiveKey } from '@/lib/secrets/store';
 
@@ -22,7 +23,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
   }
 
-  const key = parsed.data.key ?? (await getActiveKey(parsed.data.provider));
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  const key = parsed.data.key ?? (await runWithBiz(ctx, () => getActiveKey(parsed.data.provider)));
   if (!key) {
     return NextResponse.json({ ok: false, error: 'Chưa có API key' }, { status: 400 });
   }

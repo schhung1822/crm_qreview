@@ -6,8 +6,7 @@
 //
 // AN TOÀN [...]: chỉ thay các token trùng ĐÚNG tên biến đã đăng ký của prompt → KHÔNG đụng các
 // "[...]" văn bản thường (vd "[cần kiểm chứng]", link markdown "[nguồn](url)").
-import { globalFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateGlobalConfig, readGlobalConfig } from '../data/config-store';
 import { PROMPT_BY_ID, type PromptEntry } from './prompt-registry';
 
 export interface PromptOverride {
@@ -16,7 +15,7 @@ export interface PromptOverride {
 }
 export type PromptOverrides = Record<string, PromptOverride>;
 
-const FILE = globalFile('prompt-overrides.json');
+const FILE = 'prompt-overrides.json';
 
 // Cache nhẹ (đọc file rẻ nhưng gọi AI không quá dày) - TTL ngắn để admin lưu là thấy gần như ngay.
 let cache: { at: number; data: PromptOverrides } | null = null;
@@ -24,7 +23,7 @@ const TTL_MS = 3000;
 
 async function loadOverrides(): Promise<PromptOverrides> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.data;
-  const data = await readJson<PromptOverrides>(FILE, {});
+  const data = await readGlobalConfig<PromptOverrides>(FILE, {});
   cache = { at: Date.now(), data };
   return data;
 }
@@ -83,7 +82,7 @@ export async function getPromptOverrides(): Promise<PromptOverrides> {
 // Lưu bản ghi đè cho 1 prompt. Trường rỗng/chỉ khoảng trắng → XÓA (trở về mặc định phần đó).
 export async function savePromptOverride(id: string, patch: PromptOverride): Promise<void> {
   if (!PROMPT_BY_ID[id]) throw new Error(`Prompt không tồn tại: ${id}`);
-  await mutateJson<PromptOverrides, void>(FILE, {}, (cur) => {
+  await mutateGlobalConfig<PromptOverrides, void>(FILE, {}, (cur) => {
     const next = { ...cur };
     const clean: PromptOverride = {};
     if (patch.system?.trim()) clean.system = patch.system;
@@ -97,7 +96,7 @@ export async function savePromptOverride(id: string, patch: PromptOverride): Pro
 
 // Khôi phục 1 prompt về mặc định (xóa bản ghi đè).
 export async function resetPromptOverride(id: string): Promise<void> {
-  await mutateJson<PromptOverrides, void>(FILE, {}, (cur) => {
+  await mutateGlobalConfig<PromptOverrides, void>(FILE, {}, (cur) => {
     const next = { ...cur };
     delete next[id];
     return [next, undefined];

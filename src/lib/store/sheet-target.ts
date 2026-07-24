@@ -1,7 +1,6 @@
 // Đích Google Sheet của biz hiện tại (spreadsheet + tab để đăng bài). Lưu .data/biz/<bizId>/sheet-target.json.
 // Không nhạy cảm (chỉ id/url/tab); xác thực dùng OAuth Drive (đã mã hoá riêng). Server-only, cô lập theo biz.
-import { bizFile } from '../data/biz-path';
-import { mutateJson, readJson } from '../data/json-store';
+import { mutateBizConfig, readBizConfig } from '../data/config-store';
 
 export interface SheetTarget {
   spreadsheetId: string;
@@ -14,7 +13,7 @@ const NAME = 'sheet-target.json';
 export const DEFAULT_TAB = 'Articles';
 
 export async function getSheetTarget(): Promise<SheetTarget | null> {
-  const d = await readJson<Partial<SheetTarget>>(bizFile(NAME), {});
+  const d = await readBizConfig<Partial<SheetTarget>>(NAME, {});
   if (!d.spreadsheetId) return null;
   return {
     spreadsheetId: d.spreadsheetId,
@@ -25,7 +24,7 @@ export async function getSheetTarget(): Promise<SheetTarget | null> {
 }
 
 export async function saveSheetTarget(t: { spreadsheetId: string; spreadsheetUrl: string; tab: string }): Promise<SheetTarget> {
-  return mutateJson<Partial<SheetTarget>, SheetTarget>(bizFile(NAME), {}, () => {
+  return mutateBizConfig<Partial<SheetTarget>, SheetTarget>(NAME, {}, () => {
     const next: SheetTarget = {
       spreadsheetId: t.spreadsheetId,
       spreadsheetUrl: t.spreadsheetUrl,
@@ -37,5 +36,5 @@ export async function saveSheetTarget(t: { spreadsheetId: string; spreadsheetUrl
 }
 
 export async function clearSheetTarget(): Promise<void> {
-  await mutateJson<Partial<SheetTarget>, void>(bizFile(NAME), {}, () => [{}, undefined]);
+  await mutateBizConfig<Partial<SheetTarget>, void>(NAME, {}, () => [{}, undefined]);
 }

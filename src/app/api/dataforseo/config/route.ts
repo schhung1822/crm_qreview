@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
+import { runWithBiz } from '@/lib/biz/context';
 import { clearDataForSeoCreds, setDataForSeoCreds } from '@/lib/store/dataforseo';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,8 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Login / password không hợp lệ.' }, { status: 400 });
   }
-  await setDataForSeoCreds(parsed.data.login, parsed.data.password);
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => setDataForSeoCreds(parsed.data.login, parsed.data.password));
   return NextResponse.json({ ok: true });
 }
 
@@ -28,6 +30,7 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const g = await guard('connections:manage');
   if ('response' in g) return g.response;
-  await clearDataForSeoCreds();
+  const ctx = { userId: g.user.id, bizId: g.bizId };
+  await runWithBiz(ctx, () => clearDataForSeoCreds());
   return NextResponse.json({ ok: true });
 }

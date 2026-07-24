@@ -35,9 +35,18 @@ const ARTICLE_FIELDS: Array<keyof ArticleRecord> = [
 function userOut(r: {
   id: string; email: string; name: string; role: string;
   passwordHash: string; salt: string; active: boolean; createdAt: Date;
-  permissions?: unknown;
+  emailVerified?: boolean; permissions?: unknown; firstTouchUtm?: unknown; lastTouchUtm?: unknown;
+  fbp?: string | null; fbc?: string | null; ttclid?: string | null; ttp?: string | null;
+  gclid?: string | null; gaClientId?: string | null; landingPage?: string | null; referrer?: string | null;
+  signupIp?: Uint8Array | null; signupUserAgent?: string | null;
+  lastIp?: Uint8Array | null; lastUserAgent?: string | null; lastSeenAt?: Date | null;
 }): UserRecord {
-  const out = { ...r, role: r.role as Role, createdAt: iso(r.createdAt) } as UserRecord;
+  const out = {
+    ...r,
+    role: r.role as Role,
+    createdAt: iso(r.createdAt),
+    lastSeenAt: r.lastSeenAt ? iso(r.lastSeenAt) : null,
+  } as UserRecord;
   if (r.permissions) (out as { permissions?: unknown }).permissions = r.permissions;
   return out;
 }
@@ -108,12 +117,28 @@ export const prismaRepositories: Repositories = {
           passwordHash: r.passwordHash, salt: r.salt, active: r.active,
           permissions: (r.permissions as object) ?? undefined,
           createdAt: new Date(r.createdAt),
+          emailVerified: r.emailVerified !== false,
+          firstTouchUtm: (r.firstTouchUtm as object | undefined) ?? undefined,
+          lastTouchUtm: (r.lastTouchUtm as object | undefined) ?? undefined,
+          fbp: r.fbp ?? undefined,
+          fbc: r.fbc ?? undefined,
+          ttclid: r.ttclid ?? undefined,
+          ttp: r.ttp ?? undefined,
+          gclid: r.gclid ?? undefined,
+          gaClientId: r.gaClientId ?? undefined,
+          landingPage: r.landingPage ?? undefined,
+          referrer: r.referrer ?? undefined,
+          signupIp: r.signupIp ? Buffer.from(r.signupIp) : undefined,
+          signupUserAgent: r.signupUserAgent ?? undefined,
+          lastIp: r.lastIp ? Buffer.from(r.lastIp) : undefined,
+          lastUserAgent: r.lastUserAgent ?? undefined,
+          lastSeenAt: r.lastSeenAt ? new Date(r.lastSeenAt) : undefined,
         },
       });
     },
     async update(id, patch) {
       const data: Record<string, unknown> = {};
-      for (const k of ['name', 'role', 'active', 'passwordHash', 'salt', 'permissions'] as const) {
+      for (const k of ['name', 'role', 'active', 'passwordHash', 'salt', 'permissions', 'emailVerified'] as const) {
         if (patch[k] !== undefined) data[k] = patch[k];
       }
       await prisma.user.update({ where: { id }, data }).catch(() => {});

@@ -26,6 +26,11 @@ function detectLocale(): Locale {
   return 'vi';
 }
 
+function safeNext(raw: string | null, fallback: string): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) return fallback;
+  return raw;
+}
+
 // Thương hiệu công khai (logo/nguồn) - lấy từ /api/branding. Fallback = giá trị mặc định noti.vn
 // (KHÔNG import store server-only vào bundle client).
 interface LoginBrand {
@@ -49,6 +54,7 @@ function LoginInner() {
   const [locale, setLocale] = useState<Locale>('vi');
   const [langOpen, setLangOpen] = useState(false);
   const [brand, setBrand] = useState<LoginBrand>(DEFAULT_BRAND);
+  const [nextUrl, setNextUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/branding')
@@ -100,6 +106,8 @@ function LoginInner() {
     const loc = detectLocale();
     setLocale(loc);
     const params = new URLSearchParams(window.location.search);
+    const next = safeNext(params.get('next'), '/' + loc + '/dashboard');
+    setNextUrl(next);
     // Link kích hoạt tài khoản: /login?verify=<token> → gọi API kích hoạt; thành công thì đã có
     // phiên (API tự tạo session) → vào thẳng dashboard. Thất bại → về màn đăng nhập kèm lỗi.
     const verifyToken = params.get('verify');
@@ -113,7 +121,7 @@ function LoginInner() {
         .then(async (r) => {
           const d = await r.json().catch(() => null);
           if (r.ok && d?.ok) {
-            window.location.href = `/${loc}/dashboard`;
+            window.location.href = next;
             return;
           }
           setMode('login');
@@ -136,7 +144,7 @@ function LoginInner() {
       .then((r) => r.json())
       .then((d: { user: unknown; needsSetup: boolean; selfRegistrationEnabled?: boolean }) => {
         if (d.user) {
-          window.location.href = `/${loc}/dashboard`;
+          window.location.href = next;
           return;
         }
         setNeedsSetup(d.needsSetup);
@@ -228,7 +236,7 @@ function LoginInner() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (res.ok && data.user) window.location.href = `/${locale}/dashboard`;
+      if (res.ok && data.user) window.location.href = nextUrl ?? '/' + locale + '/dashboard';
       else if (res.ok && data.requiresVerification) {
         // Đăng ký xong, chờ kích hoạt qua email → về màn đăng nhập + hướng dẫn kiểm tra hộp thư.
         setMode('login');
