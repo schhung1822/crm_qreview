@@ -15,12 +15,29 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/ai-keys → trạng thái provider (đã che key) + định tuyến. KHÔNG trả key thật.
+function apiError(err: unknown) {
+  const message = err instanceof Error ? err.message : 'Unknown server error';
+  console.error('[api/ai-keys]', message, err);
+  const isEncryption = message.includes('ENCRYPTION_KEY') || message.toLowerCase().includes('encryption');
+  return NextResponse.json(
+    {
+      error: isEncryption
+        ? 'Chua cau hinh ENCRYPTION_KEY hop le tren server production. Vui long them bien moi truong ENCRYPTION_KEY base64 32 bytes roi deploy lai.'
+        : message,
+    },
+    { status: 500 },
+  );
+}
+
 export async function GET() {
   const g = await guard();
   if ('response' in g) return g.response;
   const ctx = { userId: g.user.id, bizId: g.bizId };
-  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+  try {
+    return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+  } catch (err) {
+    return apiError(err);
+  }
 }
 
 const ProviderEnum = z.enum(AI_PROVIDERS);
@@ -32,39 +49,41 @@ const ActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('routing'), task: z.enum(AI_TASKS), provider: ProviderEnum }),
 ]);
 
-// POST /api/ai-keys → lưu key / bật-tắt / đổi model / đổi định tuyến.
 export async function POST(req: Request) {
   const g = await guard('aikeys:manage');
   if ('response' in g) return g.response;
 
   const parsed = ActionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
+    return NextResponse.json({ error: 'Tham so khong hop le' }, { status: 400 });
   }
   const body = parsed.data;
 
   const ctx = { userId: g.user.id, bizId: g.bizId };
-  await runWithBiz(ctx, async () => {
-    switch (body.action) {
-      case 'setKey':
-        await setProviderKey(body.provider, body.key);
-        break;
-      case 'enable':
-        await setProviderEnabled(body.provider, body.enabled);
-        break;
-      case 'model':
-        await setProviderModel(body.provider, body.model);
-        break;
-      case 'routing':
-        await setRouting(body.task, body.provider);
-        break;
-    }
-  });
+  try {
+    await runWithBiz(ctx, async () => {
+      switch (body.action) {
+        case 'setKey':
+          await setProviderKey(body.provider, body.key);
+          break;
+        case 'enable':
+          await setProviderEnabled(body.provider, body.enabled);
+          break;
+        case 'model':
+          await setProviderModel(body.provider, body.model);
+          break;
+        case 'routing':
+          await setRouting(body.task, body.provider);
+          break;
+      }
+    });
 
-  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+    return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+  } catch (err) {
+    return apiError(err);
+  }
 }
 
-// DELETE /api/ai-keys?provider=openai → xóa key đã lưu của provider.
 export async function DELETE(req: Request) {
   const g = await guard('aikeys:manage');
   if ('response' in g) return g.response;
@@ -72,9 +91,13 @@ export async function DELETE(req: Request) {
   const provider = new URL(req.url).searchParams.get('provider');
   const parsed = ProviderEnum.safeParse(provider);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'provider không hợp lệ' }, { status: 400 });
+    return NextResponse.json({ error: 'provider khong hop le' }, { status: 400 });
   }
   const ctx = { userId: g.user.id, bizId: g.bizId };
-  await runWithBiz(ctx, () => deleteProviderKey(parsed.data));
-  return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+  try {
+    await runWithBiz(ctx, () => deleteProviderKey(parsed.data));
+    return NextResponse.json(await runWithBiz(ctx, () => getProvidersStatus()));
+  } catch (err) {
+    return apiError(err);
+  }
 }

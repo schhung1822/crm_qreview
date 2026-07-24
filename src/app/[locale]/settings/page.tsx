@@ -1168,13 +1168,16 @@ function AddAiKeyModal({
   }
   async function save() {
     setSaving(true);
+    setResult(null);
     try {
       const res = await fetch('/api/ai-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'setKey', provider, key: key.trim() }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) await onSaved();
+      else setResult({ ok: false, msg: data?.error ?? t('testFail') });
     } finally {
       setSaving(false);
     }
@@ -1343,8 +1346,14 @@ function DetailModal({
 
   async function postAi(body: unknown, tag: string) {
     setBusy(tag);
+    setTest(null);
     try {
-      await fetch('/api/ai-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('/api/ai-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setTest({ ok: false, msg: data?.error ?? t('testFail') });
+        return;
+      }
       await onChanged();
     } finally {
       setBusy(null);
@@ -1372,11 +1381,16 @@ function DetailModal({
     setBusy(`rk-${target.kind}-${target.id}`);
     try {
       if (target.kind === 'ai') {
-        await fetch('/api/ai-keys', {
+        const res = await fetch('/api/ai-keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'setKey', provider: target.id, key: k }),
         });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setTest({ ok: false, msg: data?.error ?? t('testFail') });
+          return;
+        }
       } else if (target.kind === 'integration') {
         await fetch('/api/integration-keys', {
           method: 'POST',
