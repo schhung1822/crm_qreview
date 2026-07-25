@@ -8,6 +8,8 @@ import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { getArticleConfig } from '@/lib/store/article-config';
 import { getArticle, upsertArticle } from '@/lib/store/articles';
 import { createJob, updateJob } from '@/lib/store/publish-jobs';
+import { recordUserEvent } from '@/lib/tracking/events';
+import { eventContext } from '@/lib/tracking/request';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +121,16 @@ export async function POST(req: Request) {
         /* cập nhật local lỗi KHÔNG được làm hỏng kết quả đăng đã thành công */
       }
     }
+    recordUserEvent({
+      eventName: 'article_publish',
+      eventType: 'conversion',
+      area: 'publish',
+      entityType: 'article',
+      entityId: articleId || post.id,
+      success: true,
+      metadata: { connectionId, status: article.status, imagesNotUploaded },
+      ...eventContext(req, { userId: g.user.id, bizId: g.bizId }),
+    });
     return NextResponse.json({ published: true, post, imagesNotUploaded });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Lỗi khi đăng';

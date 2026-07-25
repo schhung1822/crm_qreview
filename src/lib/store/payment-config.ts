@@ -20,6 +20,7 @@ export interface PaymentConfig {
   hmacSecret: string; // secret ký HMAC-SHA256 (đã giải mã ở getPaymentConfig)
   signatureHeader: string; // tên header chứa chữ ký HMAC (mặc định X-Signature)
   contentPrefix: string; // tiền tố nội dung CK để khớp đơn (vd "NOTI")
+  qrTemplate: string; // mẫu URL ảnh QR (từ .env) - chèn {{amount}} + {{orderNumber}}
 }
 
 interface Data {
@@ -41,6 +42,30 @@ function normMethod(m?: string): PaymentAuthMethod {
 
 const FILE = 'payment-config.json';
 
+// ─── Cấu hình Sepay từ .env (NGUỒN CHÂN LÝ cho hiển thị QR + chuyển khoản) ───
+// Thông tin ngân hàng + mẫu URL QR lấy từ biến môi trường NEXT_PUBLIC_SEPAY_*. Nếu có ở .env
+// thì .env THẮNG store admin. (Xác thực webhook vẫn dùng apiKey/hmac ở store — .env không chứa.)
+function envStr(v: string | undefined): string {
+  // Next đã bóc dấu nháy ngoài; strip thêm để an toàn nếu còn sót.
+  return (v ?? '').trim().replace(/^"+|"+$/g, '').trim();
+}
+interface SepayEnv {
+  bankAccount: string;
+  bankCode: string;
+  accountHolder: string;
+  contentPrefix: string;
+  qrTemplate: string;
+}
+function sepayEnv(): SepayEnv {
+  return {
+    bankAccount: envStr(process.env.NEXT_PUBLIC_SEPAY_ACCOUNT_NUMBER),
+    bankCode: envStr(process.env.NEXT_PUBLIC_SEPAY_BANK_CODE),
+    accountHolder: envStr(process.env.NEXT_PUBLIC_SEPAY_ACCOUNT_NAME),
+    contentPrefix: envStr(process.env.NEXT_PUBLIC_SEPAY_TRANSFER_PREFIX),
+    qrTemplate: envStr(process.env.NEXT_PUBLIC_SEPAY_QR_IMAGE_URL_TEMPLATE),
+  };
+}
+
 // Đọc/ghi qua json-store: có KHÓA theo file (chống mất ghi khi lưu đồng thời) + ghi ATOMIC
 // (file tạm rồi rename, mode 0600) → không bao giờ để lại file cụt làm MẤT apiKey đã mã hóa.
 async function read(): Promise<Data> {
@@ -58,17 +83,24 @@ function safeDecrypt(payload?: string): string {
 // Cấu hình đầy đủ (giải mã apiKey + hmacSecret) - dùng server (webhook verify, sinh QR).
 export async function getPaymentConfig(): Promise<PaymentConfig> {
   const d = await read();
+  const env = sepayEnv();
+  const bankAccount = env.bankAccount || d.bankAccount || '';
+  const bankCode = env.bankCode || d.bankCode || '';
+  const accountHolder = env.accountHolder || d.accountHolder || '';
+  const contentPrefix = env.contentPrefix || d.contentPrefix || 'NOTI';
   return {
     provider: 'sepay',
-    enabled: d.enabled ?? false,
-    bankAccount: d.bankAccount ?? '',
-    bankCode: d.bankCode ?? '',
-    accountHolder: d.accountHolder ?? '',
+    // Bật khi admin bật HOẶC .env đã có đủ STK + mã ngân hàng (QR hiển thị được ngay từ .env).
+    enabled: (d.enabled ?? false) || (!!bankAccount && !!bankCode),
+    bankAccount,
+    bankCode,
+    accountHolder,
     authMethod: normMethod(d.authMethod),
     apiKey: safeDecrypt(d.apiKey),
     hmacSecret: safeDecrypt(d.hmacSecret),
     signatureHeader: d.signatureHeader?.trim() || DEFAULT_SIG_HEADER,
-    contentPrefix: d.contentPrefix ?? 'NOTI',
+    contentPrefix,
+    qrTemplate: env.qrTemplate,
   };
 }
 
@@ -77,15 +109,19 @@ export async function getPaymentConfigPublic(): Promise<
   Omit<PaymentConfig, 'apiKey' | 'hmacSecret'> & { apiKeySet: boolean; hmacSecretSet: boolean }
 > {
   const d = await read();
+  const env = sepayEnv();
+  const bankAccount = env.bankAccount || d.bankAccount || '';
+  const bankCode = env.bankCode || d.bankCode || '';
   return {
     provider: 'sepay',
-    enabled: d.enabled ?? false,
-    bankAccount: d.bankAccount ?? '',
-    bankCode: d.bankCode ?? '',
-    accountHolder: d.accountHolder ?? '',
+    enabled: (d.enabled ?? false) || (!!bankAccount && !!bankCode),
+    bankAccount,
+    bankCode,
+    accountHolder: env.accountHolder || d.accountHolder || '',
     authMethod: normMethod(d.authMethod),
     signatureHeader: d.signatureHeader?.trim() || DEFAULT_SIG_HEADER,
-    contentPrefix: d.contentPrefix ?? 'NOTI',
+    contentPrefix: env.contentPrefix || d.contentPrefix || 'NOTI',
+    qrTemplate: env.qrTemplate,
     apiKeySet: !!d.apiKey,
     hmacSecretSet: !!d.hmacSecret,
   };
@@ -113,12 +149,21 @@ export async function savePaymentConfig(
 }
 
 // URL ảnh VietQR theo chuẩn Sepay cho 1 lần thanh toán.
-export function sepayQrUrl(cfg: PaymentConfig, amount: number, content: string): string {
+// Nếu .env có mẫu (qrTemplate): chèn SỐ TIỀN vào {{amount}} và MÃ ĐƠN (orderNumber = payCode)
+// vào {{orderNumber}}. Nếu không có mẫu: dựng URL qr.sepay.vn mặc định.
+export function sepayQrUrl(cfg: PaymentConfig, amount: number, orderNumber: string): string {
+  const amt = String(Math.max(0, Math.round(amount)));
+  const tpl = cfg.qrTemplate?.trim();
+  if (tpl) {
+    return tpl
+      .replace(/\{\{?\s*amount\s*\}?\}/gi, amt)
+      .replace(/\{\{?\s*orderNumber\s*\}?\}/gi, encodeURIComponent(orderNumber));
+  }
   const q = new URLSearchParams({
     acc: cfg.bankAccount,
     bank: cfg.bankCode,
-    amount: String(Math.max(0, Math.round(amount))),
-    des: content,
+    amount: amt,
+    des: orderNumber,
     template: 'compact',
   });
   return `https://qr.sepay.vn/img?${q.toString()}`;

@@ -305,6 +305,29 @@ export function AppFrame({
   // Bấm vào tên biz (hoặc logo) → trang Biz: danh sách/tạo/chuyển biz + thông tin, nhân viên, email.
   const activeBiz = bizes.find((b) => b.id === activeBizId);
 
+  // Ô vuông nhỏ chứa chữ cái đầu của biz (thay cho logo wordmark rộng) → bộ chọn biz gọn như bản cũ.
+  const bizInitial = ((activeBiz?.name ?? t('nav.biz')).trim().charAt(0) || 'B').toUpperCase();
+  const bizAvatar = (px: number) => (
+    <span
+      aria-hidden
+      style={{
+        width: px,
+        height: px,
+        borderRadius: 6,
+        flexShrink: 0,
+        display: 'grid',
+        placeItems: 'center',
+        background: branding.colorPrimary || '#1f1f1f',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: Math.round(px * 0.5),
+        lineHeight: 1,
+      }}
+    >
+      {bizInitial}
+    </span>
+  );
+
   // Bộ chuyển biz: bấm LOGO (favicon) + tên biz → Popover: danh sách biz để chuyển + "Tạo biz mới".
   // Bấm nút bánh-răng bên phải → trang cài đặt biz (3 tab). Popover render qua portal.
   // Dùng chung cho HEADER (desktop) và DRAWER điều hướng (mobile) - mỗi nơi 1 state riêng để
@@ -346,12 +369,7 @@ export function AppFrame({
                 textAlign: 'left',
               }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={branding.bizLogo}
-                alt={branding.sourceText}
-                style={{ height: 22, width: 'auto', flexShrink: 0 }}
-              />
+              {bizAvatar(22)}
               <span
                 style={{
                   overflow: 'hidden',
@@ -424,8 +442,7 @@ export function AppFrame({
   const bizSwitcherMobile = (
     <div className="biz-switcher-mobile">
       <div className="biz-switcher-mobile__head">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={branding.bizLogo} alt={branding.sourceText} className="biz-switcher-mobile__logo" />
+        {bizAvatar(24)}
         <span className="biz-switcher-mobile__name">{activeBiz?.name ?? t('nav.biz')}</span>
         <button
           type="button"
@@ -781,9 +798,9 @@ export function AppFrame({
     />
   );
 
-  // Bấm logo → trang Biz (danh sách biz / tạo biz), theo yêu cầu. Dùng favicon cho gọn (mobile).
+  // Bấm logo → trang Biz. Logo thương hiệu là wordmark (rộng) → đặt bề ngang đủ để đọc trên mobile.
   const logo = {
-    width: 32,
+    width: 112,
     topBarSource: branding.bizLogo,
     url: href('biz'),
     accessibilityLabel: branding.sourceText,

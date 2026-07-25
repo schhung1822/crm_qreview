@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { AppFrame } from '@/components/AppFrame';
 import { EntitlementProvider } from '@/components/EntitlementProvider';
 import { HtmlLang } from '@/components/HtmlLang';
+import { PageViewTracker } from '@/components/PageViewTracker';
 import { PixelScripts } from '@/components/PixelScripts';
 import { PolarisProvider } from '@/components/PolarisProvider';
 import { BIZ_COOKIE, getCurrentUser } from '@/lib/auth/current';
@@ -70,6 +71,7 @@ export default async function LocaleLayout({
     <NextIntlClientProvider locale={locale} messages={messages}>
       <HtmlLang locale={locale} />
       <PixelScripts />
+      <PageViewTracker />
       <PolarisProvider>
         <EntitlementProvider features={features}>
           <AppFrame

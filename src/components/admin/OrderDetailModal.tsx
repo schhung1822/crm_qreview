@@ -16,6 +16,7 @@ export interface OrderDetailData {
   overageArticles?: number | null;
   amount?: number;
   discount?: number;
+  prorationCredit?: number;
   total: number;
   currency: string;
   couponCode?: string | null;
@@ -47,6 +48,9 @@ export function OrderDetailModal({ order, onClose }: { order: OrderDetailData | 
     ...(order.amount !== undefined ? ([[t('orderAmount'), `${order.amount.toLocaleString()} ${order.currency}`]] as Array<[string, string]>) : []),
     ...(order.discount
       ? ([[t('orderDiscount'), `−${order.discount.toLocaleString()} ${order.currency}${order.couponCode ? ` (${order.couponCode})` : ''}`]] as Array<[string, string]>)
+      : []),
+    ...(order.prorationCredit
+      ? ([[t('orderProration'), `−${order.prorationCredit.toLocaleString()} ${order.currency}`]] as Array<[string, string]>)
       : []),
     [t('orderTotal'), `${order.total.toLocaleString()} ${order.currency}`],
     [t('orderPayCode'), order.payCode],

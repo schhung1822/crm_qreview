@@ -34,6 +34,7 @@ interface Order {
   currency: 'VND' | 'USD';
   amount: number;
   discount: number;
+  prorationCredit?: number;
   total: number;
   couponCode?: string;
   status: 'pending' | 'paid' | 'canceled' | 'refunded';
@@ -296,6 +297,9 @@ export function OrdersAdmin() {
                   [t('orderAmount'), `${detail.amount.toLocaleString()} ${detail.currency}`],
                   ...(detail.discount
                     ? ([[t('orderDiscount'), `−${detail.discount.toLocaleString()} ${detail.currency}${detail.couponCode ? ` (${detail.couponCode})` : ''}`]] as Array<[string, string]>)
+                    : []),
+                  ...(detail.prorationCredit
+                    ? ([[t('orderProration'), `−${detail.prorationCredit.toLocaleString()} ${detail.currency}`]] as Array<[string, string]>)
                     : []),
                   [t('orderTotal'), `${detail.total.toLocaleString()} ${detail.currency}`],
                   [t('orderPayCode'), `${detail.payCode}`],

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { findPendingOrderByContent, setOrderStatus } from '@/lib/billing/orders';
 import { verifySepayWebhook } from '@/lib/billing/sepay-webhook-auth';
 import { getPaymentConfig } from '@/lib/store/payment-config';
+import { recordPaymentTransaction } from '@/lib/tracking/billing-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,16 @@ export async function POST(req: Request) {
 
   const body = (() => {
     try {
-      return JSON.parse(rawBody) as { transferType?: string; content?: string; transferAmount?: number };
+      return JSON.parse(rawBody) as {
+        id?: string | number;
+        gateway?: string;
+        transactionDate?: string;
+        transferType?: string;
+        content?: string;
+        transferAmount?: number;
+        accountNumber?: string;
+        referenceCode?: string;
+      };
     } catch {
       return null;
     }
@@ -40,12 +50,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   }
 
+  // Nếu .env chỉ định STK nhận (SEPAY_WEBHOOK_EXPECTED_ACCOUNT_NUMBER) → chỉ nhận giao dịch vào
+  // đúng tài khoản đó (bỏ qua tài khoản khác dùng chung webhook). Vẫn ack để Sepay không retry.
+  const expectedAcc = (process.env.SEPAY_WEBHOOK_EXPECTED_ACCOUNT_NUMBER ?? '').trim();
+  if (expectedAcc && body.accountNumber && String(body.accountNumber).trim() !== expectedAcc) {
+    return NextResponse.json({ success: true });
+  }
+
   const order = await findPendingOrderByContent(body.content ?? '');
   if (order && order.currency === 'VND') {
     const amount = Number(body.transferAmount ?? 0);
-    if (Number.isFinite(amount) && amount > 0 && amount >= order.total) {
+    const enough = Number.isFinite(amount) && amount > 0 && amount >= order.total;
+    if (enough) {
       await setOrderStatus(order.id, 'paid'); // kích hoạt gói + email biên nhận (nếu bật)
     }
+    // Đối soát: ghi giao dịch (đủ tiền = success, thiếu = underpaid) để theo dõi/khớp sổ.
+    recordPaymentTransaction({
+      orderId: order.id,
+      provider: 'sepay',
+      providerTransactionId: body.id != null ? String(body.id) : (body.referenceCode ?? undefined),
+      status: enough ? 'success' : 'underpaid',
+      currency: order.currency,
+      amount,
+      matchedAmount: order.total,
+      payCode: order.payCode,
+      bankCode: body.gateway,
+      bankAccount: body.accountNumber,
+      transferContent: body.content ?? undefined,
+      rawPayload: body,
+      processedAt: enough ? new Date() : undefined,
+    });
   }
   // Luôn ack để Sepay không retry (đã ghi nhận webhook).
   return NextResponse.json({ success: true });

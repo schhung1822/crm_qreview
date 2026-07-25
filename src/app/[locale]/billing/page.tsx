@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   Divider,
+  Icon,
   InlineGrid,
   InlineStack,
   Modal,
@@ -18,6 +19,7 @@ import {
   Text,
   TextField,
 } from '@shopify/polaris';
+import { CheckIcon } from '@shopify/polaris-icons';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -29,6 +31,7 @@ import {
   type PlanId,
 } from '@/lib/billing/plans';
 import { currencyCode } from '@/lib/i18n/currency';
+import { SUB_STATUS_TONE, type SubStatus } from '@/lib/billing/order-ui';
 
 // Đọc UTM từ URL, lưu localStorage để giữ khi điều hướng nội bộ. Trả object utm (có thể rỗng).
 function readUtm(): Record<string, string> {
@@ -53,8 +56,17 @@ function readUtm(): Record<string, string> {
 
 interface Me {
   planId: PlanId;
-  sub: { status: string; trialEndsAt?: string; billingCycle: string; overageArticles: number } | null;
+  plan?: Plan;
+  sub: {
+    status: string;
+    trialEndsAt?: string;
+    currentPeriodEnd?: string;
+    billingCycle: string;
+    overageArticles: number;
+    unlimitedArticles?: boolean;
+  } | null;
   quota: { articlesUsed: number; articlesCap: number; over: boolean } | null;
+  lastPayment?: { paidAt?: string | null; plan?: string | null; months?: number | null; total: number; currency: string } | null;
   isSuperadmin: boolean;
 }
 
@@ -68,7 +80,7 @@ export default function BillingPage() {
 
   // ─── Tự phục vụ: chọn gói → tạo đơn → hiện QR Sepay ───
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null);
-  const [months, setMonths] = useState<number>(3);
+  const [months, setMonths] = useState<number>(1);
   const [coupon, setCoupon] = useState('');
   const [phone, setPhone] = useState('');
   const [utm, setUtm] = useState<Record<string, string>>({});
@@ -84,11 +96,13 @@ export default function BillingPage() {
     bankAccount?: string;
     accountHolder?: string;
     amount?: number;
+    listPrice?: number;
+    prorationCredit?: number;
   } | null>(null);
 
   function openCheckout(id: PlanId) {
     setCheckoutPlan(id);
-    setMonths(3);
+    setMonths(1);
     setCoupon('');
     setPhone('');
     setPay(null);
@@ -101,6 +115,10 @@ export default function BillingPage() {
     setPay(null);
     setOrderId(null);
     setPaid(false);
+  }
+  // Sau khi thanh toán thành công: đóng popup + TẢI LẠI cả trang /billing để hiển thị đúng gói mới.
+  function finishSuccess() {
+    if (typeof window !== 'undefined') window.location.reload();
   }
   async function doCheckout() {
     if (!checkoutPlan) return;
@@ -137,8 +155,9 @@ export default function BillingPage() {
     }
   }
 
-  // Trong lúc hiện QR: hỏi trạng thái đơn mỗi 4s. Khi đơn chuyển 'paid' (webhook Sepay tự động HOẶC
-  // admin kích hoạt tay) → hiện màn hình thành công + làm mới gói hiện tại. Dừng poll khi đóng/đã trả.
+  // Trong lúc hiện QR: hỏi trạng thái đơn mỗi 4s. Khi đơn chuyển 'paid' (đã thanh toán / "paydone" -
+  // webhook Sepay tự động HOẶC admin kích hoạt tay) → gói mới ĐÃ được kích hoạt cho biz ở server →
+  // hiện popup thành công + làm mới gói hiện tại. Dừng poll khi đóng/đã trả.
   useEffect(() => {
     if (!checkoutPlan || !pay?.enabled || !orderId || paid) return;
     let active = true;
@@ -147,7 +166,7 @@ export default function BillingPage() {
         const r = await fetch(`/api/billing/order-status?id=${encodeURIComponent(orderId)}`);
         if (!r.ok) return;
         const d = await r.json();
-        if (active && d.status === 'paid') {
+        if (active && d.paid) {
           setPaid(true);
           const me2 = await fetch('/api/billing/me');
           if (active && me2.ok) setMe(await me2.json());
@@ -189,6 +208,22 @@ export default function BillingPage() {
     return isVnd ? `${nf.format(v)}đ` : `$${v}`;
   };
   const lim = (n: number) => (n >= 999999 ? '∞' : nf.format(n));
+  const fmtDate = (iso?: string | null) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(locale);
+  };
+  // 1 dòng "nhãn — giá trị" trong thẻ chi tiết gói.
+  const detailRow = (label: string, value: string) => (
+    <InlineStack align="space-between" blockAlign="center" gap="200" wrap>
+      <Text as="span" tone="subdued" variant="bodySm">
+        {label}
+      </Text>
+      <Text as="span" variant="bodySm" fontWeight="medium">
+        {value}
+      </Text>
+    </InlineStack>
+  );
 
   const featureLines = (p: Plan) => {
     const f = p.features;
@@ -266,6 +301,63 @@ export default function BillingPage() {
           </Card>
         )}
 
+        {/* Chi tiết gói cước hiện tại: trạng thái, chu kỳ, ngày thanh toán/hết hạn, tài nguyên. */}
+        {me && me.sub ? (
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingSm">
+                {t('detailsTitle')}
+              </Text>
+              <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+                <BlockStack gap="200">
+                  <InlineStack align="space-between" blockAlign="center" gap="200" wrap>
+                    <Text as="span" tone="subdued" variant="bodySm">
+                      {t('statusLabel')}
+                    </Text>
+                    <Badge tone={SUB_STATUS_TONE[me.sub.status as SubStatus]}>
+                      {t(`status_${me.sub.status}`)}
+                    </Badge>
+                  </InlineStack>
+                  {me.planId !== 'free' && me.planId !== 'enterprise'
+                    ? detailRow(t('cycleLabel'), t(`cycle_${me.sub.billingCycle}`))
+                    : null}
+                  {me.lastPayment?.paidAt
+                    ? detailRow(t('lastPaymentAt'), fmtDate(me.lastPayment.paidAt))
+                    : null}
+                  {detailRow(
+                    t('expiresAt'),
+                    me.planId === 'free' || me.planId === 'enterprise'
+                      ? t('noExpiry')
+                      : me.sub.status === 'trialing'
+                        ? fmtDate(me.sub.trialEndsAt)
+                        : fmtDate(me.sub.currentPeriodEnd),
+                  )}
+                </BlockStack>
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingXs" tone="subdued">
+                    {t('resourcesTitle')}
+                  </Text>
+                  {me.quota
+                    ? detailRow(
+                        t('resArticles'),
+                        me.quota.articlesCap < 0
+                          ? '∞'
+                          : `${nf.format(me.quota.articlesUsed)} / ${nf.format(me.quota.articlesCap)}`,
+                      )
+                    : null}
+                  {me.plan ? detailRow(t('resSocial'), lim(me.plan.socialReportsPerMonth)) : null}
+                  {me.plan ? detailRow(t('resBiz'), lim(me.plan.maxBiz)) : null}
+                  {me.plan ? detailRow(t('resSeats'), lim(me.plan.maxSeats)) : null}
+                  {me.plan ? detailRow(t('resCms'), lim(me.plan.maxCmsConnections)) : null}
+                  {me.sub.overageArticles > 0
+                    ? detailRow(t('resOverage'), `+${nf.format(me.sub.overageArticles)}`)
+                    : null}
+                </BlockStack>
+              </InlineGrid>
+            </BlockStack>
+          </Card>
+        ) : null}
+
         {/* Bảng gói - .plan-grid ép mỗi thẻ cao 100% để nút "Nâng cấp" ghim đáy & THẲNG HÀNG. */}
         {plans == null ? (
           <Box padding="400">
@@ -274,9 +366,17 @@ export default function BillingPage() {
         ) : (
         <div className="plan-grid">
         <InlineGrid columns={{ xs: 1, sm: 2, lg: 5 }} gap="300">
-          {PLAN_ORDER.map((id) => {
+          {(() => {
+            // Gói hiện tại còn hiệu lực & ĐANG TRẢ PHÍ (active, không phải free) → ẨN nút nâng cấp ở các
+            // gói THẤP hơn (không cho "hạ" khi còn hạn); nút chỉ hiện lại khi gói hết hạn (planId tụt về
+            // free hoặc trạng thái khác 'active').
+            const planRank = (pid: PlanId) => PLAN_ORDER.indexOf(pid);
+            const currentPaidActive = me?.sub?.status === 'active' && me.planId !== 'free';
+            const currentRank = me ? planRank(me.planId) : -1;
+            return PLAN_ORDER.map((id) => {
             const p = plans[id];
             const current = me?.planId === id;
+            const lowerLocked = currentPaidActive && planRank(id) < currentRank;
             // Thẻ tự dựng (không dùng Polaris Card) để kiểm soát chiều cao: flex-column + __foot
             // margin-top:auto → nút "Nâng cấp" luôn ghim đáy & THẲNG HÀNG.
             return (
@@ -308,14 +408,21 @@ export default function BillingPage() {
                 </div>
                 {(id === 'starter' || id === 'pro' || id === 'agency') && !current ? (
                   <div className="plan-card__foot">
-                    <Button variant="primary" fullWidth onClick={() => openCheckout(id)}>
-                      {t('upgrade')}
-                    </Button>
+                    {lowerLocked ? (
+                      <Text as="span" variant="bodySm" tone="subdued" alignment="center">
+                        {t('lowerPlanLocked')}
+                      </Text>
+                    ) : (
+                      <Button variant="primary" fullWidth onClick={() => openCheckout(id)}>
+                        {t('upgrade')}
+                      </Button>
+                    )}
                   </div>
                 ) : null}
               </div>
             );
-          })}
+            });
+          })()}
         </InlineGrid>
         </div>
         )}
@@ -323,9 +430,9 @@ export default function BillingPage() {
         {/* Modal thanh toán tự phục vụ: chọn chu kỳ/coupon → tạo đơn → QR Sepay + chuyển khoản. */}
         <Modal
           open={!!checkoutPlan}
-          onClose={closeCheckout}
+          onClose={paid ? finishSuccess : closeCheckout}
           title={checkoutPlan ? t('checkoutTitle', { plan: t(`plan.${checkoutPlan}`) }) : ''}
-          secondaryActions={[{ content: t('close'), onAction: closeCheckout }]}
+          secondaryActions={[{ content: t('close'), onAction: paid ? finishSuccess : closeCheckout }]}
         >
           <Modal.Section>
             {checkoutErr ? (
@@ -335,6 +442,9 @@ export default function BillingPage() {
             ) : null}
             {!pay ? (
               <BlockStack gap="300">
+                {me?.sub?.status === 'active' && me.planId !== 'free' ? (
+                  <Banner tone="info">{t('prorationHint')}</Banner>
+                ) : null}
                 <Select
                   label={t('cycleLabel')}
                   options={CYCLE_MONTHS.map((m) => {
@@ -375,26 +485,57 @@ export default function BillingPage() {
               </BlockStack>
             ) : paid ? (
               /* Đã nhận tiền (webhook Sepay) hoặc admin kích hoạt tay → báo thành công. */
-              <BlockStack gap="300" inlineAlign="center">
-                <div style={{ fontSize: 52, lineHeight: 1 }} aria-hidden>
-                  ✅
-                </div>
-                <Text as="p" variant="headingMd" alignment="center">
-                  {t('paySuccessTitle')}
-                </Text>
-                <Text as="p" tone="subdued" alignment="center">
-                  {t('paySuccessBody')}
-                </Text>
-                <Button variant="primary" onClick={closeCheckout}>
-                  {t('paySuccessClose')}
-                </Button>
-              </BlockStack>
+              <Box paddingBlock="400">
+                <BlockStack gap="400" inlineAlign="center">
+                  {/* Icon SVG (Polaris) trong vòng tròn nền xanh — KHÔNG dùng emoji (theo UI guideline). */}
+                  <span
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: '50%',
+                      background: 'var(--p-color-bg-fill-success-secondary, #d7f0e0)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    aria-hidden
+                  >
+                    <span style={{ display: 'inline-flex', transform: 'scale(1.9)' }}>
+                      <Icon source={CheckIcon} tone="success" />
+                    </span>
+                  </span>
+                  <BlockStack gap="150" inlineAlign="center">
+                    <Text as="p" variant="headingLg" alignment="center">
+                      {t('paySuccessTitle')}
+                    </Text>
+                    <Text as="p" tone="subdued" alignment="center">
+                      {t('paySuccessBody')}
+                    </Text>
+                    {checkoutPlan ? (
+                      <Badge tone="success">{t(`plan.${checkoutPlan}`)}</Badge>
+                    ) : null}
+                  </BlockStack>
+                  <Button variant="primary" size="large" fullWidth onClick={finishSuccess}>
+                    {t('paySuccessClose')}
+                  </Button>
+                </BlockStack>
+              </Box>
             ) : pay.enabled ? (
               /* Căn CÂN ĐỐI & CHÍNH GIỮA: QR + thông tin chuyển khoản. */
               <BlockStack gap="300" inlineAlign="center">
+                {pay.prorationCredit ? (
+                  <Text as="span" tone="subdued" variant="bodySm" alignment="center">
+                    <s>{(pay.listPrice ?? 0).toLocaleString('vi-VN')}đ</s>
+                  </Text>
+                ) : null}
                 <Text as="p" variant="headingMd" alignment="center">
                   {t('payAmount', { amount: (pay.amount ?? 0).toLocaleString('vi-VN') })}
                 </Text>
+                {pay.prorationCredit ? (
+                  <Text as="span" tone="success" variant="bodySm" alignment="center">
+                    {t('prorationCredit', { amount: pay.prorationCredit.toLocaleString('vi-VN') })}
+                  </Text>
+                ) : null}
                 {pay.qrUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

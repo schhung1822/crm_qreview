@@ -38,9 +38,9 @@ export const DEFAULT_BRANDING: Branding = {
   description:
     'Nghiên cứu từ khóa, viết bài mới & tối ưu bài cũ bằng AI, tự động nghiên cứu → tạo báo cáo social và sàn TMĐT',
   favicon: 'https://noti.vn/image/new/favicon.png',
-  logoAmBan: 'https://nextgency.vn/assets/images/footer/footerlogo.png',
-  logoDuongBan: 'https://nextgency.vn/assets/images/header/navbarlogoblack.png',
-  bizLogo: 'https://noti.vn/image/new/favicon.png',
+  logoAmBan: '/images/logo_amban.webp', // logo ÂM BẢN (nền tối)
+  logoDuongBan: '/images/logo_duongban.webp', // logo DƯƠNG BẢN (nền sáng)
+  bizLogo: '/images/logo_duongban.webp', // logo header/top bar (nền sáng) → dùng dương bản
   ogImage: '', // rỗng = dùng logoDuongBan làm ảnh chia sẻ; superadmin đặt ảnh bìa riêng ở đây
   sourceText: 'by: noti.vn',
   sourceUrl: 'https://noti.vn',
@@ -70,9 +70,23 @@ function nonEmpty(d: Partial<Branding>): Partial<Branding> {
   return out;
 }
 
+// Ảnh dùng NGOÀI trang (OG/Facebook/Zalo, email, xuất PDF/Drive) cần URL TUYỆT ĐỐI. Logo lưu dạng
+// đường dẫn nội bộ (/images/...) → ghép APP_URL thành tuyệt đối. URL http(s) hoặc data URI giữ nguyên.
+function absolutizeAsset(v: string): string {
+  const base = (process.env.APP_URL || '').replace(/\/+$/, '');
+  if (v && base && v.startsWith('/')) return base + v;
+  return v;
+}
+
 export async function getBranding(): Promise<Branding> {
   const d = await readGlobalConfig<Partial<Branding>>(FILE, {});
-  return { ...DEFAULT_BRANDING, ...nonEmpty(d) };
+  const b = { ...DEFAULT_BRANDING, ...nonEmpty(d) };
+  b.logoAmBan = absolutizeAsset(b.logoAmBan);
+  b.logoDuongBan = absolutizeAsset(b.logoDuongBan);
+  b.bizLogo = absolutizeAsset(b.bizLogo);
+  b.favicon = absolutizeAsset(b.favicon);
+  b.ogImage = absolutizeAsset(b.ogImage);
+  return b;
 }
 
 export async function saveBranding(patch: Partial<Branding>): Promise<Branding> {

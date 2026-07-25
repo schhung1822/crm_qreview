@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { runAudit } from '@/lib/audit/run';
 import { guard } from '@/lib/auth/current';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { recordUserEvent } from '@/lib/tracking/events';
+import { eventContext } from '@/lib/tracking/request';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,10 +39,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
   }
 
+  const ctx = eventContext(req, { userId: g.user.id, bizId: g.bizId });
+  const t0 = Date.now();
   try {
     const report = await runAudit(parsed.data);
+    recordUserEvent({
+      eventName: 'website_check',
+      eventType: 'action',
+      area: 'audit',
+      entityType: 'url',
+      entityId: parsed.data.url.slice(0, 191),
+      success: true,
+      durationMs: Date.now() - t0,
+      metadata: { maxPages: parsed.data.maxPages, performance: parsed.data.performance },
+      ...ctx,
+    });
     return NextResponse.json({ report });
   } catch (err) {
+    recordUserEvent({
+      eventName: 'website_check',
+      eventType: 'action',
+      area: 'audit',
+      entityType: 'url',
+      entityId: parsed.data.url.slice(0, 191),
+      success: false,
+      errorCode: 'audit_failed',
+      durationMs: Date.now() - t0,
+      ...ctx,
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Lỗi khi kiểm tra website.' },
       { status: 502 },

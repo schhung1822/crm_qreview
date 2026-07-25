@@ -137,7 +137,8 @@ model Order {
   amount          Int // giá gốc
   couponCode      String?
   discount        Int       @default(0)
-  total           Int // amount - discount
+  prorationCredit Int       @default(0) // tín dụng còn lại của gói trả phí đang còn hạn (trừ vào total)
+  total           Int // amount - discount - prorationCredit
   status          String // pending | paid | canceled | refunded
   payCode         String // mã khớp nội dung chuyển khoản Sepay
   phone           String?
@@ -410,4 +411,190 @@ model JsonBlob {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@id([scope, name])
+}
+
+// ─────────────────────── THEO DÕI HÀNH VI NGƯỜI DÙNG (analytics) ───────────────────────
+// Các bảng đã tồn tại sẵn trong DB (tạo ngoài Prisma) → mô hình hóa để driver ghi được.
+// Ghi FIRE-AND-FORGET, không bao giờ chặn/ném lỗi ra luồng chính. Xem src/lib/tracking/events.ts.
+
+// Sự kiện hành vi đơn lẻ: mỗi thao tác/kiểm tra của người dùng là 1 dòng.
+model UserEvent {
+  id          String   @id
+  userId      String?
+  anonymousId String?
+  sessionId   String?
+  bizId       String?
+  eventName   String   @db.VarChar(128)
+  eventType   String   @default("interaction")
+  area        String?
+  path        String?  @db.VarChar(512)
+  routeName   String?
+  entityType  String?
+  entityId    String?
+  source      String?
+  value       Decimal? @db.Decimal(18, 4)
+  currency    String?  @db.VarChar(16)
+  durationMs  Int?
+  success     Boolean?
+  errorCode   String?
+  metadata    Json?
+  ip          Bytes?   @db.VarBinary(16)
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([bizId, createdAt])
+  @@index([eventName, createdAt])
+  @@index([area, createdAt])
+  @@index([path, createdAt])
+  @@index([createdAt])
+}
+
+// Phiên hoạt động: gộp theo sessionId (số trang xem, số sự kiện, thiết bị, nguồn, attribution).
+model UserSessionActivity {
+  id          String    @id
+  userId      String?
+  anonymousId String?
+  sessionId   String    @unique
+  bizId       String?
+  startedAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  endedAt     DateTime?
+  entryPath   String?   @db.Text
+  landingPage String?   @db.Text
+  referrer    String?   @db.Text
+  utm         Json?
+  fbp         String?   @db.VarChar(255)
+  fbc         String?   @db.VarChar(255)
+  ttclid      String?   @db.VarChar(255)
+  ttp         String?   @db.VarChar(255)
+  gclid       String?   @db.VarChar(255)
+  gaClientId  String?   @db.VarChar(255)
+  ip          Bytes?    @db.VarBinary(16)
+  userAgent   String?   @db.Text
+  deviceType  String?   @db.VarChar(64)
+  browser     String?   @db.VarChar(128)
+  os          String?   @db.VarChar(128)
+  country     String?   @db.VarChar(2)
+  region      String?   @db.VarChar(128)
+  city        String?   @db.VarChar(128)
+  pageViews   Int       @default(0)
+  events      Int       @default(0)
+  metadata    Json?
+
+  @@index([userId, lastSeenAt])
+  @@index([anonymousId])
+  @@index([bizId, lastSeenAt])
+  @@index([fbp])
+  @@index([fbc])
+  @@index([ttclid])
+  @@index([gclid])
+}
+
+// Tổng hợp NGÀY (rollup): đếm theo (ngày, biz, user, area, eventName, path). Dùng cho dashboard.
+model DailyUsageMetric {
+  date            DateTime @db.Date
+  bizId           String   @default("") @db.VarChar(64)
+  userId          String   @default("") @db.VarChar(64)
+  area            String   @db.VarChar(96)
+  eventName       String   @db.VarChar(128)
+  pathHash        Bytes    @db.Binary(16)
+  path            String?  @db.VarChar(512)
+  count           Int      @default(0)
+  uniqueUsers     Int      @default(0)
+  uniqueSessions  Int      @default(0)
+  totalDurationMs BigInt   @default(0)
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@id([date, area, eventName, pathHash, bizId, userId])
+  @@index([bizId, date])
+  @@index([userId, date])
+  @@index([area, date])
+}
+
+// Vòng đời gói cước: tạo/nâng/gia hạn/hết hạn/hủy — from→to plan & status.
+model SubscriptionEvent {
+  id          String    @id
+  userId      String
+  orderId     String?
+  eventType   String
+  fromPlan    String?
+  toPlan      String?
+  fromStatus  String?
+  toStatus    String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+  @@index([eventType])
+}
+
+// Giao dịch thanh toán (Sepay): mỗi lần webhook ghi nhận tiền vào ↔ 1 dòng (đối soát).
+model PaymentTransaction {
+  id                    String    @id
+  orderId               String
+  provider              String
+  providerTransactionId String?
+  type                  String    @default("payment")
+  status                String
+  currency              String    @db.VarChar(16)
+  amount                Int
+  matchedAmount         Int?
+  payCode               String?
+  bankCode              String?
+  bankAccount           String?
+  transferContent       String?   @db.Text
+  rawPayload            Json?
+  receivedAt            DateTime  @default(now())
+  processedAt           DateTime?
+
+  @@index([orderId])
+  @@index([provider, status])
+  @@index([providerTransactionId])
+  @@index([payCode])
+}
+
+// Đồng ý theo dõi (cookie consent): analytics/marketing/necessary theo user/anon/session.
+model UserConsent {
+  id          String   @id
+  userId      String?
+  anonymousId String?
+  sessionId   String?
+  analytics   Boolean  @default(false)
+  marketing   Boolean  @default(false)
+  necessary   Boolean  @default(true)
+  source      String?
+  ip          Bytes?   @db.VarBinary(16)
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([anonymousId])
+  @@index([sessionId])
+}
+
+// Lời mời thành viên vào biz (token hash + hạn dùng).
+model UserInvite {
+  id          String    @id
+  bizId       String
+  email       String
+  role        String
+  permissions Json?
+  tokenHash   String    @unique
+  status      String    @default("pending")
+  invitedBy   String
+  acceptedBy  String?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([bizId, status])
+  @@index([email, status])
+  @@index([invitedBy])
+  @@index([acceptedBy])
 }

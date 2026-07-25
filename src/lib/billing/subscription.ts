@@ -20,7 +20,6 @@ export interface Subscription {
 
 type Store = Record<string, Subscription>;
 const FILE = globalFile('subscriptions.json');
-const TRIAL_DAYS = 14;
 const DAY = 86_400_000;
 const GRACE_DAYS = 3;
 
@@ -85,13 +84,13 @@ export async function getSubscription(userId: string): Promise<Subscription> {
   if (isDb()) {
     const existing = await prisma.subscription.findUnique({ where: { userId } });
     if (existing) return effective(subOut(existing));
+    // Gói MẶC ĐỊNH cho tài khoản/biz mới = FREE (không trial). Nâng cấp qua thanh toán Sepay.
     const now = Date.now();
     const created: Subscription = {
       userId,
-      plan: 'pro',
-      status: 'trialing',
+      plan: 'free',
+      status: 'free',
       billingCycle: 'monthly',
-      trialEndsAt: new Date(now + TRIAL_DAYS * DAY).toISOString(),
       updatedAt: new Date(now).toISOString(),
     };
     await prisma.subscription.create({ data: { userId, ...subData(created) } }).catch(() => {});
@@ -100,8 +99,9 @@ export async function getSubscription(userId: string): Promise<Subscription> {
   const store = await readJson<Store>(FILE, {});
   const existing = store[userId];
   if (existing) return effective(existing);
+  // Gói MẶC ĐỊNH cho tài khoản/biz mới = FREE (không trial).
   const now = Date.now();
-  const created: Subscription = { userId, plan: 'pro', status: 'trialing', billingCycle: 'monthly', trialEndsAt: new Date(now + TRIAL_DAYS * DAY).toISOString(), updatedAt: new Date(now).toISOString() };
+  const created: Subscription = { userId, plan: 'free', status: 'free', billingCycle: 'monthly', updatedAt: new Date(now).toISOString() };
   await mutateJson<Store, void>(FILE, {}, (cur) => {
     if (!cur[userId]) cur[userId] = created;
     return [cur, undefined];

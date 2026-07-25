@@ -41,8 +41,8 @@ interface LoginBrand {
   accent: string; // màu nhấn hero (đồng bộ trang chủ = colorHome, fallback colorPrimary)
 }
 const DEFAULT_BRAND: LoginBrand = {
-  logoAmBan: 'https://noti.vn/image/new/logo-am-ban.png',
-  logoDuongBan: 'https://noti.vn/image/new/logo-duong-ban.png',
+  logoAmBan: '/images/logo_amban.webp',
+  logoDuongBan: '/images/logo_duongban.webp',
   sourceText: 'by: noti.vn',
   sourceUrl: 'https://noti.vn',
   accent: '',

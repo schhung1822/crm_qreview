@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { auditLanding } from '@/lib/landing/audit';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
+import { recordUserEvent } from '@/lib/tracking/events';
+import { eventContext } from '@/lib/tracking/request';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,10 +34,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'File HTML không hợp lệ hoặc quá lớn (tối đa 3MB).' }, { status: 400 });
   }
 
+  const ctx = eventContext(req, { userId: g.user.id, bizId: g.bizId });
+  const t0 = Date.now();
   try {
     const report = auditLanding(parsed.data);
+    recordUserEvent({
+      eventName: 'landing_check',
+      eventType: 'action',
+      area: 'landing_audit',
+      entityType: 'landing',
+      success: true,
+      durationMs: Date.now() - t0,
+      metadata: { fileName: parsed.data.fileName, hasBaseUrl: !!parsed.data.baseUrl },
+      ...ctx,
+    });
     return NextResponse.json({ report });
   } catch (err) {
+    recordUserEvent({
+      eventName: 'landing_check',
+      eventType: 'action',
+      area: 'landing_audit',
+      entityType: 'landing',
+      success: false,
+      errorCode: 'landing_audit_failed',
+      durationMs: Date.now() - t0,
+      ...ctx,
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Không chấm được file.' },
       { status: 500 },

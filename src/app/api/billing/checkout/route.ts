@@ -5,6 +5,8 @@ import { claimCoupon, releaseCouponUse } from '@/lib/billing/coupons';
 import { createOrder } from '@/lib/billing/orders';
 import { readPlans } from '@/lib/billing/plans-store';
 import { priceForMonths, type PlanId } from '@/lib/billing/plans';
+import { remainingPlanCredit } from '@/lib/billing/proration';
+import { getSubscription } from '@/lib/billing/subscription';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { getPaymentConfig, sepayQrUrl } from '@/lib/store/payment-config';
 import { sendPlatformEvent } from '@/lib/store/platform-email';
@@ -14,7 +16,7 @@ export const dynamic = 'force-dynamic';
 // Người dùng TỰ tạo đơn mua gói. Thanh toán qua Sepay là VND (chuyển khoản ngân hàng VN).
 const Schema = z.object({
   plan: z.enum(['starter', 'pro', 'agency']),
-  months: z.union([z.literal(3), z.literal(6), z.literal(12)]),
+  months: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),
   couponCode: z.string().max(40).optional(),
   phone: z.string().max(30).optional(),
   utm: z
@@ -45,8 +47,14 @@ export async function POST(req: Request) {
   const { plan, months, couponCode, utm, phone } = parsed.data;
 
   // Giá VND theo gói + số tháng (chiết khấu bậc). Tính SERVER, không tin client.
-  const p = (await readPlans())[plan as PlanId];
+  const plans = await readPlans();
+  const p = plans[plan as PlanId];
   const amount = priceForMonths(p.priceVndMonthly, months);
+
+  // PRORATION: gói trả phí hiện tại CÒN HẠN → trừ giá trị còn lại vào đơn nâng cấp; gói free/hết hạn
+  // → tín dụng 0 (trả 100%). Tính SERVER từ subscription hiệu lực, không tin client.
+  const currentSub = await getSubscription(g.user.id);
+  const prorationCredit = remainingPlanCredit(currentSub, plans[currentSub.plan]);
 
   // Áp coupon (nếu có) - CHIẾM lượt NGUYÊN TỬ ngay tại đây (chống race tự cấp gói 0đ). Nếu tạo đơn
   // thất bại sau khi đã chiếm → trả lại lượt.
@@ -71,7 +79,8 @@ export async function POST(req: Request) {
       amount,
       couponCode: couponApplied,
       discount,
-      total: Math.max(0, amount - discount),
+      prorationCredit,
+      total: Math.max(0, amount - discount - prorationCredit),
       phone: phone?.trim() || undefined,
       utm,
     });
@@ -98,7 +107,8 @@ export async function POST(req: Request) {
       pay: { enabled: false },
     });
   }
-  const content = `${pay.contentPrefix}${order.payCode}`;
+  // orderNumber = payCode (nội dung CK để webhook Sepay khớp đúng đơn đang chờ).
+  const content = order.payCode;
   const qrUrl = sepayQrUrl(pay, order.total, content);
   void sendPlatformEvent('paymentPending', g.user.email, {
     name: g.user.name,
@@ -124,6 +134,8 @@ export async function POST(req: Request) {
       bankAccount: pay.bankAccount,
       accountHolder: pay.accountHolder,
       amount: order.total,
+      listPrice: amount, // giá gốc trước khi trừ ưu đãi
+      prorationCredit, // tín dụng còn lại của gói hiện tại đã trừ
     },
   });
 }

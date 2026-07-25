@@ -41,7 +41,7 @@ function detectLocale(): Locale {
   return 'vi';
 }
 
-const DEFAULT_LOGO = 'https://noti.vn/image/new/logo-duong-ban.png';
+const DEFAULT_LOGO = '/images/logo_duongban.webp';
 
 function OnboardingInner() {
   const [locale, setLocale] = useState<Locale>('vi');

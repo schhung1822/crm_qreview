@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireSuper } from '@/lib/admin/guard';
 import { findById } from '@/lib/auth/users';
 import { claimCoupon, releaseCouponUse } from '@/lib/billing/coupons';
-import { createOrder, listOrders, setOrderStatus } from '@/lib/billing/orders';
+import { createOrder, ensureOrderActivated, isPaidStatus, listOrders, setOrderStatus } from '@/lib/billing/orders';
 import { readPlans } from '@/lib/billing/plans-store';
 import { priceForMonths, type PlanId } from '@/lib/billing/plans';
 import { getPaymentConfig, sepayQrUrl } from '@/lib/store/payment-config';
@@ -16,14 +16,22 @@ const PLAN_IDS = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 export async function GET() {
   const chk = await requireSuper();
   if ('error' in chk) return chk.error;
-  return NextResponse.json({ orders: await listOrders() });
+  // ĐỒNG BỘ: đơn bị đổi status thủ công sang paid/paydone mà chưa kích hoạt → kích hoạt ngay khi
+  // admin mở danh sách (không phụ thuộc người mua có đang mở popup hay không).
+  const orders = await listOrders();
+  const pendingActivation = orders.filter((o) => isPaidStatus(o.status) && !o.paidAt);
+  if (pendingActivation.length) {
+    await Promise.all(pendingActivation.map((o) => ensureOrderActivated(o.id).catch(() => null)));
+    return NextResponse.json({ orders: await listOrders() });
+  }
+  return NextResponse.json({ orders });
 }
 
 const CreateSchema = z.object({
   userId: z.string().min(1).max(64),
   type: z.enum(['subscription', 'overage']),
   plan: z.enum(PLAN_IDS).optional(),
-  months: z.union([z.literal(3), z.literal(6), z.literal(12)]).optional(),
+  months: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]).optional(),
   overageArticles: z.number().int().min(1).max(1_000_000).optional(),
   amount: z.number().min(0).max(1_000_000_000).optional(), // với overage (hoặc ghi đè)
   couponCode: z.string().max(40).optional(),
@@ -91,7 +99,7 @@ export async function POST(req: Request) {
   const pay = await getPaymentConfig();
   let payInfo: { content: string; qrUrl: string } | undefined;
   if (pay.enabled && pay.bankAccount) {
-    const content = `${pay.contentPrefix}${order.payCode}`;
+    const content = order.payCode; // orderNumber = payCode
     const qrUrl = sepayQrUrl(pay, order.total, content);
     payInfo = { content, qrUrl };
     void sendPlatformEvent('paymentPending', order.userEmail, {

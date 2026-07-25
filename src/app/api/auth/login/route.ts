@@ -11,6 +11,8 @@ import {
   sharedRecordFailure,
 } from '@/lib/security/rate-limit-shared';
 import { ensureMigrated, resolveActiveBiz } from '@/lib/store/biz';
+import { recordUserEvent } from '@/lib/tracking/events';
+import { eventContext } from '@/lib/tracking/request';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,5 +70,12 @@ export async function POST(req: Request) {
   await ensureMigrated();
   const { bizId } = await resolveActiveBiz(user.id);
   if (bizId) setBizCookie(res, bizId);
+  recordUserEvent({
+    eventName: 'login',
+    eventType: 'action',
+    area: 'auth',
+    success: true,
+    ...eventContext(req, { userId: user.id, bizId }),
+  });
   return res;
 }

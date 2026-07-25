@@ -17,7 +17,9 @@ import {
   TextField,
 } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CornerToast } from '@/components/CornerToast';
 import { ExtLink, LocaleTag } from '@/components/ui';
 
 interface Article {
@@ -41,6 +43,18 @@ export default function ArticlesPage() {
   const t = useTranslations('articles');
   const tc = useTranslations('common');
   const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Vừa đăng bài xong (chuyển từ trang Đăng bài) → hiện thông báo thành công ở góc phải, rồi dọn URL.
+  const [publishedToast, setPublishedToast] = useState(false);
+  const dismissToast = useCallback(() => setPublishedToast(false), []);
+  useEffect(() => {
+    if (searchParams.get('published') === '1') {
+      setPublishedToast(true);
+      router.replace(`/${locale}/articles`);
+    }
+  }, [searchParams, router, locale]);
 
   const [items, setItems] = useState<Article[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -304,6 +318,10 @@ export default function ArticlesPage() {
   ]);
 
   return (
+    <>
+      {publishedToast ? (
+        <CornerToast message={t('publishedToast')} onDismiss={dismissToast} />
+      ) : null}
     <Page
       title={t('title')}
       subtitle={t('subtitle')}
@@ -411,5 +429,6 @@ export default function ArticlesPage() {
         )}
       </BlockStack>
     </Page>
+    </>
   );
 }

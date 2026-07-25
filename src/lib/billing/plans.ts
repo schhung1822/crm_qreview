@@ -222,10 +222,10 @@ export function providerAllowed(planTier: ModelTier, provider: string): boolean 
 }
 
 // ─── Chu kỳ mua & chiết khấu bậc ───
-// Khách chọn 3 / 6 / 12 tháng. Chiết khấu tăng dần theo 6 và 12 tháng (3 tháng = giá gốc).
-export const CYCLE_MONTHS = [3, 6, 12] as const;
+// Khách chọn 1 / 3 / 6 / 12 tháng. 1 và 3 tháng = giá gốc; chiết khấu tăng dần ở 6 và 12 tháng.
+export const CYCLE_MONTHS = [1, 3, 6, 12] as const;
 export type CycleMonths = (typeof CYCLE_MONTHS)[number];
-export const CYCLE_DISCOUNT: Record<number, number> = { 3: 0, 6: 0.1, 12: 0.17 };
+export const CYCLE_DISCOUNT: Record<number, number> = { 1: 0, 3: 0, 6: 0.1, 12: 0.17 };
 
 // Giá theo số tháng (từ đơn giá THÁNG), áp chiết khấu bậc, làm tròn tới nghìn VND cho gọn.
 export function priceForMonths(monthlyPrice: number, months: number): number {

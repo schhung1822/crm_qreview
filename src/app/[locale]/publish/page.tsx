@@ -16,7 +16,7 @@ import {
   TextField,
 } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExtLink } from '@/components/ui';
 import { HelpLabel } from '@/components/InfoHint';
@@ -52,6 +52,7 @@ export default function PublishPage() {
   const t = useTranslations();
   const locale = useLocale();
   const params = useSearchParams();
+  const router = useRouter();
 
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [draftId, setDraftId] = useState<string>('');
@@ -246,6 +247,9 @@ export default function PublishPage() {
             }),
           });
         }
+        // Đăng thành công → chuyển tới trang Bài viết, kèm cờ để hiện thông báo góc phải.
+        router.push(`/${locale}/articles?published=1`);
+        return;
       } else {
         setResult({ ok: false, msg: data.error ?? 'Đăng thất bại' });
       }
