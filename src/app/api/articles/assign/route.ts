@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { getArticle, updateArticleFields } from '@/lib/store/articles';
-import { memberOf } from '@/lib/store/biz';
-import { addNotif } from '@/lib/store/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,20 +20,8 @@ export async function POST(req: Request) {
   const assignee = parsed.data.userId || '';
 
   // Chỉ giao được cho THÀNH VIÊN của biz đang hoạt động (chống giao cho user tùy ý).
-  if (assignee && g.bizId && !(await memberOf(g.bizId, assignee))) {
-    return NextResponse.json({ error: 'Người nhận không thuộc biz.' }, { status: 400 });
-  }
-
   const updated = await updateArticleFields(id, { assignedTo: assignee });
   if (!updated) return NextResponse.json({ error: 'Không tìm thấy bài' }, { status: 404 });
 
-  if (assignee && assignee !== g.user.id) {
-    await addNotif(assignee, {
-      type: 'assigned',
-      articleId: id,
-      articleTitle: updated.title,
-      actorName: g.user.name,
-    });
-  }
   return NextResponse.json({ article: updated });
 }

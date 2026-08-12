@@ -15,7 +15,7 @@ import {
 } from '@shopify/polaris';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
-import { LocaleTag, StatTile } from '@/components/ui';
+import { StatTile } from '@/components/ui';
 
 interface ReportData {
   range: string;
@@ -29,14 +29,12 @@ interface ReportData {
     keywordSets: number;
     plans: number;
   };
-  byLocale: Array<{ locale: string; count: number }>;
   series: Array<{ date: string; count: number; published: number }>;
-  top: Array<{ id: string; title: string; locale: string; seoScore: number; aeoScore: number; geoScore: number; status: string }>;
+  top: Array<{ id: string; title: string; seoScore: number; aeoScore: number; geoScore: number; status: string }>;
 }
 
 export default function ReportsPage() {
   const t = useTranslations('reports');
-  const tc = useTranslations('common');
   const [range, setRange] = useState('30');
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,7 +81,6 @@ export default function ReportsPage() {
       <Text as="span" fontWeight="semibold" key={a.id}>
         {a.title}
       </Text>,
-      <LocaleTag locale={a.locale} key={`${a.id}-l`} />,
       String(a.seoScore),
       String(a.aeoScore ?? 0),
       String(a.geoScore),
@@ -136,7 +133,7 @@ export default function ReportsPage() {
               <StatTile label={`${t('published')} %`} value={`${pct(data.totals.published, data.totals.articles)}%`} />
             </InlineGrid>
 
-            <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+            <InlineGrid columns={{ xs: 1 }} gap="400">
               <Card>
                 <BlockStack gap="300">
                   <Text as="h2" variant="headingSm">
@@ -146,39 +143,6 @@ export default function ReportsPage() {
                 </BlockStack>
               </Card>
 
-              <Card>
-                <BlockStack gap="300">
-                  <Text as="h2" variant="headingSm">
-                    {t('byLocaleTitle')}
-                  </Text>
-                  {data.byLocale.length === 0 ? (
-                    <Text as="p" tone="subdued" variant="bodySm">
-                      {t('empty')}
-                    </Text>
-                  ) : (
-                    data.byLocale.map((l) => (
-                      <InlineStack key={l.locale} align="space-between" blockAlign="center">
-                        <LocaleTag locale={l.locale} />
-                        <Box width="60%">
-                          <div style={{ background: '#eef0f2', borderRadius: 6, height: 10 }}>
-                            <div
-                              style={{
-                                width: `${pct(l.count, data.byLocale[0].count)}%`,
-                                background: '#5b3ce0',
-                                height: 10,
-                                borderRadius: 6,
-                              }}
-                            />
-                          </div>
-                        </Box>
-                        <Text as="span" variant="bodySm" fontWeight="semibold">
-                          {l.count}
-                        </Text>
-                      </InlineStack>
-                    ))
-                  )}
-                </BlockStack>
-              </Card>
             </InlineGrid>
 
             <Card padding="0">
@@ -195,8 +159,8 @@ export default function ReportsPage() {
                 </Box>
               ) : (
                 <DataTable
-                  columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric', 'text']}
-                  headings={[t('colTitle'), tc('language'), t('colSeo'), t('colAeo'), t('colGeo'), t('colStatus')]}
+                  columnContentTypes={['text', 'numeric', 'numeric', 'numeric', 'text']}
+                  headings={[t('colTitle'), t('colSeo'), t('colAeo'), t('colGeo'), t('colStatus')]}
                   rows={topRows}
                 />
               )}

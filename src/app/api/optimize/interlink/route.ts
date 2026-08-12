@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { adapterFromConnection, setConnectionStatus } from '@/lib/store/connections';
 import { saveRevision } from '@/lib/store/revisions';
 import { mergeRelated, normHref, relatedHrefs } from '@/lib/content/related';
@@ -52,11 +51,6 @@ function safeUrl(url: string): string | null {
 export async function POST(req: Request) {
   const g = await guard('content:publish');
   if ('response' in g) return g.response;
-
-  // Tính năng theo gói: gói của biz phải bật "gợi ý internal link".
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'internalLinks'))) {
-    return NextResponse.json({ error: 'Biz của bạn không có quyền sử dụng chức năng này.' }, { status: 403 });
-  }
 
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

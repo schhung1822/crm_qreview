@@ -2,13 +2,9 @@
 // Chạy được không cần DB. Khi có DB, có thể thay read()/write() bằng Prisma.
 // QUAN TRỌNG: chỉ dùng ở server. KHÔNG bao giờ trả plaintext key ra client.
 import { decryptWith, encryptWith } from '../crypto';
-import { activeBizId } from '../data/biz-path';
 import { readBizConfig, writeBizConfig } from '../data/config-store';
 import { env } from '../env';
 import { resolveEncryptionKey } from './key';
-import { getBiz } from '../store/biz';
-import { findById } from '../auth/users';
-import { isSuperadminEmail } from '../auth/superadmin';
 
 export const AI_PROVIDERS = [
   'anthropic',
@@ -117,16 +113,7 @@ async function write(data: SecretsData): Promise<void> {
 // key nền tảng (nếu không nền tảng sẽ trả tiền token cho tenant). Ngoài ngữ cảnh biz (script/CLI
 // global không gắn biz) → cho phép (không phải tenant). Nghi ngờ/không đọc được → KHÔNG dùng ENV.
 async function platformEnvKeysAllowed(): Promise<boolean> {
-  const bizId = activeBizId();
-  if (!bizId) return true; // không có biz đang hoạt động → không phải tenant (worker/script)
-  try {
-    const biz = await getBiz(bizId);
-    if (!biz) return false;
-    const owner = await findById(biz.ownerId);
-    return !!owner && isSuperadminEmail(owner.email);
-  } catch {
-    return false; // an toàn: không xác định được chủ biz → không dùng key nền tảng
-  }
+  return true;
 }
 
 // Key từ env (fallback) khi store chưa có.

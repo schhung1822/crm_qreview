@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   // Base CÔNG KHAI - redirectUri PHẢI khớp cái đã dùng ở bước gmail-auth (cùng requestBaseUrl).
   const origin = requestBaseUrl(req);
-  const back = cookies().get('gmail_oauth_return')?.value || `${origin}/`;
+  const back = (await cookies()).get('gmail_oauth_return')?.value || `${origin}/`;
 
   const finish = (params: string) => {
     const sep = back.includes('?') ? '&' : '?';
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const saved = cookies().get('gmail_oauth_state')?.value;
+  const saved = (await cookies()).get('gmail_oauth_state')?.value;
   if (!code || !state || !saved || state !== saved) return fail('state-mismatch');
 
   const creds = await getPlatformGmailCreds();

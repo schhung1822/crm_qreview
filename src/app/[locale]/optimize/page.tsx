@@ -25,7 +25,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertIcon, CheckIcon, MagicIcon, XIcon } from '@/components/icons';
-import { useFeatures } from '@/components/EntitlementProvider';
 import { GraphView } from '@/components/ForceGraph';
 import { HelpLabel } from '@/components/InfoHint';
 import { AiWorking, ExtLink, ScoreRing } from '@/components/ui';
@@ -85,7 +84,6 @@ interface GraphData {
 
 export default function OptimizePage() {
   const t = useTranslations();
-  const features = useFeatures();
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -415,10 +413,6 @@ export default function OptimizePage() {
     const edits = [...editsMap.entries()].map(([postId, links]) => ({ postId, links }));
     if (!edits.length) return;
     // Tính năng theo gói: gói của biz không bật "gợi ý internal link" → báo không có quyền.
-    if (features && !features.internalLinks) {
-      setError(t('billing.featureLockedBody'));
-      return;
-    }
     setApplying(true);
     setApplyProgress(0);
     setError(null);

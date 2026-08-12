@@ -533,30 +533,159 @@ body {
 /* Khối đáy Navigation (tài khoản + tín dụng) ghim xuống cuối (PrimaryNav là flex-column). */
 .nav-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 0; }
 
-/* TÀI KHOẢN xếp DỌC: hàng 1 [avatar][tên][đăng xuất]; rồi 2 hàng token vào / token ra. */
-.nav-account {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 8px 10px; border: 1px solid var(--p-color-border); border-radius: 8px;
+/* Logo Amban và cụm tài khoản/token trong header. */
+.Polaris-TopBar__LogoContainer {
+  justify-content: flex-start;
+  padding-left: 18px;
 }
-.nav-account__head { display: flex; align-items: center; gap: 8px; }
-.nav-account__id {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
-  padding: 0; border: none; background: transparent; cursor: pointer; font: inherit; color: inherit; text-align: left;
+.Polaris-TopBar__LogoLink {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
-.nav-account__id:hover .nav-account__name { text-decoration: underline; }
-.nav-account__avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
-.nav-account__name { min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-account__logout {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-  border: 1px solid var(--p-color-border); border-radius: 8px; background: transparent; cursor: pointer;
+.Polaris-TopBar__Logo {
+  height: auto;
+  max-height: 32px;
+  object-fit: contain;
 }
-.nav-account__logout:hover { background: var(--p-color-bg-surface-hover); }
-.nav-account__tokens { display: flex; flex-direction: column; gap: 3px; }
-.nav-account__token {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px;
+.Polaris-TopBar__SecondaryMenu {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+  margin-right: 16px;
 }
-.nav-account__token .lbl { color: var(--p-color-text-subdued); white-space: nowrap; }
-.nav-account__token b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-topbar-tokens {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+.app-topbar-token {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 92px;
+  height: 22px;
+  padding: 0 8px;
+  color: var(--p-color-text-inverse);
+  line-height: 1.1;
+}
+.app-topbar-token + .app-topbar-token {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.app-topbar-token__arrow {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+}
+.app-topbar-token--in .app-topbar-token__arrow {
+  color: #7ee2b8;
+}
+.app-topbar-token--out .app-topbar-token__arrow {
+  color: #b8acf6;
+}
+.app-topbar-token__content {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.app-topbar-token__label {
+  color: var(--p-color-text-inverse-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.app-topbar-token strong {
+  color: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.Polaris-TopBar-Menu__Activator--userMenu {
+  min-height: 36px;
+  padding: 4px 10px 4px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+}
+.app-topbar-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.app-topbar-settings__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+}
+.app-topbar-settings__icon .Polaris-Icon {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.app-topbar-settings__icon svg {
+  fill: var(--p-color-icon-inverse);
+}
+.app-topbar-settings__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+.app-topbar-settings__label {
+  color: var(--p-color-text-inverse);
+  font-size: 12px;
+  font-weight: 600;
+}
+.app-topbar-settings__name {
+  max-width: 112px;
+  overflow: hidden;
+  color: var(--p-color-text-inverse-secondary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 64em) {
+  .app-topbar-token {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+  .app-topbar-token__label { display: none; }
+}
+
+@media (max-width: 40em) {
+  .Polaris-TopBar__SecondaryMenu { margin-right: 8px; }
+  .app-topbar-tokens {
+    height: 30px;
+    padding-inline: 2px;
+  }
+  .app-topbar-token {
+    gap: 3px;
+    height: 20px;
+    padding-inline: 6px;
+  }
+  .app-topbar-token__arrow {
+    font-size: 12px;
+  }
+  .app-topbar-token strong { font-size: 11px; }
+  .Polaris-TopBar-Menu__Activator--userMenu {
+    padding: 4px;
+    border-color: transparent;
+    background: transparent;
+  }
+  .app-topbar-settings__text { display: none; }
+}
 
 /* Tín dụng "by: noti.vn" (trong .nav-bottom, dưới cùng). */
 .nav-credit { padding: 6px 4px 12px; text-align: center; }

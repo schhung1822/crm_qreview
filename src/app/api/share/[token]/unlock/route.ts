@@ -14,7 +14,8 @@ export const runtime = 'nodejs';
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
 
-export async function POST(req: Request, { params }: { params: { token: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const token = params.token;
   // Redirect PHẢI là URL công khai. Sau Cloudflare/nginx, req.url = http://0.0.0.0:3000 → dùng APP_URL.
   const origin = requestBaseUrl(req);

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSuper } from '@/lib/admin/guard';
 import { deleteUser, setPassword, updateUser } from '@/lib/auth/users';
-import { addOverageArticles, setSubscription } from '@/lib/billing/subscription';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +11,6 @@ const Schema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('activate'), userId: uid }),
   z.object({ action: z.literal('delete'), userId: uid }),
   z.object({ action: z.literal('setPassword'), userId: uid, password: z.string().min(8).max(200) }),
-  z.object({ action: z.literal('addOverage'), userId: uid, overage: z.number().int().min(1).max(100000) }),
-  z.object({ action: z.literal('setUnlimited'), userId: uid, unlimited: z.boolean() }),
 ]);
 
 // POST /api/admin/users → thao tác quản trị user (superadmin). updateUser đã có bảo vệ chủ sở hữu.
@@ -37,8 +34,6 @@ export async function POST(req: Request) {
     else if (d.action === 'activate') await updateUser(d.userId, { active: true });
     else if (d.action === 'delete') await deleteUser(d.userId);
     else if (d.action === 'setPassword') await setPassword(d.userId, d.password);
-    else if (d.action === 'addOverage') await addOverageArticles(d.userId, d.overage);
-    else if (d.action === 'setUnlimited') await setSubscription(d.userId, { unlimitedArticles: d.unlimited });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { setBizCookie, setSessionCookie } from '@/lib/auth/cookie';
+import { setSessionCookie } from '@/lib/auth/cookie';
 import { createSession } from '@/lib/auth/session';
 import { isEmailVerified, toPublic, verifyCredentials } from '@/lib/auth/users';
 import { clientIp } from '@/lib/security/rate-limit';
@@ -10,7 +10,6 @@ import {
   sharedRateLimit,
   sharedRecordFailure,
 } from '@/lib/security/rate-limit-shared';
-import { ensureMigrated, resolveActiveBiz } from '@/lib/store/biz';
 import { recordUserEvent } from '@/lib/tracking/events';
 import { eventContext } from '@/lib/tracking/request';
 
@@ -65,17 +64,12 @@ export async function POST(req: Request) {
   const { token, maxAge } = await createSession(user.id);
   const res = NextResponse.json({ user: toPublic(user) });
   setSessionCookie(res, token, maxAge);
-  // Đặt biz đang hoạt động (cookie sg_biz) để store trỏ đúng ngay từ request đầu sau login.
-  // Nếu user CHƯA có biz nào → không đặt cookie; layout sẽ đưa họ qua onboarding tạo biz.
-  await ensureMigrated();
-  const { bizId } = await resolveActiveBiz(user.id);
-  if (bizId) setBizCookie(res, bizId);
   recordUserEvent({
     eventName: 'login',
     eventType: 'action',
     area: 'auth',
     success: true,
-    ...eventContext(req, { userId: user.id, bizId }),
+    ...eventContext(req, { userId: user.id }),
   });
   return res;
 }

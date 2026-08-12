@@ -78,7 +78,6 @@ export async function POST(req: Request) {
     sessionId,
     userId: user?.id,
     anonymousId,
-    bizId: ctx.bizId,
     path: b.path ?? ctx.path,
     referrer: b.referrer ?? ctx.referrer,
     utm: b.utm,
@@ -105,7 +104,6 @@ export async function POST(req: Request) {
     userId: user?.id,
     anonymousId,
     sessionId,
-    bizId: ctx.bizId,
     ip: ctx.ip,
     userAgent: ctx.userAgent,
   });

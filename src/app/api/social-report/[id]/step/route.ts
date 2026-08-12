@@ -26,7 +26,8 @@ const BodySchema = z
   .default({});
 
 // POST /api/social-report/[id]/step → chạy đúng 1 bước (client lặp tới khi done/error).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id))

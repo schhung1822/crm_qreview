@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { checkClaims } from '@/lib/ai/content';
 import { aiReady } from '@/lib/ai/providers';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { aiNessScore } from '@/lib/content/ai-ness';
 import { checkArticleLinks } from '@/lib/content/factcheck';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
@@ -26,13 +25,6 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
-
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'factCheck'))) {
-    return NextResponse.json(
-      { error: 'Kiểm chứng & nhân hóa thuộc gói Pro trở lên. Nâng cấp gói để dùng.', code: 'plan_feature' },
-      { status: 403 },
-    );
-  }
 
   // Kiểm link = fetch ra ngoài + có thể gọi AI → giới hạn tần suất (dùng chung quỹ 'ai:').
   const rl = rateLimit(`ai:${clientIp(req)}`, 20, 60_000);

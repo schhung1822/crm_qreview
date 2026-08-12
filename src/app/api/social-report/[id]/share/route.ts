@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { entitlementsForBiz } from '@/lib/billing/entitlement';
 import { requestBaseUrl } from '@/lib/base-url';
 import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getSocialReport, updateSocialReport } from '@/lib/store/social-reports';
@@ -20,7 +19,8 @@ function shareUrl(req: Request, token: string): string {
 
 // POST /api/social-report/[id]/share → bật/tắt link chia sẻ công khai (trang chỉ-xem).
 // Nội dung trang công khai vẫn bị giới hạn theo GÓI của CHỦ báo cáo (gating áp ở trang /share).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id)) return NextResponse.json({ error: 'Id không hợp lệ.' }, { status: 400 });
@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   // enable: sinh token mới (thu hồi link cũ), lưu token vào record để chủ copy lại được.
-  const { ownerId } = await entitlementsForBiz(g.bizId);
+  const ownerId = g.user.id;
   await revokeShareLinksForReport(g.bizId, params.id); // dọn link rút gọn cũ (token cũ chết)
   const token = await createShare({ bizId: g.bizId, reportId: params.id, ownerId, createdBy: g.user.id });
   // Tự tạo LINK RÚT GỌN dạng blog (bao-cao-<ten>-<timestamp>) trỏ tới token này.

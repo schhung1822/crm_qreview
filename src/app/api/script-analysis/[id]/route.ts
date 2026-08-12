@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { runWithBiz } from '@/lib/biz/context';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { runScriptAnalysis } from '@/lib/script-analysis/runner';
@@ -16,7 +15,8 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // GET → chi tiết 1 bản phân tích (poll tiến độ + kết quả). DELETE → xóa khỏi lịch sử.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   const record = await getScriptAnalysis(params.id);
@@ -32,15 +32,10 @@ const RetrySchema = z.object({
 
 // POST → PHÂN TÍCH LẠI một bản đã lỗi (hoặc xong) bằng AI/model MỚI người dùng chọn.
 // Tái dùng transcript đã lấy (runner tự bỏ qua bước Apify nếu record đã có transcript).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'videoScriptAnalysis'))) {
-    return NextResponse.json(
-      { error: 'Biz của bạn không có quyền dùng chức năng Phân tích kịch bản video.' },
-      { status: 403 },
-    );
-  }
   const rl = rateLimit(`ai:${clientIp(req)}`, 20, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
@@ -70,7 +65,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ id: params.id });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   const ok = await deleteScriptAnalysis(params.id);

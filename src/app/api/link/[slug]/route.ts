@@ -20,7 +20,8 @@ export const runtime = 'nodejs';
 const OG_BOT_RE =
   /facebookexternalhit|facebookcatalog|Facebot|Twitterbot|Slackbot|LinkedInBot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Google-InspectionTool|SkypeUriPreview|vkShare|Embedly|Iframely|Zalo|zalo/i;
 
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const base = requestBaseUrl(req);
   const link = await getShareLink(params.slug);
   if (!link) return NextResponse.redirect(base, 302); // link không tồn tại/đã thu hồi → về trang chủ

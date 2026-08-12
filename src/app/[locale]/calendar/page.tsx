@@ -16,7 +16,7 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlusIcon } from '@/components/icons';
-import { ExtLink, LocaleTag } from '@/components/ui';
+import { ExtLink } from '@/components/ui';
 
 interface Article {
   id: string;
@@ -302,8 +302,8 @@ export default function CalendarPage() {
             </Box>
           ) : (
             <DataTable
-              columnContentTypes={['text', 'text', 'text', 'text']}
-              headings={[t('colDate'), t('colType'), t('colTitle'), t('colLang')]}
+              columnContentTypes={['text', 'text', 'text']}
+              headings={[t('colDate'), t('colType'), t('colTitle')]}
               rows={recent.map((a) => [
                 <Text as="span" tone="subdued" key={`${a.id}-d`}>
                   {new Date(a.updatedAt).toLocaleDateString(locale)}
@@ -320,7 +320,6 @@ export default function CalendarPage() {
                     {a.title}
                   </Text>
                 ),
-                <LocaleTag locale={a.locale} key={`${a.id}-lc`} />,
               ])}
             />
           )}

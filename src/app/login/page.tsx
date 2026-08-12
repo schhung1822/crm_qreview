@@ -1,10 +1,8 @@
 'use client';
 
-import { ActionList, Banner, Button, Form, FormLayout, Icon, Popover, TextField } from '@shopify/polaris';
-import { ChevronDownIcon } from '@shopify/polaris-icons';
+import { Banner, Button, Form, FormLayout, TextField } from '@shopify/polaris';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { PolarisProvider } from '@/components/PolarisProvider';
-import { localeNames, locales, type Locale } from '@/i18n/config';
 import { LOGIN_STRINGS } from './i18n';
 
 // Trang đăng nhập (ngoài [locale]) - hero giới thiệu sản phẩm + form, đa ngôn ngữ 10 thứ tiếng.
@@ -14,16 +12,6 @@ export default function LoginPage() {
       <LoginInner />
     </PolarisProvider>
   );
-}
-
-// Ngôn ngữ khởi tạo: localStorage đã lưu → ngôn ngữ trình duyệt → 'vi'.
-function detectLocale(): Locale {
-  if (typeof window === 'undefined') return 'vi';
-  const saved = window.localStorage.getItem('login_locale');
-  if (saved && (locales as readonly string[]).includes(saved)) return saved as Locale;
-  const nav = window.navigator.language?.slice(0, 2).toLowerCase();
-  if (nav && (locales as readonly string[]).includes(nav)) return nav as Locale;
-  return 'vi';
 }
 
 function safeNext(raw: string | null, fallback: string): string {
@@ -51,8 +39,6 @@ const DEFAULT_BRAND: LoginBrand = {
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 function LoginInner() {
-  const [locale, setLocale] = useState<Locale>('vi');
-  const [langOpen, setLangOpen] = useState(false);
   const [brand, setBrand] = useState<LoginBrand>(DEFAULT_BRAND);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
 
@@ -87,26 +73,21 @@ function LoginInner() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const t = LOGIN_STRINGS[locale];
-  // Chuỗi cho màn đặt lại mật khẩu - locale chưa dịch thì fallback sang tiếng Anh.
-  const en = LOGIN_STRINGS.en;
-  const tResetTitle = t.resetTitle ?? en.resetTitle!;
-  const tResetHint = t.resetHint ?? en.resetHint!;
-  const tBtnReset = t.btnReset ?? en.btnReset!;
-  const tResetDone = t.resetDone ?? en.resetDone!;
-  const tResetInvalid = t.resetInvalid ?? en.resetInvalid!;
-  // Chuỗi cho luồng kích hoạt tài khoản qua email - locale chưa dịch thì fallback sang tiếng Anh.
-  const tVerifySent = t.verifySent ?? en.verifySent!;
-  const tVerifySendFail = t.verifySendFail ?? en.verifySendFail!;
-  const tVerifyInvalid = t.verifyInvalid ?? en.verifyInvalid!;
-  const tErrUnverified = t.errUnverified ?? en.errUnverified!;
-  const tBtnResendVerify = t.btnResendVerify ?? en.btnResendVerify!;
+  const t = LOGIN_STRINGS.vi;
+  const tResetTitle = t.resetTitle!;
+  const tResetHint = t.resetHint!;
+  const tBtnReset = t.btnReset!;
+  const tResetDone = t.resetDone!;
+  const tResetInvalid = t.resetInvalid!;
+  const tVerifySent = t.verifySent!;
+  const tVerifySendFail = t.verifySendFail!;
+  const tVerifyInvalid = t.verifyInvalid!;
+  const tErrUnverified = t.errUnverified!;
+  const tBtnResendVerify = t.btnResendVerify!;
 
   useEffect(() => {
-    const loc = detectLocale();
-    setLocale(loc);
     const params = new URLSearchParams(window.location.search);
-    const next = safeNext(params.get('next'), '/' + loc + '/dashboard');
+    const next = safeNext(params.get('next'), '/dashboard');
     setNextUrl(next);
     // Link kích hoạt tài khoản: /login?verify=<token> → gọi API kích hoạt; thành công thì đã có
     // phiên (API tự tạo session) → vào thẳng dashboard. Thất bại → về màn đăng nhập kèm lỗi.
@@ -125,11 +106,11 @@ function LoginInner() {
             return;
           }
           setMode('login');
-          setError(LOGIN_STRINGS[loc].verifyInvalid ?? LOGIN_STRINGS.en.verifyInvalid!);
+          setError(LOGIN_STRINGS.vi.verifyInvalid!);
         })
         .catch(() => {
           setMode('login');
-          setError(LOGIN_STRINGS[loc].verifyInvalid ?? LOGIN_STRINGS.en.verifyInvalid!);
+          setError(LOGIN_STRINGS.vi.verifyInvalid!);
         });
       return;
     }
@@ -155,16 +136,6 @@ function LoginInner() {
       })
       .catch(() => setMode('login'));
   }, []);
-
-  function changeLocale(l: Locale) {
-    setLocale(l);
-    setLangOpen(false);
-    try {
-      window.localStorage.setItem('login_locale', l);
-    } catch {
-      /* ignore */
-    }
-  }
 
   function switchMode(next: 'login' | 'register' | 'forgot') {
     setMode(next);
@@ -236,7 +207,7 @@ function LoginInner() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (res.ok && data.user) window.location.href = nextUrl ?? '/' + locale + '/dashboard';
+      if (res.ok && data.user) window.location.href = nextUrl ?? '/dashboard';
       else if (res.ok && data.requiresVerification) {
         // Đăng ký xong, chờ kích hoạt qua email → về màn đăng nhập + hướng dẫn kiểm tra hộp thư.
         setMode('login');
@@ -264,36 +235,6 @@ function LoginInner() {
             ? t.createAdminTitle
             : t.createTitle
           : t.signInTitle;
-
-  const langSwitcher = (
-    <Popover
-      active={langOpen}
-      onClose={() => setLangOpen(false)}
-      preferredAlignment="right"
-      activator={
-        <button
-          type="button"
-          className="login-lang"
-          onClick={() => setLangOpen((v) => !v)}
-          aria-label={t.langLabel}
-        >
-          <span className="flag">{localeNames[locale].flag}</span>
-          <span className="login-lang__name">{localeNames[locale].native}</span>
-          <Icon source={ChevronDownIcon} tone="subdued" />
-        </button>
-      }
-    >
-      <ActionList
-        actionRole="menuitem"
-        items={locales.map((l) => ({
-          content: localeNames[l].native,
-          prefix: <span className="flag">{localeNames[l].flag}</span>,
-          active: l === locale,
-          onAction: () => changeLocale(l),
-        }))}
-      />
-    </Popover>
-  );
 
   return (
     <div className="login-shell" style={brand.accent ? ({ '--lg-accent': brand.accent } as CSSProperties) : undefined}>
@@ -326,8 +267,6 @@ function LoginInner() {
 
       {/* FORM */}
       <main className="login-main">
-        <div className="login-topbar">{langSwitcher}</div>
-
         <div className="login-card-wrap">
           {/* Thương hiệu thu gọn (hiện khi ẩn hero ở màn hẹp) */}
           <div className="login-brand-mobile">

@@ -9,7 +9,6 @@ import {
   InlineStack,
   Link,
   Page,
-  ProgressBar,
   Select,
   Text,
   TextField,
@@ -20,10 +19,15 @@ import { PlusIcon } from '@/components/icons';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { TUTORIAL_SEEN_KEY, WelcomeTutorial } from '@/components/WelcomeTutorial';
 import { TokenChart, type SeriesDay } from '@/components/TokenChart';
-import { LocaleTag, MetricRow, StatTile, StatusBadge } from '@/components/ui';
-import { localeNames } from '@/i18n/config';
+import { MetricRow, StatTile, StatusBadge } from '@/components/ui';
 import { getConnections, getProject } from '@/lib/data';
-import { currencyCode, formatLocal, formatUsd, rateFor, rateLine } from '@/lib/i18n/currency';
+import {
+  currencyCode,
+  formatLocal,
+  formatUsd,
+  rateFor,
+  rateLine,
+} from '@/lib/i18n/currency';
 
 interface RealArticle {
   id: string;
@@ -34,7 +38,6 @@ interface RealArticle {
   geoScore: number;
   status: 'draft' | 'published';
 }
-
 interface UsageRow {
   provider: string;
   model: string;
@@ -101,7 +104,6 @@ export default function DashboardPage() {
     avgGeo: number;
   } | null>(null);
   // Phủ nội dung theo ngôn ngữ - THẬT (từ /api/reports).
-  const [coverage, setCoverage] = useState<Array<{ locale: string; count: number; pct: number }>>([]);
   // Biểu đồ token: bộ lọc thời gian (mặc định 7 ngày gần nhất).
   const [chartRange, setChartRange] = useState('7');
   const [chartFrom, setChartFrom] = useState(() =>
@@ -134,16 +136,26 @@ export default function DashboardPage() {
   const loadCitations = useCallback(() => {
     fetch('/api/citations')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { config?: { lastRun?: { citations: number }; history?: Array<{ citations: number }> } } | null) => {
-        const last = d?.config?.lastRun?.citations;
-        if (last == null) {
-          setCite({ value: '-' });
-          return;
-        }
-        const h = d?.config?.history ?? [];
-        const diff = h.length >= 2 ? h[h.length - 1].citations - h[h.length - 2].citations : 0;
-        setCite({ value: String(last), delta: diff > 0 ? String(diff) : undefined });
-      })
+      .then(
+        (
+          d: {
+            config?: {
+              lastRun?: { citations: number };
+              history?: Array<{ citations: number }>;
+            };
+          } | null,
+        ) => {
+          const last = d?.config?.lastRun?.citations;
+          if (last == null) {
+            setCite({ value: '-' });
+            return;
+          }
+          const h = d?.config?.history ?? [];
+          const diff =
+            h.length >= 2 ? h[h.length - 1].citations - h[h.length - 2].citations : 0;
+          setCite({ value: String(last), delta: diff > 0 ? String(diff) : undefined });
+        },
+      )
       .catch(() => setCite({ value: '-' }));
   }, []);
   const loadStats = useCallback(() => {
@@ -152,12 +164,15 @@ export default function DashboardPage() {
       .then(
         (
           d: {
-            totals?: { published: number; avgSeo: number; avgAeo: number; avgGeo: number };
-            coverage?: Array<{ locale: string; count: number; pct: number }>;
+            totals?: {
+              published: number;
+              avgSeo: number;
+              avgAeo: number;
+              avgGeo: number;
+            };
           } | null,
         ) => {
           if (d?.totals) setStats(d.totals);
-          if (d?.coverage) setCoverage(d.coverage);
         },
       )
       .catch(() => setStats(null));
@@ -213,7 +228,6 @@ export default function DashboardPage() {
         {a.title}
       </Text>
     </Link>,
-    <LocaleTag locale={a.locale} key={`${a.id}-l`} />,
     a.seoScore,
     a.aeoScore ?? 0,
     a.geoScore,
@@ -266,7 +280,12 @@ export default function DashboardPage() {
                 {t('dashboard.aiUsageTitle')}
               </Text>
               {usage && usage.rows.length ? (
-                <Button size="slim" variant="tertiary" loading={resetting} onClick={resetUsage}>
+                <Button
+                  size="slim"
+                  variant="tertiary"
+                  loading={resetting}
+                  onClick={resetUsage}
+                >
                   {t('dashboard.resetUsage')}
                 </Button>
               ) : null}
@@ -299,7 +318,12 @@ export default function DashboardPage() {
                       {currencyCode(locale) !== 'USD' ? (
                         <Text as="span" variant="headingXl" tone="critical">
                           {' '}
-                          ≈ {formatLocal(usage?.totalCostUsd ?? 0, locale, rateFor(locale, usage?.fx?.rates))}
+                          ≈{' '}
+                          {formatLocal(
+                            usage?.totalCostUsd ?? 0,
+                            locale,
+                            rateFor(locale, usage?.fx?.rates),
+                          )}
                         </Text>
                       ) : null}
                     </Text>
@@ -444,10 +468,16 @@ export default function DashboardPage() {
               </Box>
               {rows.length ? (
                 <DataTable
-                  columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric', 'text', 'text']}
+                  columnContentTypes={[
+                    'text',
+                    'numeric',
+                    'numeric',
+                    'numeric',
+                    'text',
+                    'text',
+                  ]}
                   headings={[
                     t('keywords.colKeyword'),
-                    t('common.language'),
                     t('common.seo'),
                     t('common.aeo'),
                     t('common.geo'),
@@ -470,56 +500,8 @@ export default function DashboardPage() {
               )}
             </Card>
           </div>
-
-          <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingSm">
-                  {t('dashboard.coverage')}
-                </Text>
-                {coverage.length === 0 ? (
-                  <Text as="p" tone="subdued" variant="bodySm">
-                    {t('dashboard.noCoverage')}
-                  </Text>
-                ) : (
-                  [...coverage]
-                    .sort((a, b) => b.pct - a.pct)
-                    .map((c) => (
-                      <BlockStack gap="100" key={c.locale}>
-                        <InlineStack align="space-between" blockAlign="center">
-                          <Text as="span">
-                            <span className="flag">{flagOf(c.locale)}</span>{' '}
-                            {localeNames[c.locale as keyof typeof localeNames]?.native ?? c.locale}{' '}
-                            <Text as="span" tone="subdued" variant="bodySm">
-                              ({c.count})
-                            </Text>
-                          </Text>
-                          <Text as="span" fontWeight="semibold">
-                            {c.pct}%
-                          </Text>
-                        </InlineStack>
-                        <ProgressBar progress={c.pct} size="small" />
-                      </BlockStack>
-                    ))
-                )}
-                <div>
-                  <Button variant="tertiary" url={`/${locale}/translations`}>
-                    {t('dashboard.viewAll')}
-                  </Button>
-                </div>
-              </BlockStack>
-            </Card>
-          </div>
         </InlineStack>
       </BlockStack>
     </Page>
   );
-}
-
-function flagOf(locale: string): string {
-  const map: Record<string, string> = {
-    vi: '🇻🇳', en: '🇬🇧', zh: '🇨🇳', ja: '🇯🇵', ko: '🇰🇷',
-    fr: '🇫🇷', de: '🇩🇪', id: '🇮🇩', hi: '🇮🇳', th: '🇹🇭',
-  };
-  return map[locale] ?? '🏳️';
 }

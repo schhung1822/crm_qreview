@@ -32,6 +32,7 @@ interface Conn {
   label: string;
   provider: string;
   locale: string;
+  kind?: 'cms' | 'social';
 }
 interface DraftSummary {
   id: string;
@@ -90,7 +91,7 @@ export default function PublishPage() {
   useEffect(() => {
     fetch('/api/connections')
       .then((r) => r.json())
-      .then((d: { connections: Conn[] }) => setConns(d.connections))
+      .then((d: { connections: Conn[] }) => setConns((d.connections ?? []).filter((connection) => connection.kind !== 'social')))
       .catch(() => setConns([]));
     fetch('/api/articles/draft')
       .then((r) => r.json())

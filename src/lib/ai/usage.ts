@@ -1,22 +1,17 @@
 // Theo dõi lượng token AI đã dùng (in/out) theo provider + model. Lưu .data/ai-usage.json.
 // Dùng để hiện bộ đếm + bảng chi phí dự kiến ở trang Tổng quan. Server-only.
 import { SESSION_COOKIE, getSessionUserId } from '../auth/session';
-import { bizContext } from '../biz/context';
-import { activeBizId, bizFile } from '../data/biz-path';
+import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
-import { storageDriver } from '../data/repos';
-import { prisma } from '../prisma';
 import { rowCostUsd } from './pricing';
 
 // Ai đang gọi AI (để quy token theo nhân viên). Ưu tiên ngữ cảnh biz (đặt bằng runWithBiz - đáng
 // tin cậy, dùng ở worker/API token). Nếu không có (route tương tác dùng enterWith - ALS không
 // chắc chắn xuyên await) thì tra từ session cookie. Ngoài request (test/cron) → 'unknown'.
 async function currentActorId(): Promise<string> {
-  const fromCtx = bizContext.getStore()?.userId;
-  if (fromCtx) return fromCtx;
   try {
     const { cookies } = await import('next/headers');
-    const uid = await getSessionUserId(cookies().get(SESSION_COOKIE)?.value);
+    const uid = await getSessionUserId((await cookies()).get(SESSION_COOKIE)?.value);
     if (uid) return uid;
   } catch {
     /* không ở trong request context */
@@ -43,8 +38,6 @@ const NAME = 'ai-usage.json'; // CÔ LẬP THEO BIZ
 const SERIES_NAME = 'ai-usage-series.json';
 const BYUSER_NAME = 'ai-usage-by-user.json'; // token theo từng nhân viên (userId → tổng)
 const keyOf = (provider: string, model: string) => `${provider}::${model}`;
-const isDb = () => storageDriver() === 'prisma';
-const biz = () => { const id = activeBizId(); if (!id) throw new Error('Missing active biz context.'); return id; };
 const today = () => new Date().toISOString().slice(0, 10);
 
 // Cộng dồn token (và số ảnh) cho 1 lần gọi. Bỏ qua nếu không có gì để ghi.
@@ -147,10 +140,6 @@ export async function getMonthlyTokens(): Promise<number> {
 
 // Như getMonthlyTokens nhưng cho MỘT biz cụ thể (chạy trong ngữ cảnh biz đó - dùng .run đáng tin
 // cậy). Phục vụ tính quota GỘP theo tài khoản chủ trên nhiều biz.
-export async function getMonthlyTokensForBiz(bizId: string): Promise<number> {
-  return bizContext.run({ userId: '', bizId }, () => getMonthlyTokens());
-}
-
 export interface SeriesDay {
   date: string;
   inTokens: number;

@@ -126,10 +126,6 @@ export default function SocialReportViewPage() {
   const [coverBusy, setCoverBusy] = useState(false);
   const [coverPreview, setCoverPreview] = useState(false); // modal xem ảnh bìa cỡ lớn
   // Giới hạn theo gói (từ server): viewLocked = ẩn phân tích sâu; exportLocked = chặn xuất file.
-  const [gated, setGated] = useState<{ viewLocked: boolean; exportLocked: boolean }>({
-    viewLocked: false,
-    exportLocked: false,
-  });
 
   const labels: SocialReportLabels = useMemo(() => {
     const out: Record<string, string> = {};
@@ -142,12 +138,10 @@ export default function SocialReportViewPage() {
     if (!res.ok) return setNotFound(true);
     const body = (await res.json()) as {
       report: SocialReportRecord;
-      gated?: { viewLocked: boolean; exportLocked: boolean };
       branding?: SocialReportBrand;
       socialTheme?: SocialReportTheme;
     };
     setReport(body.report);
-    setGated(body.gated ?? { viewLocked: false, exportLocked: false });
     setBrand(body.branding);
     setTheme(body.socialTheme);
     // Link chia sẻ (nếu đã bật) — dựng URL tuyệt đối từ origin hiện tại + token lưu trong record.
@@ -447,13 +441,9 @@ export default function SocialReportViewPage() {
                 ? [{ content: t('style.button'), onAction: () => setStyleOpen(true) }]
                 : []),
               // Gói FREE không được xuất file → ẩn các nút xuất (đã chốt thêm ở server).
-              ...(!gated.exportLocked
-                ? [
-                    { content: t('exportPdf'), onAction: exportPdf },
-                    { content: t('exportDoc'), onAction: exportDoc },
-                    { content: t('exportDrive'), onAction: () => void exportDrive(), loading: driveBusy } as never,
-                  ]
-                : []),
+              { content: t('exportPdf'), onAction: exportPdf },
+              { content: t('exportDoc'), onAction: exportDoc },
+              { content: t('exportDrive'), onAction: () => void exportDrive(), loading: driveBusy } as never,
               { content: t('delete'), destructive: true, onAction: () => setDeleteOpen(true) },
             ]
           : [{ content: t('delete'), destructive: true, onAction: () => setDeleteOpen(true) }]
@@ -736,23 +726,6 @@ export default function SocialReportViewPage() {
               <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
             </Card>
             {/* Gói FREE: phần phân tích sâu bị khóa (server không gửi nội dung) → thẻ nâng cấp. */}
-            {gated.viewLocked ? (
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h2" variant="headingMd">
-                    {t('locked.title')}
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {t('locked.desc')}
-                  </Text>
-                  <InlineStack>
-                    <Button url={`/${locale}/billing`} variant="primary">
-                      {t('locked.cta')}
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-            ) : null}
           </>
         )}
       </BlockStack>

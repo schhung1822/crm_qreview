@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
 import { locales } from '@/i18n/config';
-import { entitlementsForBiz, socialReportQuota } from '@/lib/billing/entitlement';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { getApifyPool } from '@/lib/social/apify-keys';
-import { incrSocialReportsUsed } from '@/lib/store/social-report-usage';
 import { createSocialReport, listSocialReports } from '@/lib/store/social-reports';
 import {
   lazadaProductId,
@@ -196,25 +194,6 @@ export async function POST(req: Request) {
     );
 
   // ── Cưỡng chế GÓI CƯỚC (quota gộp theo chủ tài khoản, kiểm TRƯỚC khi động tới Apify) ──
-  const quota = await socialReportQuota(g.bizId);
-  if (parsed.data.platform !== 'facebook' && !quota.allChannels)
-    return NextResponse.json(
-      {
-        error:
-          'Gói hiện tại chỉ tạo được báo cáo cho fanpage Facebook. Nâng cấp gói để phân tích nhóm Facebook, Instagram, Threads, TikTok, YouTube, Shopee, TikTok Shop, Lazada, Taobao và báo cáo tổng thể.',
-        planLimited: true,
-      },
-      { status: 403 },
-    );
-  if (!quota.ok)
-    return NextResponse.json(
-      {
-        error: `Đã dùng hết ${quota.used}/${quota.cap} lượt tạo Báo cáo Social trong tháng của gói hiện tại. Nâng cấp gói để có thêm lượt.`,
-        planLimited: true,
-      },
-      { status: 403 },
-    );
-
   const pool = await getApifyPool();
   if (!pool.length)
     return NextResponse.json(
@@ -327,7 +306,5 @@ export async function POST(req: Request) {
     channels,
   });
   // Trừ lượt theo CHỦ tài khoản của biz (xóa báo cáo không hoàn lượt - phí thu thập đã tốn).
-  const { ownerId } = await entitlementsForBiz(g.bizId);
-  if (ownerId) await incrSocialReportsUsed(ownerId);
   return NextResponse.json({ id: report.id, report });
 }

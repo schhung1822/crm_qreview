@@ -19,14 +19,14 @@ import {
   TextField,
 } from '@shopify/polaris';
 import { DeleteIcon, HideIcon, RefreshIcon, ViewIcon } from '@shopify/polaris-icons';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
-import { AddConnectionModal, PROVIDER_CFG, type CmsProvider } from '@/components/AddConnectionModal';
+import { AddConnectionModal, PROVIDER_CFG, type ConnectionProvider } from '@/components/AddConnectionModal';
 import { ApifyKeysModal } from '@/components/ApifyKeysModal';
 import { ProviderLogo } from '@/components/provider-logos';
 import { PlusIcon } from '@/components/icons';
 import { ExtLink } from '@/components/ui';
-import { localeNames } from '@/i18n/config';
+import { CMS_PROVIDERS, SOCIAL_PROVIDERS, isSocialProvider } from '@/lib/connection-providers';
 
 type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'moonshot' | 'qwen' | 'minimax';
 
@@ -55,7 +55,7 @@ interface IntStatus {
 }
 interface Conn {
   id: string;
-  provider: CmsProvider;
+  provider: ConnectionProvider;
   label: string;
   baseUrl: string;
   locale: string;
@@ -64,16 +64,15 @@ interface Conn {
   status: 'active' | 'error';
 }
 
-// Phân loại: CMS · AI · Khác (tích hợp/khác).
-type Cat = 'cms' | 'ai' | 'other';
+// Phân loại: CMS · Mạng xã hội · AI · Khác (tích hợp/khác).
+type Cat = 'cms' | 'social' | 'ai' | 'other';
 const AI_PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'deepseek', 'moonshot', 'qwen', 'minimax'];
-const CMS_PROVIDERS: CmsProvider[] = ['wordpress', 'wix', 'shopify', 'haravan', 'sapo'];
-const CATS: Array<Cat | 'all'> = ['all', 'cms', 'ai', 'other'];
+const CATS: Array<Cat | 'all'> = ['all', 'cms', 'social', 'ai', 'other'];
 // Nhóm cho từng integration: Perplexity là engine AI (đo Lượt AI trích dẫn) → nhóm AI; còn lại → Khác.
 const intCat = (id: string): Cat => (id === 'perplexity' ? 'ai' : 'other');
 
 type AddTarget =
-  | { kind: 'cms'; provider?: CmsProvider }
+  | { kind: 'cms'; provider?: ConnectionProvider }
   | { kind: 'ai'; provider: ProviderId }
   | { kind: 'integration'; id: string }
   | { kind: 'dataforseo' }
@@ -87,7 +86,6 @@ type DetailTarget =
 
 export default function ConnectionsHubPage() {
   const t = useTranslations('settings');
-  const locale = useLocale();
 
   const [data, setData] = useState<StatusResponse | null>(null);
   const [integrations, setIntegrations] = useState<IntStatus[] | null>(null);
@@ -99,7 +97,7 @@ export default function ConnectionsHubPage() {
   const [add, setAdd] = useState<AddTarget | null>(null);
   const [chooser, setChooser] = useState(false);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
-  const [tab, setTab] = useState(0); // 0 Tất cả · 1 CMS · 2 AI · 3 Khác
+  const [tab, setTab] = useState(0); // 0 Tất cả · 1 CMS · 2 Mạng xã hội · 3 AI · 4 Khác
   // Pool nhiều key Apify (quản lý ở modal riêng, không phải integration key đơn).
   const [apify, setApify] = useState<{ keys: { id: string; masked: string; addedAt: string }[]; usingFallback: boolean } | null>(null);
   const [apifyOpen, setApifyOpen] = useState(false);
@@ -172,6 +170,8 @@ export default function ConnectionsHubPage() {
   const providers = data?.providers ?? [];
   const ints = integrations ?? [];
   const conns = connections ?? [];
+  const cmsConns = conns.filter((connection) => !isSocialProvider(connection.provider));
+  const socialConns = conns.filter((connection) => isSocialProvider(connection.provider));
   const loading = data === null || integrations === null || connections === null;
 
   // ── Đếm cho tiles ──
@@ -203,9 +203,9 @@ export default function ConnectionsHubPage() {
   }> = [];
   for (const c of conns) {
     items.push({
-      key: `cms-${c.id}`,
+      key: `connection-${c.id}`,
       target: { kind: 'cms', id: c.id },
-      cat: 'cms',
+      cat: isSocialProvider(c.provider) ? 'social' : 'cms',
       name: c.label,
       sub: `${PROVIDER_CFG[c.provider]?.name ?? c.provider} · ${c.baseUrl}`,
       logo: <ProviderLogo id={c.provider} size={34} />,
@@ -339,9 +339,10 @@ export default function ConnectionsHubPage() {
         <Banner tone="info">{t('securityNote')}</Banner>
 
         {/* ── Tiles tổng quan — bấm để LỌC (đúng như các tab danh mục) ── */}
-        <InlineGrid columns={{ xs: 2, sm: 4 }} gap="300">
+        <InlineGrid columns={{ xs: 2, sm: 5 }} gap="300">
           <Tile label={t('total')} count={total} strong active={cat === 'all'} onClick={() => selectCat('all')} />
-          <Tile label="CMS" count={conns.length} active={cat === 'cms'} onClick={() => selectCat('cms')} />
+          <Tile label="CMS" count={cmsConns.length} active={cat === 'cms'} onClick={() => selectCat('cms')} />
+          <Tile label="Mạng xã hội" count={socialConns.length} active={cat === 'social'} onClick={() => selectCat('social')} />
           <Tile label="AI" count={aiCount} active={cat === 'ai'} onClick={() => selectCat('ai')} />
           <Tile label={t('tabOther')} count={intCount} active={cat === 'other'} onClick={() => selectCat('other')} />
         </InlineGrid>
@@ -353,6 +354,7 @@ export default function ConnectionsHubPage() {
           tabs={[
             { id: 'all', content: t('tabAll') },
             { id: 'cms', content: 'CMS' },
+            { id: 'social', content: 'Mạng xã hội' },
             { id: 'ai', content: 'AI' },
             { id: 'other', content: t('tabOther') },
           ]}
@@ -372,6 +374,17 @@ export default function ConnectionsHubPage() {
                     logo={<ProviderLogo id={p} size={30} />}
                     name={PROVIDER_CFG[p].name}
                     type="CMS"
+                    cta={t('addNew')}
+                    onClick={() => setAdd({ kind: 'cms', provider: p })}
+                  />
+                ))}
+              {show('social') &&
+                SOCIAL_PROVIDERS.map((p) => (
+                  <AddCard
+                    key={p}
+                    logo={<ProviderLogo id={p} size={30} />}
+                    name={PROVIDER_CFG[p].name}
+                    type="Mạng xã hội"
                     cta={t('addNew')}
                     onClick={() => setAdd({ kind: 'cms', provider: p })}
                   />
@@ -575,6 +588,19 @@ export default function ConnectionsHubPage() {
                   }}
                 />
               ))}
+              {SOCIAL_PROVIDERS.map((p) => (
+                <AddCard
+                  key={p}
+                  logo={<ProviderLogo id={p} size={30} />}
+                  name={PROVIDER_CFG[p].name}
+                  type="Mạng xã hội"
+                  cta={t('addNew')}
+                  onClick={() => {
+                    setChooser(false);
+                    setAdd({ kind: 'cms', provider: p });
+                  }}
+                />
+              ))}
               {AI_PROVIDERS.map((id) => {
                 const p = providers.find((x) => x.id === id);
                 return (
@@ -635,7 +661,6 @@ export default function ConnectionsHubPage() {
       {/* ── Modal thêm ── */}
       {add?.kind === 'cms' ? (
         <AddConnectionModal
-          locale={locale}
           presetProvider={add.provider}
           onClose={() => setAdd(null)}
           onSaved={async () => {
@@ -782,6 +807,11 @@ function DriveModal({
       setBusy(null);
     }
   }
+  function connectDrive() {
+    // OAuth cần điều hướng toàn trang qua API callback, không dùng router phía client.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign('/api/drive/auth');
+  }
 
   if (!st) {
     return (
@@ -825,7 +855,7 @@ function DriveModal({
                     {t('driveDisconnect')}
                   </Button>
                 ) : (
-                  <Button variant="primary" onClick={() => (window.location.href = '/api/drive/auth')}>
+                  <Button variant="primary" onClick={connectDrive}>
                     {t('driveConnect')}
                   </Button>
                 )}
@@ -1449,7 +1479,6 @@ function DetailModal({
             <BlockStack gap="200">
               <Row label={t('fieldType')} value={PROVIDER_CFG[conn.provider]?.name ?? conn.provider} />
               <Row label="URL" value={conn.baseUrl} />
-              <Row label={t('fieldLocale')} value={`${localeNames[conn.locale as keyof typeof localeNames]?.flag ?? ''} ${conn.locale}`} />
               {conn.seoPlugin && conn.seoPlugin !== 'none' ? <Row label="SEO plugin" value={conn.seoPlugin} /> : null}
               <Row
                 label={t('fieldStatus')}

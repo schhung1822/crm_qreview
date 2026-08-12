@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { entitlementsForBiz } from '@/lib/billing/entitlement';
 import {
   DRIVE_FOLDER_NAME,
   ensureFolder,
@@ -9,7 +8,6 @@ import {
   uploadFile,
 } from '@/lib/drive/client';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
-import { socialGate } from '@/lib/social/gating';
 import { buildSocialReportHtml, socialReportFileName } from '@/lib/social/report-html';
 import { getBranding } from '@/lib/store/branding';
 import { getDriveCreds, getFolderId, getRefreshToken, setFolderId } from '@/lib/store/drive';
@@ -28,7 +26,8 @@ const BodySchema = z.object({
 
 // POST /api/social-report/[id]/export-drive → dựng HTML báo cáo, tải lên Drive dạng .doc
 // (Word/Google Docs mở được, giống cơ chế xuất bài viết hiện có).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id))
@@ -49,13 +48,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!report) return NextResponse.json({ error: 'Không tìm thấy báo cáo.' }, { status: 404 });
 
   // Gói FREE không được xuất file (chốt SERVER, không chỉ ẩn nút ở client).
-  const { planId } = await entitlementsForBiz(g.bizId);
-  if (socialGate(planId, report).exportLocked)
-    return NextResponse.json(
-      { error: 'Gói FREE không xuất được báo cáo. Nâng cấp gói để xuất PDF/DOC/Drive.', planLimited: true },
-      { status: 403 },
-    );
-
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return NextResponse.json({ needsConnect: true }, { status: 200 });
 

@@ -15,7 +15,6 @@ export interface ArticleRecord {
   tags?: string[];
   categories?: string[]; // ID chuyên mục trên site đích (giữ khi nhập bài cũ về sửa)
   coverImageUrl?: string;
-  translationGroupId?: string;
   // 'new' = bài viết mới; 'edited' = bài cũ nhập về & sửa/tối ưu bằng AI.
   source: 'new' | 'edited';
   seoScore: number;
@@ -49,7 +48,6 @@ const UPDATABLE: Array<keyof ArticleRecord> = [
   'tags',
   'categories',
   'coverImageUrl',
-  'translationGroupId',
   'source',
   'seoScore',
   'aeoScore',
@@ -100,7 +98,6 @@ export async function upsertArticle(
       tags: input.tags,
       categories: input.categories,
       coverImageUrl: input.coverImageUrl,
-      translationGroupId: input.translationGroupId,
       source: input.source ?? 'new',
       seoScore: input.seoScore ?? 0,
       aeoScore: input.aeoScore ?? 0,
@@ -143,7 +140,6 @@ export async function upsertArticle(
       tags: input.tags,
       categories: input.categories,
       coverImageUrl: input.coverImageUrl,
-      translationGroupId: input.translationGroupId,
       source: input.source ?? 'new',
       seoScore: input.seoScore ?? 0,
       aeoScore: input.aeoScore ?? 0,

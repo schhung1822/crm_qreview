@@ -4,11 +4,12 @@ import { guard } from '@/lib/auth/current';
 import { locales } from '@/i18n/config';
 import { assertPublicUrl } from '@/lib/security/ssrf';
 import { testConnectionInput } from '@/lib/store/connections';
+import { CONNECTION_PROVIDERS } from '@/lib/connection-providers';
 
 export const dynamic = 'force-dynamic';
 
 const BodySchema = z.object({
-  provider: z.enum(['wordpress', 'wix', 'shopify', 'haravan', 'sapo']),
+  provider: z.enum(CONNECTION_PROVIDERS),
   baseUrl: z.string().min(1),
   locale: z.enum(locales),
   seoPlugin: z.string().optional(),

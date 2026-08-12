@@ -193,7 +193,7 @@ export async function runAudit(input: {
 
   // sitemap.
   const sitemapCandidates = robots.sitemaps.length ? robots.sitemaps : [`${origin}/sitemap.xml`];
-  let sampleUrls: string[] = [];
+  const sampleUrls: string[] = [];
   let sitemapCount = 0;
   for (const sm of sitemapCandidates.slice(0, 3)) {
     const urls = await sitemapUrls(sm, 200);

@@ -1,8 +1,6 @@
 // Tạo ảnh bằng AI: OpenAI (gpt-image-1) hoặc Gemini (Imagen). Server-only.
 // Trả base64 PNG; tầng route sẽ lưu file vào public/generated và trả URL.
 import { getActiveKey } from '../secrets/store';
-import { entitlementsForBiz, ownerQuotaStatus, providerAllowedForPlan } from '../billing/entitlement';
-import { activeBizId } from '../data/biz-path';
 import type { ImageConfig, ImageSize as CfgImageSize } from '../store/image-config';
 import { recordUsage } from './usage';
 import { renderUser } from './prompt-store';
@@ -12,35 +10,8 @@ export type ImageSize = CfgImageSize;
 // CHỐT GÓI + HẠN MỨC cho tạo ẢNH. Trước đây chỉ lời gọi TEXT (qua callProvider) mới bị chốt, còn
 // ảnh đi thẳng REST → lách được quota. Đưa chốt vào đây để MỌI đường tạo ảnh đều qua kiểm tra.
 // Không có ngữ cảnh biz (worker/test) → bỏ qua (giống assertPlanAndBudget của providers.ts).
-async function assertImageQuota(provider: 'openai' | 'gemini'): Promise<void> {
-  const bizId = activeBizId();
-  if (!bizId) return;
-
-  // (1) Gating model ảnh theo gói (vd Free/economy không được dùng OpenAI vốn cần 'standard').
-  try {
-    const ent = await entitlementsForBiz(bizId);
-    if (!providerAllowedForPlan(ent.plan, provider)) {
-      throw new Error(
-        `Model tạo ảnh của "${provider}" cần gói cao hơn. Nâng cấp gói hoặc chọn nhà cung cấp tiết kiệm hơn.`,
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes('cần gói cao hơn')) throw e;
-    /* lỗi đọc entitlement khác → không chặn oan */
-  }
-
-  // (2) Hạn mức bài AI của gói (gộp theo tài khoản chủ) - ảnh cũng tiêu vào hạn mức chung.
-  try {
-    const q = await ownerQuotaStatus(bizId);
-    if (q.over) {
-      throw new Error(
-        `Đã dùng hết hạn mức ${q.articlesCap} bài AI của gói trong tháng này. Nâng cấp gói hoặc mua thêm để tiếp tục tạo ảnh.`,
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes('hạn mức')) throw e;
-    /* lỗi đọc quota khác → không chặn oan */
-  }
+async function assertImageQuota(_provider: 'openai' | 'gemini'): Promise<void> {
+  // Không còn quota theo gói cước trong dự án single-workspace.
 }
 
 // Ghi nhận 1 lần tạo ảnh: token (nếu API trả) + đếm 1 ảnh (để tính phí theo ảnh cho

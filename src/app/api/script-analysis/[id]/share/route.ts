@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature, entitlementsForBiz } from '@/lib/billing/entitlement';
 import { requestBaseUrl } from '@/lib/base-url';
 import { createShareLink, revokeShareLinksForReport } from '@/lib/store/share-links';
 import { getScriptAnalysis, updateScriptAnalysis } from '@/lib/store/script-analyses';
@@ -19,7 +18,8 @@ function shareUrl(req: Request, token: string): string {
 
 // POST /api/script-analysis/[id]/share → bật/tắt link chia sẻ công khai (trang chỉ-xem).
 // Trang công khai tự kiểm lại gói của CHỦ (mất quyền videoScriptAnalysis → khóa link).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
 
@@ -36,11 +36,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: true, enabled: false });
   }
 
-  // enable: yêu cầu gói còn quyền phân tích kịch bản (đồng bộ với quyền tạo).
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'videoScriptAnalysis'))) {
-    return NextResponse.json({ error: 'Gói của bạn không có quyền chia sẻ phân tích kịch bản.' }, { status: 403 });
-  }
-  const { ownerId } = await entitlementsForBiz(g.bizId);
+  const ownerId = g.user.id;
   await revokeShareLinksForReport(g.bizId, params.id); // dọn link rút gọn cũ (token cũ chết)
   const token = await createShare({ bizId: g.bizId, analysisId: params.id, ownerId, createdBy: g.user.id });
   // Tự tạo LINK RÚT GỌN dạng blog (kich-ban-<ten>-<timestamp>) trỏ tới token này.

@@ -42,7 +42,6 @@ import {
   XIcon,
 } from '@/components/icons';
 import { ArticleComments } from '@/components/ArticleComments';
-import { useFeatures } from '@/components/EntitlementProvider';
 import { HelpLabel } from '@/components/InfoHint';
 import { AiWorking, ExtLink, ScoreRing } from '@/components/ui';
 import { buildExport, EXPORT_MIME, exportFileName } from '@/lib/export/article-file';
@@ -62,7 +61,6 @@ interface Change {
 
 export default function EditorPage() {
   const t = useTranslations();
-  const features = useFeatures();
   const locale = useLocale();
   const params = useSearchParams();
   const router = useRouter();
@@ -371,10 +369,6 @@ export default function EditorPage() {
   async function humanize() {
     if (!markdown.trim()) return;
     // Tính năng theo gói: gói của biz không bật "nhân hóa" → báo không có quyền.
-    if (features && !features.humanize) {
-      setNotice({ tone: 'warning', text: t('billing.featureLockedBody') });
-      return;
-    }
     setBusy('humanize');
     setNotice(null);
     try {
@@ -1009,10 +1003,6 @@ export default function EditorPage() {
   // Tự điền alt (văn bản thay thế) cho ảnh còn thiếu — thuần logic, không AI, không tốn token.
   async function fillAlt() {
     // Tính năng theo gói: gói của biz không bật "điền alt ảnh" → báo không có quyền.
-    if (features && !features.imageAlt) {
-      setNotice({ tone: 'warning', text: t('billing.featureLockedBody') });
-      return;
-    }
     setBusy('alt');
     setNotice(null);
     try {

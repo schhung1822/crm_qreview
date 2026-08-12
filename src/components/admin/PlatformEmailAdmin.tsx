@@ -50,10 +50,6 @@ interface State {
 
 const EVENTS = [
   'welcome',
-  'paymentPending',
-  'paymentReceived',
-  'trialEnding',
-  'subscriptionCanceled',
   'verifyEmail',
   'registered',
   'forgotPassword',
@@ -62,10 +58,6 @@ const EVENTS = [
 ] as const;
 const EVENT_VARS: Record<string, string[]> = {
   welcome: ['name', 'email', 'appName', 'loginUrl'],
-  paymentPending: ['name', 'plan', 'amount', 'currency', 'bankCode', 'bankAccount', 'accountHolder', 'content', 'qrUrl', 'orderId', 'appName'],
-  paymentReceived: ['name', 'plan', 'amount', 'currency', 'orderId', 'appName', 'loginUrl'],
-  trialEnding: ['name', 'daysLeft', 'appName', 'loginUrl'],
-  subscriptionCanceled: ['name', 'plan', 'appName', 'loginUrl'],
   verifyEmail: ['name', 'email', 'verifyUrl', 'appName', 'loginUrl'],
   registered: ['name', 'email', 'appName', 'loginUrl'],
   forgotPassword: ['name', 'email', 'password', 'appName', 'loginUrl'],
@@ -79,8 +71,8 @@ export function PlatformEmailAdmin() {
   const [st, setSt] = useState<State | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [form, setForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', fromName: 'Noti SaaS', fromEmail: '' });
-  const [gform, setGform] = useState({ clientId: '', clientSecret: '', senderEmail: '', fromName: 'Noti SaaS' });
+  const [form, setForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', fromName: 'CRM QReview', fromEmail: '' });
+  const [gform, setGform] = useState({ clientId: '', clientSecret: '', senderEmail: '', fromName: 'CRM QReview' });
   const [tpl, setTpl] = useState<Record<string, Tpl>>({});
   const [smtpOpen, setSmtpOpen] = useState(false);
   const [gmailOpen, setGmailOpen] = useState(false);

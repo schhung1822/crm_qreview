@@ -5,10 +5,8 @@ import { adapterFromConnection, setConnectionStatus } from '@/lib/store/connecti
 export const dynamic = 'force-dynamic';
 
 // GET /api/connections/[id]/posts?search=&perPage= → list bài thật từ CMS để import.
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } },
-) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
 

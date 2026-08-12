@@ -11,7 +11,8 @@ export const runtime = 'nodejs';
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
 
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const token = params.token;
   if (!TOKEN_RE.test(token)) return new Response('Not found', { status: 404 });
 

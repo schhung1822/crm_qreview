@@ -4,12 +4,9 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { globalFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
-import { storageDriver } from '../data/repos';
-import { prisma } from '../prisma';
 
 export interface ApiTokenRecord {
   id: string; // tok_<hex>
-  bizId: string;
   name: string;
   prefix: string; // 11 ký tự đầu của token thô (sg_ + 8 hex) - để hiển thị nhận diện
   hash: string; // sha256(token thô)
@@ -33,8 +30,6 @@ export interface ApiTokenPublic {
 const NAME = 'api-tokens.json'; // TOÀN CỤC
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
-const isDb = () => storageDriver() === 'prisma';
-function tokenOut(r: { id: string; bizId: string; name: string; prefix: string; hash: string; createdBy: string; lastUsedAt?: Date | null; revoked: boolean; createdAt: Date }): ApiTokenRecord { return { id: r.id, bizId: r.bizId, name: r.name, prefix: r.prefix, hash: r.hash, createdAt: r.createdAt.toISOString(), createdBy: r.createdBy, lastUsedAt: r.lastUsedAt?.toISOString(), revoked: r.revoked }; }
 
 async function readAll(): Promise<ApiTokenRecord[]> {
   return readJson<ApiTokenRecord[]>(globalFile(NAME), []);
@@ -52,23 +47,21 @@ function toPublic(r: ApiTokenRecord): ApiTokenPublic {
   };
 }
 
-export async function listTokensForBiz(bizId: string): Promise<ApiTokenPublic[]> {
+export async function listTokensForBiz(_bizId?: string): Promise<ApiTokenPublic[]> {
   return (await readAll())
-    .filter((t) => t.bizId === bizId)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .map(toPublic);
 }
 
 // Tạo token mới. Trả về bản ghi công khai + TOKEN THÔ (chỉ hiện DUY NHẤT lần này).
 export async function createToken(
-  bizId: string,
+  _bizId: string,
   name: string,
   userId: string,
 ): Promise<{ token: ApiTokenPublic; plaintext: string }> {
   const plaintext = 'sg_' + randomBytes(24).toString('hex'); // sg_ + 48 hex
   const record: ApiTokenRecord = {
     id: 'tok_' + randomBytes(8).toString('hex'),
-    bizId,
     name: name.trim().slice(0, 80) || 'API token',
     prefix: plaintext.slice(0, 11),
     hash: sha256(plaintext),
@@ -83,9 +76,9 @@ export async function createToken(
 }
 
 // Thu hồi (đánh dấu revoked) - CHỈ khi token thuộc đúng biz (chống thu hồi chéo biz).
-export async function revokeToken(bizId: string, id: string): Promise<boolean> {
+export async function revokeToken(_bizId: string, id: string): Promise<boolean> {
   return mutateJson<ApiTokenRecord[], boolean>(globalFile(NAME), [], (rows) => {
-    const t = rows.find((r) => r.id === id && r.bizId === bizId);
+    const t = rows.find((r) => r.id === id);
     if (!t) return [rows, false];
     t.revoked = true;
     return [rows, true];

@@ -20,7 +20,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CornerToast } from '@/components/CornerToast';
-import { ExtLink, LocaleTag } from '@/components/ui';
+import { ExtLink } from '@/components/ui';
 
 interface Article {
   id: string;
@@ -33,7 +33,6 @@ interface Article {
   geoScore: number;
   targetKeyword?: string;
   publishedUrl?: string;
-  translationGroupId?: string;
   approved?: boolean;
   reviewNote?: string;
   assignedTo?: string;
@@ -101,7 +100,7 @@ export default function ArticlesPage() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch('/api/biz/members-lite');
+      const res = await fetch('/api/users-lite');
       if (res.ok) setMembers((await res.json()).members ?? []);
     })();
   }, []);
@@ -182,41 +181,11 @@ export default function ArticlesPage() {
 
   const allChecked = filtered.length > 0 && filtered.every((a) => selected.has(a.id));
 
-  // Độ phủ bản dịch: gom các bài theo translationGroupId → tập locale của mỗi nhóm.
-  const groupLocales = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const a of items ?? []) {
-      if (!a.translationGroupId) continue;
-      const set = map.get(a.translationGroupId) ?? new Set<string>();
-      set.add(a.locale);
-      map.set(a.translationGroupId, set);
-    }
-    return map;
-  }, [items]);
-
   const rows = filtered.map((a) => [
     <Checkbox key={`${a.id}-c`} label="" labelHidden checked={selected.has(a.id)} onChange={() => toggle(a.id)} />,
     <Button key={`${a.id}-e`} variant="plain" url={`/${locale}/editor?draft=${a.id}&from=articles`}>
       {a.title || '(không tiêu đề)'}
     </Button>,
-    <LocaleTag locale={a.locale} key={`${a.id}-l`} />,
-    (() => {
-      // Các locale KHÁC đã có bản dịch trong cùng nhóm (không tính locale của chính bài).
-      const siblings = a.translationGroupId
-        ? [...(groupLocales.get(a.translationGroupId) ?? [])].filter((l) => l !== a.locale).sort()
-        : [];
-      return siblings.length ? (
-        <InlineStack key={`${a.id}-tr`} gap="100" wrap>
-          {siblings.map((l) => (
-            <LocaleTag locale={l} key={`${a.id}-tr-${l}`} />
-          ))}
-        </InlineStack>
-      ) : (
-        <Text as="span" tone="subdued" key={`${a.id}-tr`}>
-          -
-        </Text>
-      );
-    })(),
     <BlockStack key={`${a.id}-s`} gap="100" inlineAlign="start">
       <Badge
         tone={
@@ -263,14 +232,6 @@ export default function ArticlesPage() {
       >
         <ExtLink href={a.publishedUrl ?? '#'}>{tc('open')}</ExtLink>
       </span>
-      <Button
-        key={`${a.id}-t`}
-        size="slim"
-        variant="plain"
-        url={`/${locale}/translations?source=${a.id}`}
-      >
-        {t('translate')}
-      </Button>
       {/* Quy trình duyệt: nháp → "Gửi duyệt" (khi không tự đăng được hoặc biz bắt buộc duyệt);
           chờ duyệt → "Duyệt"/"Trả lại" cho người có quyền đăng, còn lại chỉ báo đang chờ. */}
       {a.status === 'draft' && canWrite && (!canPublish || (perms?.requireApproval ?? false)) ? (
@@ -408,14 +369,10 @@ export default function ArticlesPage() {
                   'text',
                   'text',
                   'text',
-                  'text',
-                  'text',
                 ]}
                 headings={[
                   '',
                   t('colTitle'),
-                  t('colLang'),
-                  t('colTranslations'),
                   t('colStatus'),
                   'SEO / AEO / GEO',
                   t('colUpdated'),

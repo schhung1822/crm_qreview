@@ -24,7 +24,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MagicIcon } from '@/components/icons';
 import { HelpLabel } from '@/components/InfoHint';
 import { AiWorking } from '@/components/ui';
-import { localeNames, locales } from '@/i18n/config';
 
 interface Kw {
   term: string;
@@ -53,7 +52,7 @@ export default function KeywordsPage() {
   const router = useRouter();
 
   const [seed, setSeed] = useState('');
-  const [market, setMarket] = useState(locale);
+  const market = 'vi';
   const [busy, setBusy] = useState(false);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -66,7 +65,7 @@ export default function KeywordsPage() {
   const [rows, setRows] = useState<Kw[]>([]);
   const [estimated, setEstimated] = useState(true);
   const [openSeed, setOpenSeed] = useState('');
-  const [openLocale, setOpenLocale] = useState(locale);
+  const openLocale = 'vi';
   const [tab, setTab] = useState(0);
   const [busyPlan, setBusyPlan] = useState(false);
 
@@ -193,7 +192,6 @@ export default function KeywordsPage() {
       setRows(set.keywords as Kw[]);
       setEstimated(Boolean(set.estimated));
       setOpenSeed(set.seed);
-      setOpenLocale(set.locale);
       setTab(0);
     } finally {
       setOpeningId(null);
@@ -224,7 +222,6 @@ export default function KeywordsPage() {
           setRows(d.keywords);
           setEstimated(Boolean(d.estimated));
           setOpenSeed(d.seed);
-          setOpenLocale(d.locale);
           setTab(0);
         }
       }
@@ -299,10 +296,6 @@ export default function KeywordsPage() {
     [rows, tab],
   );
 
-  const marketOptions = locales.map((l) => ({
-    label: `${localeNames[l].native} · ${l}`,
-    value: l,
-  }));
 
   const projectRows = projects.map((p) => [
     <Checkbox key={`${p.id}-c`} label="" labelHidden checked={selected.has(p.id)} onChange={() => toggle(p.id)} />,
@@ -353,9 +346,8 @@ export default function KeywordsPage() {
         {/* Nghiên cứu mới - AI sinh danh sách từ khóa */}
         <Card>
           <BlockStack gap="300">
-            <InlineGrid columns={{ xs: 1, md: '2fr 1fr auto' }} gap="300" alignItems="end">
+            <InlineGrid columns={{ xs: 1, md: '2fr auto' }} gap="300" alignItems="end">
               <TextField label={<HelpLabel label={t('seed')} help={t('seedHelp')} />} value={seed} onChange={setSeed} autoComplete="off" />
-              <Select label={<HelpLabel label={t('market')} help={t('marketHelp')} />} options={marketOptions} value={market} onChange={setMarket} />
               <Button variant="primary" icon={MagicIcon} loading={busy} disabled={!seed.trim()} onClick={research}>
                 {t('research')}
               </Button>

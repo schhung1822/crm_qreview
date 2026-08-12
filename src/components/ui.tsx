@@ -1,7 +1,6 @@
 // Mảnh UI dùng lại nhiều trang. Dùng Polaris + bộ icon SVG.
 import { Badge, Card, InlineStack, Text } from '@shopify/polaris';
 import type { CSSProperties, ReactNode } from 'react';
-import { localeNames } from '@/i18n/config';
 
 // Link RA NGOÀI app - LUÔN mở tab mới (target=_blank + rel an toàn). Dùng cho mọi link
 // trỏ ra website ngoài / bài đã đăng. (Polaris Link external mở tab mới không ổn định
@@ -71,15 +70,6 @@ export function AiWorking({
         </div>
       ) : null}
     </div>
-  );
-}
-
-export function LocaleTag({ locale }: { locale: string }) {
-  const n = localeNames[locale as keyof typeof localeNames];
-  return (
-    <span style={{ whiteSpace: 'nowrap' }}>
-      <span className="flag">{n?.flag ?? '🏳️'}</span> {locale}
-    </span>
   );
 }
 

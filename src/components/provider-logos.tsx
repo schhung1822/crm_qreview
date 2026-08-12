@@ -28,6 +28,22 @@ const GEMINI_RAW = `<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox=
 
 const CMS = new Set(['wordpress', 'wix', 'shopify', 'haravan', 'sapo']);
 
+const SOCIAL_LOGOS: Record<string, { label: string; color: string; scale: number }> = {
+  facebook: { label: 'Facebook', color: '#1877F2', scale: 0.68 },
+  instagram: {
+    label: 'Instagram',
+    color: 'linear-gradient(135deg, #FFD600 5%, #FF0069 50%, #7638FA 100%)',
+    scale: 0.72,
+  },
+  tiktok: {
+    label: 'TikTok',
+    color: 'linear-gradient(135deg, #25F4EE 8%, #111111 45%, #111111 58%, #FE2C55 94%)',
+    scale: 0.7,
+  },
+  threads: { label: 'Threads', color: '#101010', scale: 0.72 },
+  youtube: { label: 'YouTube', color: '#FF0033', scale: 0.76 },
+};
+
 export function ProviderLogo({ id, label = '', size = 34 }: { id: string; label?: string; size?: number }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, ''); // hook LUÔN gọi (rules-of-hooks), dùng cho Gemini
   if (CMS.has(id)) return <BrandLogo provider={id as BrandProvider} size={size} />;
@@ -44,6 +60,34 @@ export function ProviderLogo({ id, label = '', size = 34 }: { id: string; label?
   const light: CSSProperties = { ...box, background: '#fff', border: '1px solid var(--p-color-border)' };
   const chip = (bg: string): CSSProperties => ({ ...box, background: bg });
   const s = size;
+
+  const socialLogo = SOCIAL_LOGOS[id];
+
+  if (socialLogo) {
+    const iconSize = Math.round(s * socialLogo.scale);
+    return (
+      <div style={light}>
+        <span
+          role="img"
+          aria-label={socialLogo.label}
+          style={{
+            display: 'block',
+            width: iconSize,
+            height: iconSize,
+            background: socialLogo.color,
+            WebkitMaskImage: `url(/icon/${id}.svg)`,
+            maskImage: `url(/icon/${id}.svg)`,
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+          }}
+        />
+      </div>
+    );
+  }
 
   if (id === 'openai') {
     return (

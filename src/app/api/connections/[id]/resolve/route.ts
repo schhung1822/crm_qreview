@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/connections/[id]/resolve?url=... → tìm id bài trên CMS theo URL (để audit mở
 // đúng bài cần sửa). Trả { postId } hoặc { postId: null }.
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
 

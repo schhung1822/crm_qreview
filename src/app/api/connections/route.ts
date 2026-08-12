@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { locales } from '@/i18n/config';
 import { assertPublicUrl } from '@/lib/security/ssrf';
 import { runWithBiz } from '@/lib/biz/context';
+import { CONNECTION_PROVIDERS } from '@/lib/connection-providers';
 import {
   createConnection,
   deleteConnection,
@@ -20,11 +20,9 @@ export async function GET() {
 }
 
 const CreateSchema = z.object({
-  provider: z.enum(['wordpress', 'wix', 'shopify', 'haravan', 'sapo']),
+  provider: z.enum(CONNECTION_PROVIDERS),
   label: z.string().min(1).max(120),
   baseUrl: z.string().min(1).max(2000),
-  locale: z.enum(locales),
-  pathStrategy: z.enum(['subdir', 'subdomain']).optional(),
   seoPlugin: z.string().max(40).optional(),
   // Giới hạn số lượng + độ dài credential để tránh nhồi dữ liệu lớn vào kho mã hóa.
   credentials: z.record(z.string().max(120), z.string().max(8000)),
@@ -47,7 +45,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const created = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => createConnection(parsed.data));
+  const created = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () =>
+    createConnection({ ...parsed.data, locale: 'vi', pathStrategy: 'subdir' }),
+  );
   return NextResponse.json({ connection: created });
 }
 

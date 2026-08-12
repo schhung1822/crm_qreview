@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/connections/[id]/taxonomy → categories + tags có sẵn trên site (WordPress).
 // CMS không hỗ trợ (Wix/Shopify) → trả mảng rỗng + supported:false.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
 

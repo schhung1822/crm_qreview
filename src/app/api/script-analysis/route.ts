@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { runWithBiz } from '@/lib/biz/context';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { detectVideoPlatform, normalizeVideoUrl } from '@/lib/social/detect';
@@ -29,9 +28,6 @@ export async function GET() {
 export async function POST(req: Request) {
   const g = await guard('content:write');
   if ('response' in g) return g.response;
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'videoScriptAnalysis'))) {
-    return NextResponse.json({ error: 'Biz của bạn không có quyền dùng chức năng Phân tích kịch bản video.' }, { status: 403 });
-  }
   // Gọi AI + Apify → chặn tần suất.
   const rl = rateLimit(`ai:${clientIp(req)}`, 20, 60_000);
   if (!rl.ok) {

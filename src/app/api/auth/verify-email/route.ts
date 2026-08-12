@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { setBizCookie, setSessionCookie } from '@/lib/auth/cookie';
+import { setSessionCookie } from '@/lib/auth/cookie';
 import { consumeVerifyToken } from '@/lib/auth/email-verification';
 import { createSession } from '@/lib/auth/session';
 import { findById, markEmailVerified } from '@/lib/auth/users';
@@ -8,7 +8,6 @@ import { appLoginUrl } from '@/lib/email/mailer';
 import { sendEventEmail } from '@/lib/store/platform-email';
 import { clientIp } from '@/lib/security/rate-limit';
 import { sharedRateLimit } from '@/lib/security/rate-limit-shared';
-import { ensureMigrated, resolveActiveBiz } from '@/lib/store/biz';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -59,8 +58,5 @@ export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true, user });
   setSessionCookie(res, token, maxAge);
   // Như login: đặt biz đang hoạt động nếu có; user mới chưa có biz → onboarding lo tiếp.
-  await ensureMigrated();
-  const { bizId } = await resolveActiveBiz(user.id);
-  if (bizId) setBizCookie(res, bizId);
   return res;
 }

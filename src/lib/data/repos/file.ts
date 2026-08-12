@@ -22,7 +22,7 @@ import type {
 export function dataDir(): string {
   return process.env.DATA_DIR || path.join(process.cwd(), '.data');
 }
-const file = (name: string) => path.join(dataDir(), name);
+const file = (name: string) => path.join(/* turbopackIgnore: true */ dataDir(), name);
 
 const usersFile = () => file('users.json');
 const sessionsFile = () => file('sessions.json');
@@ -114,7 +114,7 @@ const connectionsRepo: ConnectionsRepo = {
 
 const UPDATABLE_ARTICLE: Array<keyof ArticleRecord> = [
   'title', 'slug', 'metaDescription', 'markdown', 'locale', 'targetKeyword', 'tags',
-  'coverImageUrl', 'translationGroupId', 'source', 'seoScore', 'aeoScore', 'geoScore', 'status',
+  'coverImageUrl', 'source', 'seoScore', 'aeoScore', 'geoScore', 'status',
   'connectionId', 'cmsPostId', 'publishedUrl',
 ];
 

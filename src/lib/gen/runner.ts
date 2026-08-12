@@ -3,8 +3,6 @@
 //  • /api/jobs/run khi viaCron (chạy nền cho mọi biz)
 // Server-only.
 import type { Locale } from '@/i18n/config';
-import { runWithBiz } from '../biz/context';
-import { ensureMigrated, listAllBizes } from '../store/biz';
 import { claimNextGenJob, updateGenJob, type GenJob } from '../store/gen-jobs';
 import { generateDraftFromItem } from './generate-draft';
 
@@ -49,17 +47,11 @@ export async function runNextGenJob(): Promise<RunNextResult> {
 
 // Cron/worker nền: chạy tối đa `limit` job cho MỖI biz (không có ngữ cảnh biz → phải bọc runWithBiz).
 export async function runDueGenJobsAllBiz(limit = 3): Promise<{ processed: number }> {
-  await ensureMigrated();
   let processed = 0;
-  for (const biz of await listAllBizes()) {
-    if (biz.suspended) continue;
-    await runWithBiz({ bizId: biz.id, userId: biz.ownerId }, async () => {
-      for (let i = 0; i < limit; i++) {
-        const r = await runNextGenJob();
-        if (!r.processed) break;
-        processed++;
-      }
-    });
+  for (let i = 0; i < limit; i++) {
+    const r = await runNextGenJob();
+    if (!r.processed) break;
+    processed++;
   }
   return { processed };
 }

@@ -1,7 +1,6 @@
 // Xác thực API công khai bằng Bearer token (thay cho session cookie). Dùng cho /api/v1/*.
 // Tra token → ra biz; các handler sau đó chạy trong runWithBiz(bizId) để store trỏ đúng biz.
 import { NextResponse } from 'next/server';
-import { bizHasFeature } from '../billing/entitlement';
 import { resolveToken, touchToken, type ApiTokenRecord } from '../store/api-tokens';
 
 export type BearerAuth = { token: ApiTokenRecord } | { response: NextResponse };
@@ -28,15 +27,6 @@ export async function bearerAuth(req: Request): Promise<BearerAuth> {
   if (!token) {
     return {
       response: NextResponse.json({ error: 'Token không hợp lệ hoặc đã thu hồi.' }, { status: 401 }),
-    };
-  }
-  // Gói của biz phải còn cho phép API (biz hạ gói → token cũ ngừng tác dụng).
-  if (!(await bizHasFeature(token.bizId, 'api'))) {
-    return {
-      response: NextResponse.json(
-        { error: 'Gói của biz không còn hỗ trợ API. Nâng cấp gói để tiếp tục dùng.' },
-        { status: 403 },
-      ),
     };
   }
   void touchToken(token.id); // best-effort, không chờ

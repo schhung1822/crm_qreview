@@ -12,7 +12,8 @@ export const runtime = 'nodejs';
 const ID_RE = /^vsa_[a-f0-9]+$/;
 const Body = z.object({ password: z.string().max(200) });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id)) return NextResponse.json({ error: 'Id không hợp lệ.' }, { status: 400 });

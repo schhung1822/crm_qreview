@@ -4,7 +4,6 @@ import { clientIp } from '../security/rate-limit';
 // Cookie định danh phục vụ analytics (KHÁC cookie phiên đăng nhập sg_session):
 export const TRACK_ANON_COOKIE = 'sg_aid'; // định danh ẩn danh, sống lâu (1 năm)
 export const TRACK_SESSION_COOKIE = 'sg_tsid'; // phiên analytics, trượt ~30 phút
-export const BIZ_COOKIE_NAME = 'sg_biz';
 export const TRACK_SESSION_TTL_MS = 30 * 60 * 1000;
 
 export interface TrackingContext {
@@ -46,7 +45,6 @@ export function trackingContext(req: Request): TrackingContext {
     referrer: h.get('referer') ?? undefined,
     sessionId: jar[TRACK_SESSION_COOKIE] || undefined,
     anonymousId: jar[TRACK_ANON_COOKIE] || undefined,
-    bizId: jar[BIZ_COOKIE_NAME] || undefined,
   };
 }
 
@@ -66,7 +64,6 @@ export function eventContext(
   const c = trackingContext(req);
   return {
     userId: ids?.userId,
-    bizId: ids?.bizId || c.bizId,
     sessionId: c.sessionId,
     anonymousId: c.anonymousId,
     ip: c.ip,

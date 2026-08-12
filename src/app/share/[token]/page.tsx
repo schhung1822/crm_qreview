@@ -4,10 +4,8 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { entitlementsForBiz } from '@/lib/billing/entitlement';
 import { runWithBiz } from '@/lib/biz/context';
 import { locales } from '@/i18n/config';
-import { redactFanpageAnalysis, socialGate } from '@/lib/social/gating';
 import {
   buildSocialReportBody,
   type SocialReportLabels,
@@ -213,10 +211,7 @@ async function loadReport(
   // Chỉ hiển thị khi đã có nội dung; không lộ trạng thái running/error ra công khai.
   if (report.status !== 'done' && report.status !== 'collected') return null;
   // GATING theo gói của CHỦ: FREE + fanpage → cắt phần phân tích sâu TRƯỚC khi render.
-  const { planId } = await entitlementsForBiz(s.bizId);
-  const gate = socialGate(planId, report);
-  const out = gate.viewLocked ? redactFanpageAnalysis(report) : report;
-  return { report: out, viewLocked: gate.viewLocked, locked: s.locked };
+  return { report, viewLocked: false, locked: s.locked };
 }
 
 // Mô tả cho preview link: ưu tiên câu tóm tắt AI của báo cáo; nếu chưa có thì mô tả chung.
@@ -247,11 +242,12 @@ function reportImage(r: SocialReportRecord, fallback: string): string {
 
 // Metadata động → khi dán link chia sẻ vào Facebook/Zalo/Slack sẽ hiện Tiêu đề + Mô tả + Ảnh.
 // GIỮ noindex (token bí mật, không cho search engine index) — trình đọc OG của MXH vẫn đọc được thẻ.
-export async function generateMetadata({
-  params,
-}: {
-  params: { token: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ token: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const noindex = { index: false, follow: false } as const;
   const data = await loadReport(params.token);
   if (!data) return { title: 'Báo cáo', robots: noindex };
@@ -378,13 +374,14 @@ function shareCss(btn: string, badge: string): string {
 `;
 }
 
-export default async function SharePage({
-  params,
-  searchParams,
-}: {
-  params: { token: string };
-  searchParams?: { e?: string };
-}) {
+export default async function SharePage(
+  props: {
+    params: Promise<{ token: string }>;
+    searchParams?: Promise<{ e?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const token = params.token;
   const data = await loadReport(token);
   if (!data) notFound();
@@ -392,7 +389,7 @@ export default async function SharePage({
   const b = await getBranding();
 
   // ── KHÓA bằng mật khẩu: chưa mở khóa (cookie hợp lệ) → hiện form nhập, KHÔNG dựng nội dung ──
-  if (locked && !checkShareAccess(token, cookies().get(shareAccessCookieName(token))?.value)) {
+  if (locked && !checkShareAccess(token, (await cookies()).get(shareAccessCookieName(token))?.value)) {
     const err = searchParams?.e === '1';
     const rate = searchParams?.e === 'rate';
     const g = GATE[pickLocale(report.locale)];

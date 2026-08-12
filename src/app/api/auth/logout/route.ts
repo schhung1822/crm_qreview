@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // POST /api/auth/logout
 export async function POST() {
-  await destroySession(cookies().get(SESSION_COOKIE)?.value);
+  await destroySession((await cookies()).get(SESSION_COOKIE)?.value);
   const res = NextResponse.json({ ok: true });
   clearSessionCookie(res);
   return res;

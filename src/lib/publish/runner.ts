@@ -9,8 +9,6 @@ import {
   type PublishJob,
 } from '../store/publish-jobs';
 import { getArticle, upsertArticle } from '../store/articles';
-import { ensureMigrated, listAllBizes } from '../store/biz';
-import { runWithBiz } from '../biz/context';
 
 export interface RunDueResult {
   ran: number;
@@ -88,16 +86,5 @@ export async function runDueJobs(opts?: { limit?: number; nowIso?: string }): Pr
 // bỏ sót job của mọi biz. Vì vậy phải LẶP qua từng biz và bọc runWithBiz(bizId) để store trỏ đúng
 // .data/biz/<bizId>/. `limit` áp cho TỪNG biz (mỗi biz tối đa `limit` job/lần quét).
 export async function runDueJobsAllBiz(opts?: { limit?: number; nowIso?: string }): Promise<RunDueResult> {
-  await ensureMigrated();
-  const agg: RunDueResult = { ran: 0, done: 0, failed: 0, jobs: [] };
-  const bizes = await listAllBizes();
-  for (const biz of bizes) {
-    if (biz.suspended) continue; // biz bị quản trị nền tảng tạm khóa → không tự đăng
-    const r = await runWithBiz({ bizId: biz.id, userId: biz.ownerId }, () => runDueJobs(opts));
-    agg.ran += r.ran;
-    agg.done += r.done;
-    agg.failed += r.failed;
-    agg.jobs.push(...r.jobs);
-  }
-  return agg;
+  return runDueJobs(opts);
 }

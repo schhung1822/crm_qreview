@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { bearerAuth } from '@/lib/auth/bearer';
-import { runWithBiz } from '@/lib/biz/context';
 import { locales } from '@/i18n/config';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
 import { listArticles, upsertArticle } from '@/lib/store/articles';
@@ -24,9 +23,7 @@ export async function GET(req: Request) {
   if ('response' in a) return a.response;
   const rl = rateLimit(`apiv1:${a.token.id}:${clientIp(req)}`, 60, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
-  const list = await runWithBiz({ userId: a.token.createdBy, bizId: a.token.bizId }, () =>
-    listArticles(),
-  );
+  const list = await listArticles();
   return NextResponse.json({
     articles: list.map((x) => ({
       id: x.id,
@@ -58,9 +55,7 @@ export async function POST(req: Request) {
   if (!rl.ok) return tooMany(rl.retryAfter);
   const parsed = CreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });
-  const article = await runWithBiz({ userId: a.token.createdBy, bizId: a.token.bizId }, () =>
-    upsertArticle({ ...parsed.data, source: 'new', status: 'draft' }),
-  );
+  const article = await upsertArticle({ ...parsed.data, source: 'new', status: 'draft' });
   return NextResponse.json(
     { article: { id: article.id, title: article.title, status: article.status } },
     { status: 201 },

@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { ShareGate } from '@/components/ShareGate';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { runWithBiz } from '@/lib/biz/context';
 import { locales } from '@/i18n/config';
 import { GATE, pickGateLocale } from '@/lib/share/gate-strings';
@@ -24,11 +23,12 @@ const TOKEN_RE = /^[a-f0-9]{64}$/;
 
 // Metadata động → dán link chia sẻ vào Facebook/Zalo/Slack hiện Tiêu đề + Mô tả + Ảnh bìa.
 // GIỮ noindex (token bí mật). Khóa → không lộ tóm tắt ra thẻ mô tả.
-export async function generateMetadata({
-  params,
-}: {
-  params: { token: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ token: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const noindex = { index: false, follow: false } as const;
   if (!TOKEN_RE.test(params.token)) return { robots: noindex };
   const s = await resolveShare(params.token);
@@ -87,8 +87,7 @@ async function load(
   const rec = await runWithBiz({ userId: s.ownerId, bizId: s.bizId }, () => getScriptAnalysis(s.analysisId));
   if (!rec || rec.status !== 'done' || !rec.analysis) return null;
   // Tuân thủ gói CHỦ: mất quyền → ẩn nội dung (không lộ kết quả của gói trả phí).
-  const available = await bizHasFeature(s.bizId, 'videoScriptAnalysis');
-  return { rec, available, locked: s.locked };
+  return { rec, available: true, locked: s.locked };
 }
 
 const CSS = `
@@ -142,19 +141,20 @@ function Sec({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export default async function VideoSharePage({
-  params,
-  searchParams,
-}: {
-  params: { token: string };
-  searchParams?: { e?: string };
-}) {
+export default async function VideoSharePage(
+  props: {
+    params: Promise<{ token: string }>;
+    searchParams?: Promise<{ e?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const data = await load(params.token);
   if (!data) notFound();
   const { rec, available, locked } = data;
 
   // KHÓA bằng mật khẩu: chưa mở khóa (cookie hợp lệ) → hiện màn nhập, KHÔNG dựng nội dung.
-  if (locked && !checkShareAccess(params.token, cookies().get(shareAccessCookieName(params.token))?.value)) {
+  if (locked && !checkShareAccess(params.token, (await cookies()).get(shareAccessCookieName(params.token))?.value)) {
     return (
       <ShareGate
         locale={rec.locale}

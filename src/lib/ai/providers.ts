@@ -8,8 +8,6 @@ import {
   type AiProviderId,
   type AiTask,
 } from '../secrets/store';
-import { entitlementsForBiz, ownerQuotaStatus, providerAllowedForPlan } from '../billing/entitlement';
-import { activeBizId } from '../data/biz-path';
 import { getCostConfig } from '../store/cost-config';
 import { extractJson } from './json';
 import { getMonthlyTokens, recordUsage } from './usage';
@@ -31,35 +29,8 @@ export class PlanError extends Error {
 
 // Chốt chặn TRƯỚC khi gọi provider: (1) model gating theo gói, (2) hạn mức bài AI của gói (gộp theo
 // tài khoản chủ), (3) trần token tự-đặt của biz. Không có ngữ cảnh biz (worker/test) → bỏ qua.
-async function assertPlanAndBudget(provider: AiProviderId): Promise<void> {
-  const bizId = activeBizId();
-  if (!bizId) return;
-
-  // (1) Model gating theo gói.
-  try {
-    const ent = await entitlementsForBiz(bizId);
-    if (!providerAllowedForPlan(ent.plan, provider)) {
-      throw new PlanError(
-        `Model của nhà cung cấp "${provider}" cần gói cao hơn. Nâng cấp gói hoặc chọn nhà cung cấp tiết kiệm hơn.`,
-      );
-    }
-  } catch (e) {
-    if (e instanceof PlanError) throw e; // lỗi đọc entitlement khác → bỏ qua, không chặn oan
-  }
-
-  // (2) Hạn mức bài AI của gói (gộp theo owner).
-  try {
-    const q = await ownerQuotaStatus(bizId);
-    if (q.over) {
-      throw new BudgetError(
-        `Đã dùng hết hạn mức ${q.articlesCap} bài AI của gói trong tháng này. Nâng cấp gói hoặc mua thêm để tiếp tục.`,
-      );
-    }
-  } catch (e) {
-    if (e instanceof BudgetError) throw e;
-  }
-
-  // (3) Trần token TỰ ĐẶT của biz (cost-config) - giới hạn phụ do người dùng đặt.
+async function assertPlanAndBudget(_provider: AiProviderId): Promise<void> {
+  // Chỉ giữ trần token do quản trị viên tự đặt; dự án không còn gói cước.
   let budget = 0;
   try {
     budget = (await getCostConfig()).monthlyTokenBudget;
@@ -70,7 +41,7 @@ async function assertPlanAndBudget(provider: AiProviderId): Promise<void> {
   const used = await getMonthlyTokens();
   if (used >= budget) {
     throw new BudgetError(
-      `Đã dùng ${used.toLocaleString('vi-VN')}/${budget.toLocaleString('vi-VN')} token trong tháng - vượt hạn mức tự đặt của biz.`,
+      `Đã dùng ${used.toLocaleString('vi-VN')}/${budget.toLocaleString('vi-VN')} token trong tháng - vượt hạn mức tự đặt.`,
     );
   }
 }

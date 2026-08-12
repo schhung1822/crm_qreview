@@ -3,7 +3,6 @@
 import { Badge, BlockStack, Box, Button, Card, InlineStack, Page, Spinner, Text } from '@shopify/polaris';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
-import { FeatureGate } from '@/components/EntitlementProvider';
 
 interface Article {
   id: string;
@@ -60,7 +59,6 @@ export default function TasksPage() {
 
   return (
     <Page title={t('title')} subtitle={t('subtitle')}>
-      <FeatureGate feature="myTasks">
       {items === null ? (
         <Box padding="400">
           <Spinner size="small" />
@@ -102,7 +100,6 @@ export default function TasksPage() {
           </Card>
         </BlockStack>
       )}
-      </FeatureGate>
     </Page>
   );
 }

@@ -81,7 +81,6 @@ export function recordUserEvent(input: UserEventInput): void {
       userId: input.userId ?? null,
       anonymousId: input.anonymousId ?? null,
       sessionId: input.sessionId ?? null,
-      bizId: input.bizId ?? null,
       eventName: input.eventName.slice(0, 128),
       eventType: input.eventType ?? 'interaction',
       area: input.area ?? null,
@@ -105,7 +104,7 @@ export function recordUserEvent(input: UserEventInput): void {
     } catch (e) {
       if (isFkError(e)) {
         try {
-          await prisma.userEvent.create({ data: { ...data, userId: null, bizId: null } });
+          await prisma.userEvent.create({ data: { ...data, userId: null } });
           await rollupDaily(input);
           return;
         } catch {
@@ -125,14 +124,13 @@ async function rollupDaily(input: UserEventInput): Promise<void> {
     const area = (input.area ?? '').slice(0, 96);
     const eventName = input.eventName.slice(0, 128);
     const path = input.path?.slice(0, 512) ?? null;
-    const bizId = (input.bizId ?? '').slice(0, 64);
     const userId = (input.userId ?? '').slice(0, 64);
     const pathHash = createHash('md5').update(path ?? '').digest();
     const dur = Math.max(0, Math.round(input.durationMs ?? 0));
     await prisma.$executeRaw`
       INSERT INTO DailyUsageMetric
-        (date, bizId, userId, area, eventName, pathHash, path, count, uniqueUsers, uniqueSessions, totalDurationMs, updatedAt)
-      VALUES (${day}, ${bizId}, ${userId}, ${area}, ${eventName}, ${pathHash}, ${path}, 1, 0, 0, ${dur}, NOW(3))
+        (date, userId, area, eventName, pathHash, path, count, uniqueUsers, uniqueSessions, totalDurationMs, updatedAt)
+      VALUES (${day}, ${userId}, ${area}, ${eventName}, ${pathHash}, ${path}, 1, 0, 0, ${dur}, NOW(3))
       ON DUPLICATE KEY UPDATE count = count + 1, totalDurationMs = totalDurationMs + ${dur}, updatedAt = NOW(3)`;
   } catch (e) {
     console.warn('[tracking] rollupDaily failed:', (e as Error).message);
@@ -169,7 +167,7 @@ export function touchSession(input: SessionTouchInput): void {
     const now = new Date();
     const a = input.attribution ?? {};
     const d = input.device ?? {};
-    const run = (userId: string | null, bizId: string | null) =>
+    const run = (userId: string | null) =>
       prisma.userSessionActivity.upsert({
         where: { sessionId: input.sessionId },
         create: {
@@ -177,7 +175,6 @@ export function touchSession(input: SessionTouchInput): void {
           sessionId: input.sessionId,
           userId,
           anonymousId: input.anonymousId ?? null,
-          bizId,
           startedAt: now,
           lastSeenAt: now,
           entryPath: input.path ?? null,
@@ -201,17 +198,16 @@ export function touchSession(input: SessionTouchInput): void {
         update: {
           lastSeenAt: now,
           ...(userId ? { userId } : {}),
-          ...(bizId ? { bizId } : {}),
           ...(input.incPageViews ? { pageViews: { increment: input.incPageViews } } : {}),
           ...(input.incEvents ? { events: { increment: input.incEvents } } : {}),
         },
       });
     try {
-      await run(input.userId ?? null, input.bizId ?? null);
+      await run(input.userId ?? null);
     } catch (e) {
       if (isFkError(e)) {
         try {
-          await run(null, null);
+          await run(null);
           return;
         } catch {
           /* bỏ qua */

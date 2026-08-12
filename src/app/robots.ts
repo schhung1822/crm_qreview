@@ -5,8 +5,8 @@ import { siteOrigin } from '@/lib/site-url';
 // LƯU Ý: KHÔNG chặn /share/ trong robots.txt — nếu chặn, bot đọc OG của MXH (facebookexternalhit,
 // Zalo, Twitter…) cũng bị chặn → link chia sẻ báo cáo mất tiêu đề/mô tả/ảnh bìa. Trang /share/ đã
 // gắn thẻ meta noindex (trong generateMetadata) nên search engine vẫn KHÔNG index token bí mật.
-export default function robots(): MetadataRoute.Robots {
-  const base = siteOrigin();
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = await siteOrigin();
   return {
     rules: [{ userAgent: '*', allow: '/', disallow: ['/api/', '/onboarding'] }],
     sitemap: `${base}/sitemap.xml`,

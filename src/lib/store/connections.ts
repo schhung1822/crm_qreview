@@ -6,11 +6,13 @@ import { bizFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 import { getRepos, storageDriver } from '../data/repos';
 import { getCmsAdapter, type CmsAdapter, type CmsProvider } from '../cms';
+import { isCmsProvider, isSocialProvider, type ConnectionProvider } from '../connection-providers';
+import { testSocialConnection } from '../social-publishing';
 
-export type { CmsProvider };
+export type { CmsProvider, ConnectionProvider };
 
 export interface ConnectionInput {
-  provider: CmsProvider;
+  provider: ConnectionProvider;
   label: string;
   baseUrl: string; // WP site URL / Wix site URL / Shopify store domain
   locale: string;
@@ -21,7 +23,7 @@ export interface ConnectionInput {
 
 export interface ConnectionRecord {
   id: string;
-  provider: CmsProvider;
+  provider: ConnectionProvider;
   label: string;
   baseUrl: string;
   locale: string;
@@ -33,7 +35,7 @@ export interface ConnectionRecord {
 }
 
 // Bản an toàn để trả về client (không có credential).
-export type ConnectionPublic = Omit<ConnectionRecord, 'encrypted'>;
+export type ConnectionPublic = Omit<ConnectionRecord, 'encrypted'> & { kind: 'cms' | 'social' };
 
 const NAME = 'connections.json';
 
@@ -45,7 +47,7 @@ async function readAll(): Promise<ConnectionRecord[]> {
 function toPublic(r: ConnectionRecord): ConnectionPublic {
   const { encrypted: _omit, ...rest } = r;
   void _omit;
-  return rest;
+  return { ...rest, kind: isSocialProvider(r.provider) ? 'social' : 'cms' };
 }
 
 function genId(): string {
@@ -137,6 +139,7 @@ export async function adapterFromConnection(id: string): Promise<{
 } | null> {
   const loaded = await getConnectionCreds(id);
   if (!loaded) return null;
+  if (!isCmsProvider(loaded.record.provider)) return null;
   const adapter = getCmsAdapter(loaded.record.provider, {
     baseUrl: loaded.record.baseUrl,
     locale: loaded.record.locale,
@@ -152,6 +155,10 @@ export async function testConnectionInput(
   input: Pick<ConnectionInput, 'provider' | 'baseUrl' | 'locale' | 'seoPlugin' | 'credentials'>,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    if (isSocialProvider(input.provider)) {
+      return await testSocialConnection(input.provider, input.credentials);
+    }
+    if (!isCmsProvider(input.provider)) return { ok: false, error: 'Nền tảng không được hỗ trợ' };
     const adapter = getCmsAdapter(input.provider, {
       baseUrl: input.baseUrl,
       locale: input.locale,

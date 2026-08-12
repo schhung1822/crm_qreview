@@ -20,7 +20,8 @@ const BodySchema = z
 
 // POST /api/social-report/[id]/style → rút hồ sơ style thương hiệu từ nội dung đã thu
 // (chạy theo yêu cầu; lưu vào báo cáo để lần sau mở lại không tốn thêm token).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard('content:write');
   if ('response' in g) return g.response;
   if (!ID_RE.test(params.id))

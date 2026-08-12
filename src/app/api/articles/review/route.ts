@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { canWith } from '@/lib/auth/permissions';
 import { guard } from '@/lib/auth/current';
 import { getArticle, listArticles, updateArticleFields } from '@/lib/store/articles';
-import { getBiz, memberPermissions } from '@/lib/store/biz';
-import { addNotif, addNotifMany } from '@/lib/store/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,18 +48,6 @@ export async function POST(req: Request) {
       submittedBy: g.user.id,
     });
     // Báo cho những người có quyền đăng (người duyệt) - trừ chính người gửi.
-    if (g.bizId) {
-      const biz = await getBiz(g.bizId);
-      const approvers = (biz?.members ?? [])
-        .filter((m) => m.userId !== g.user.id && canWith(memberPermissions(m), 'content:publish'))
-        .map((m) => m.userId);
-      await addNotifMany(approvers, {
-        type: 'reviewRequested',
-        articleId: id,
-        articleTitle: article.title,
-        actorName: g.user.name,
-      });
-    }
     return NextResponse.json({ article: updated });
   }
 
@@ -77,14 +62,5 @@ export async function POST(req: Request) {
     reviewedBy: g.user.id,
   });
   // Báo cho người đã gửi duyệt (nếu khác người duyệt).
-  if (article.submittedBy && article.submittedBy !== g.user.id) {
-    await addNotif(article.submittedBy, {
-      type: action === 'approve' ? 'approved' : 'rejected',
-      articleId: id,
-      articleTitle: article.title,
-      actorName: g.user.name,
-      note: action === 'reject' ? note?.trim() || undefined : undefined,
-    });
-  }
   return NextResponse.json({ article: updated });
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth/current';
-import { bizHasFeature } from '@/lib/billing/entitlement';
 import { getScan, setSuggestionStatuses, updateSuggestion } from '@/lib/store/backlink';
 import { processSuggestion } from '@/lib/backlink/apply';
 
@@ -21,10 +20,6 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const g = await guard('content:publish');
   if ('response' in g) return g.response;
-  if (g.bizId && !(await bizHasFeature(g.bizId, 'backlinks'))) {
-    return NextResponse.json({ error: 'Biz của bạn không có quyền dùng chức năng Backlink.' }, { status: 403 });
-  }
-
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Tham số không hợp lệ' }, { status: 400 });

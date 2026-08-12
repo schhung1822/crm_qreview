@@ -315,7 +315,7 @@ export async function optimizeArticle(input: {
   const estIn = Math.ceil(((input.markdown?.length ?? 0) + (input.title?.length ?? 0)) / 3);
   const auto = Math.min(32000, Math.max(12000, Math.round(estIn * 1.8)));
   const maxTokens = resolveMaxTokens(input.maxTokens, auto);
-  let error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
+  const error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await complete(
@@ -446,7 +446,7 @@ export async function editContent(input: {
     : Math.min(32000, Math.max(12000, Math.round(estIn * 1.8)));
   const maxTokens = resolveMaxTokens(input.maxTokens, auto);
 
-  let error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
+  const error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await complete(
@@ -514,7 +514,7 @@ export async function editArticleFull(input: {
   const auto = Math.min(32000, Math.max(12000, Math.round(estIn * 1.8)));
   const maxTokens = resolveMaxTokens(input.maxTokens, auto);
 
-  let error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
+  const error = 'AI trả về không đúng định dạng. Thử lại hoặc đổi model.';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await complete(

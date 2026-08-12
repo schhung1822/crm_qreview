@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { guard } from '@/lib/auth/current';
-import { locales } from '@/i18n/config';
 import { listArticles } from '@/lib/store/articles';
 import { listKeywordSets } from '@/lib/store/keywordsets';
 import { listPlans } from '@/lib/store/plans';
@@ -33,12 +32,6 @@ export async function GET(req: Request) {
   const avgGeo = avg(withContent.map((a) => a.geoScore));
 
   // Theo locale.
-  const byLocaleMap = new Map<string, number>();
-  for (const a of articles) byLocaleMap.set(a.locale, (byLocaleMap.get(a.locale) ?? 0) + 1);
-  const byLocale = [...byLocaleMap.entries()]
-    .map(([locale, count]) => ({ locale, count }))
-    .sort((a, b) => b.count - a.count);
-
   // Chuỗi thời gian: số bài cập nhật theo ngày (lấp đầy ngày trống).
   const span = days ?? 30;
   const series: Array<{ date: string; count: number; published: number }> = [];
@@ -64,7 +57,6 @@ export async function GET(req: Request) {
     .map((a) => ({
       id: a.id,
       title: a.title,
-      locale: a.locale,
       seoScore: a.seoScore,
       aeoScore: a.aeoScore ?? 0,
       geoScore: a.geoScore,
@@ -76,17 +68,8 @@ export async function GET(req: Request) {
 
   // Phủ nội dung theo ngôn ngữ: đếm bài THẬT theo từng locale (toàn bộ, không lọc range),
   // pct so với ngôn ngữ có nhiều bài nhất (ngôn ngữ dẫn đầu = 100%).
-  const localeCount = new Map<string, number>();
-  for (const a of allArticles) localeCount.set(a.locale, (localeCount.get(a.locale) ?? 0) + 1);
-  const maxLocaleCount = Math.max(1, ...locales.map((l) => localeCount.get(l) ?? 0));
-  const coverage = locales.map((l) => {
-    const count = localeCount.get(l) ?? 0;
-    return { locale: l, count, pct: Math.round((count / maxLocaleCount) * 100) };
-  });
-
   return NextResponse.json({
     range,
-    coverage,
     totals: {
       articles: articles.length,
       published: published.length,
@@ -97,7 +80,6 @@ export async function GET(req: Request) {
       keywordSets: keywordSets.length,
       plans: plans.length,
     },
-    byLocale,
     series,
     top,
   });

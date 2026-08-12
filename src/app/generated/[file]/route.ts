@@ -19,7 +19,8 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
-export async function GET(_req: Request, { params }: { params: { file: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ file: string }> }) {
+  const params = await props.params;
   const raw = params.file;
   const name = path.basename(raw); // chặn path traversal (../, đường dẫn tuyệt đối)
   // Chỉ nhận tên file 1 đoạn, ký tự an toàn, có phần mở rộng ảnh hợp lệ.

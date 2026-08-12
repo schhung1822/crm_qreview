@@ -30,7 +30,6 @@ import { HelpLabel, InfoHint } from '@/components/InfoHint';
 import { ShareLinksPanel } from '@/components/ShareLinksPanel';
 import { SocialAnalyzeModal } from '@/components/SocialAnalyzeModal';
 import { AiWorking } from '@/components/ui';
-import { localeNames, locales } from '@/i18n/config';
 import { platformIconSvg, UPCOMING_LOGO_SVG } from '@/lib/social/report-html';
 import type {
   SocialChannelKind,
@@ -155,7 +154,7 @@ export default function SocialReportPage() {
   const [tbShopName, setTbShopName] = useState(''); // TÊN shop Taobao (hoặc URL có user_number_id)
   const [reportName, setReportName] = useState(''); // tên báo cáo tự đặt (kênh e-commerce - tuỳ chọn)
   const [reviewsLimit, setReviewsLimit] = useState('30'); // số đánh giá thu (Shopee/TikTok Shop)
-  const [outLocale, setOutLocale] = useState(locale);
+  const outLocale = 'vi';
   const [postsLimit, setPostsLimit] = useState('10');
   const [includeReels, setIncludeReels] = useState(true);
   const [includeAds, setIncludeAds] = useState(true);
@@ -362,7 +361,7 @@ export default function SocialReportPage() {
     } finally {
       setCreating(false);
     }
-  }, [platform, overallMode, keyword, fbUrl, ttUrl, ytUrl, grUrl, fbpUrl, igUrl, thrUrl, spUrl, shopUrl, ttspUrl, ttshopName, lzUrl, lzShopUrl, tbUrl, taobaoMode, tbKeyword, tbShopName, ttsRegion, reportName, reviewsLimit, groupSort, outLocale, postsLimit, includeReels, includeAds, includeComments, load, runLoop, t]);
+  }, [platform, overallMode, keyword, fbUrl, ttUrl, ytUrl, grUrl, fbpUrl, igUrl, thrUrl, spUrl, shopUrl, ttspUrl, ttshopName, lzUrl, lzShopUrl, tbUrl, taobaoMode, tbKeyword, tbShopName, ttsRegion, reportName, reviewsLimit, groupSort, postsLimit, includeReels, includeAds, includeComments, load, runLoop, t]);
 
   const remove = useCallback(async () => {
     if (!deleteId) return;
@@ -391,10 +390,6 @@ export default function SocialReportPage() {
   };
 
   const limitOptions = ['5', '10', '15', '20', '30'].map((v) => ({ label: v, value: v }));
-  const langOptions = locales.map((l) => ({
-    label: (localeNames as Record<string, { native: string }>)[l]?.native ?? l,
-    value: l,
-  }));
 
   // Tab lọc GỘP theo nền tảng: 'shopee' gồm cả báo cáo sản phẩm + shop Shopee;
   // 'tiktokshop' gồm cả sản phẩm + shop TikTok Shop (khỏi 2 tab trùng tên).
@@ -641,8 +636,7 @@ export default function SocialReportPage() {
                             </InlineStack>
                           </InlineStack>
                           <Text as="p" tone="subdued" variant="bodySm">
-                            {new Date(r.createdAt).toLocaleString(locale)} ·{' '}
-                            {(localeNames as Record<string, { native: string }>)[r.locale]?.native ?? r.locale}
+                            {new Date(r.createdAt).toLocaleString(locale)}
                           </Text>
                           {r.status === 'running' ? (
                             analyzing ? (
@@ -1080,12 +1074,6 @@ export default function SocialReportPage() {
               )}
 
               <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
-                <Select
-                  label={<HelpLabel label={t('language')} help={t('languageHelp')} />}
-                  options={langOptions}
-                  value={outLocale}
-                  onChange={setOutLocale}
-                />
                 {platform === 'shopee' || platform === 'tiktokshop' || platform === 'lazada' || platform === 'taobao' ? (
                   <Select
                     label={<HelpLabel label={t('reviewsLimit')} help={t('reviewsLimitHelp')} />}
