@@ -7,6 +7,7 @@ import { assertPublicUrl } from '@/lib/security/ssrf';
 import { processSocialImageUrls } from '@/lib/social-publishing/image-processing';
 import { publishSocial } from '@/lib/social-publishing';
 import { getConnectionCreds, setConnectionStatus } from '@/lib/store/connections';
+import { addSocialPosts } from '@/lib/store/social-posts';
 import { recordUserEvent } from '@/lib/tracking/events';
 import { eventContext } from '@/lib/tracking/request';
 
@@ -67,9 +68,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error instanceof Error ? error.message : 'URL không hợp lệ' }, { status: 400 });
     }
   }
+  const originalMediaUrls = parsed.data.mediaType === 'image'
+    ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
+    : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
+      ? [parsed.data.mediaUrl.trim()]
+      : [];
   const publishInput = { ...parsed.data };
   if (parsed.data.mediaType === 'image') {
-    const rawImageUrls = uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl]);
+    const rawImageUrls = originalMediaUrls;
     if (rawImageUrls.length === 0) {
       return NextResponse.json({ error: 'Vui lòng nhập ít nhất một URL ảnh' }, { status: 400 });
     }
@@ -144,6 +150,31 @@ export async function POST(req: Request) {
 
   const successCount = results.filter((item) => item.ok).length;
   const failedCount = results.length - successCount;
+  const finalMediaUrls = parsed.data.mediaType === 'image'
+    ? publishInput.mediaUrls ?? []
+    : parsed.data.mediaType === 'video' && publishInput.mediaUrl
+      ? [publishInput.mediaUrl]
+      : [];
+  await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () =>
+    addSocialPosts(results.map((item) => ({
+      connectionId: item.connectionId,
+      provider: item.provider as SocialProvider,
+      connectionLabel: item.label,
+      title: parsed.data.title,
+      text: parsed.data.text,
+      mediaType: parsed.data.mediaType,
+      mediaUrls: finalMediaUrls,
+      originalMediaUrls,
+      linkUrl: parsed.data.linkUrl,
+      providerPostId: item.ok ? item.result?.id : undefined,
+      publishedUrl: item.ok ? item.result?.url : undefined,
+      status: item.ok ? item.result?.status ?? 'published' : 'failed',
+      error: item.ok ? undefined : item.error,
+      createdBy: g.user.id,
+    }))),
+  ).catch((error) => {
+    console.error('[social-posts] save history failed:', error instanceof Error ? error.message : error);
+  });
   if (successCount === 0) {
     return NextResponse.json({ error: results[0]?.error || 'Không thể đăng nội dung', results }, { status: 502 });
   }

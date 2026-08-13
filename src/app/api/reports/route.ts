@@ -3,6 +3,7 @@ import { guard } from '@/lib/auth/current';
 import { listArticles } from '@/lib/store/articles';
 import { listKeywordSets } from '@/lib/store/keywordsets';
 import { listPlans } from '@/lib/store/plans';
+import { listSocialPosts } from '@/lib/store/social-posts';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,39 @@ export async function GET(req: Request) {
 
   const keywordSets = await listKeywordSets();
   const plans = await listPlans();
+  const allSocialPosts = await listSocialPosts();
+  const socialPosts = allSocialPosts.filter((post) => new Date(post.createdAt).getTime() >= cutoff);
+  const socialUniquePosts = new Set(socialPosts.map((post) => `${post.title || ''}|${post.text}|${post.createdAt}`)).size;
+  const socialSuccess = socialPosts.filter((post) => post.status === 'published').length;
+  const socialProcessing = socialPosts.filter((post) => post.status === 'processing').length;
+  const socialFailed = socialPosts.filter((post) => post.status === 'failed').length;
+  const byProvider = Object.entries(
+    socialPosts.reduce<Record<string, { total: number; published: number; processing: number; failed: number }>>((acc, post) => {
+      acc[post.provider] ??= { total: 0, published: 0, processing: 0, failed: 0 };
+      acc[post.provider].total += 1;
+      acc[post.provider][post.status] += 1;
+      return acc;
+    }, {}),
+  )
+    .map(([provider, stats]) => ({ provider, ...stats }))
+    .sort((a, b) => b.total - a.total);
+  const byMediaType = Object.entries(
+    socialPosts.reduce<Record<string, number>>((acc, post) => {
+      acc[post.mediaType] = (acc[post.mediaType] ?? 0) + 1;
+      return acc;
+    }, {}),
+  )
+    .map(([mediaType, total]) => ({ mediaType, total }))
+    .sort((a, b) => b.total - a.total);
+  const socialSeries = series.map((item) => {
+    const dayPosts = socialPosts.filter((post) => post.createdAt.slice(0, 10) === item.date);
+    return {
+      date: item.date,
+      total: dayPosts.length,
+      published: dayPosts.filter((post) => post.status === 'published').length,
+      failed: dayPosts.filter((post) => post.status === 'failed').length,
+    };
+  });
 
   // Phủ nội dung theo ngôn ngữ: đếm bài THẬT theo từng locale (toàn bộ, không lọc range),
   // pct so với ngôn ngữ có nhiều bài nhất (ngôn ngữ dẫn đầu = 100%).
@@ -82,5 +116,33 @@ export async function GET(req: Request) {
     },
     series,
     top,
+    social: {
+      totals: {
+        attempts: socialPosts.length,
+        uniquePosts: socialUniquePosts,
+        published: socialSuccess,
+        processing: socialProcessing,
+        failed: socialFailed,
+        successRate: pct(socialSuccess, socialPosts.length),
+      },
+      series: socialSeries,
+      byProvider,
+      byMediaType,
+      recent: socialPosts.slice(0, 8).map((post) => ({
+        id: post.id,
+        provider: post.provider,
+        connectionLabel: post.connectionLabel,
+        title: post.title,
+        text: post.text,
+        mediaType: post.mediaType,
+        status: post.status,
+        publishedUrl: post.publishedUrl,
+        createdAt: post.createdAt,
+      })),
+    },
   });
+}
+
+function pct(n: number, total: number): number {
+  return total > 0 ? Math.round((n / total) * 100) : 0;
 }

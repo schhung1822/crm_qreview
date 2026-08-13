@@ -103,6 +103,7 @@ export function AppFrame({
     canWith(user.permissions, 'connections:manage') ? item('connections', t('nav.connections'), LinkIcon) : null,
     canWith(user.permissions, 'content:publish') ? item('publish', t('nav.publish'), UploadIcon) : null,
     canWith(user.permissions, 'content:publish') ? item('social-publish', 'Đăng mạng xã hội', MegaphoneIcon) : null,
+    canWith(user.permissions, 'content:publish') ? item('social-posts', 'Bài đăng mạng xã hội', ListIcon) : null,
   ].filter(Boolean) as ReturnType<typeof item>[];
 
   const analyticsItems = [
