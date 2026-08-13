@@ -206,12 +206,14 @@ export function AppFrame({
       userMenu={userMenu}
     />
   );
-  const logo = {
-    width: 184,
-    topBarSource: branding.logoAmBan,
-    url: '/dashboard',
-    accessibilityLabel: branding.title,
-  };
+  const logo = branding.logoAmBan
+    ? {
+        width: 184,
+        topBarSource: branding.logoAmBan,
+        url: '/dashboard',
+        accessibilityLabel: branding.title,
+      }
+    : undefined;
 
   return (
     <Frame logo={logo} topBar={topBar} navigation={navigation} showMobileNavigation={mobileNav} onNavigationDismiss={() => setMobileNav(false)}>

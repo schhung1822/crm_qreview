@@ -47,7 +47,8 @@ async function readAll(): Promise<ConnectionRecord[]> {
 function toPublic(r: ConnectionRecord): ConnectionPublic {
   const { encrypted: _omit, ...rest } = r;
   void _omit;
-  return { ...rest, kind: isSocialProvider(r.provider) ? 'social' : 'cms' };
+  const social = isSocialProvider(r.provider);
+  return { ...rest, status: social ? 'active' : rest.status, kind: social ? 'social' : 'cms' };
 }
 
 function genId(): string {

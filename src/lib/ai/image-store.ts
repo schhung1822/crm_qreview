@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import sharp from 'sharp';
 import { generatedImageDir } from '../generated-dir';
+import { saveGeneratedImageBlob } from '../store/generated-images';
 import { registerImage } from '../store/image-library';
 
 // Slug ngắn, không dấu, để đặt TÊN FILE ảnh theo chủ đề bài (tốt cho SEO ảnh).
@@ -54,6 +55,7 @@ export async function saveGeneratedImage(
     out = input;
   }
   await fs.writeFile(path.join(dir, name), out);
+  await saveGeneratedImageBlob(name, format === 'jpeg' ? 'image/jpeg' : 'image/webp', out.toString('base64')).catch(() => {});
   // Ghi nhận vào Thư viện ảnh (best-effort — không chặn việc lưu ảnh nếu index lỗi).
   await registerImage(name, 'ai', hint).catch(() => {});
   return `/generated/${name}`;

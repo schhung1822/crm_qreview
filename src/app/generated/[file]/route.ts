@@ -6,6 +6,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { bundledGeneratedImageDir, generatedImageDir } from '@/lib/generated-dir';
+import { getGeneratedImageBlob } from '@/lib/store/generated-images';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -44,6 +45,13 @@ export async function GET(_req: Request, props: { params: Promise<{ file: string
       },
     });
   } catch {
-    return new NextResponse('Not found', { status: 404 });
+    const stored = await getGeneratedImageBlob(name).catch(() => null);
+    if (!stored) return new NextResponse('Not found', { status: 404 });
+    return new NextResponse(Buffer.from(stored.dataBase64, 'base64'), {
+      headers: {
+        'Content-Type': stored.contentType || type,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    });
   }
 }

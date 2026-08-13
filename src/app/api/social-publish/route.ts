@@ -124,7 +124,6 @@ export async function POST(req: Request) {
           result,
         };
       } catch (error) {
-        await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => setConnectionStatus(loaded.record.id, 'error')).catch(() => {});
         const rawMessage = error instanceof Error ? error.message : 'Không thể đăng nội dung';
         const message = providerErrorMessage(loaded.record.provider, rawMessage);
         recordUserEvent({
