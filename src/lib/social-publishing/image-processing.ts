@@ -4,15 +4,13 @@ import sharp, { type OverlayOptions } from 'sharp';
 import { saveGeneratedImage } from '../ai/image-store';
 import { requestBaseUrl } from '../base-url';
 import { safeFetchBuffer } from '../security/safe-fetch';
-import { getBranding } from '../store/branding';
 
 const OUTPUT_SIZE = 1080;
 const ZOOM = 1.1;
-const ORANGE = '#f97316';
-const BAR_HEIGHT = 150;
-const LOGO_MAX_WIDTH = 260;
-const LOGO_MAX_HEIGHT = 76;
-const LOGO_LEFT = 44;
+const FRAME_THICKNESS = 10;
+const LOGO_MAX_WIDTH = 150;
+const LOGO_MAX_HEIGHT = 150;
+const LOGO_INSET = 24;
 
 export interface SocialImageProcessingOptions {
   scale?: number;
@@ -25,11 +23,6 @@ export interface SocialImageProcessingOptions {
 function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Number(value)));
-}
-
-function normalizeHexColor(value: string | undefined, fallback: string): string {
-  const color = value?.trim();
-  return color && /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
 }
 
 function internalAssetPath(url: string): string | null {
@@ -57,9 +50,8 @@ async function readAsset(value: string): Promise<Buffer | null> {
   return null;
 }
 
-async function logoOverlay(barHeight: number, logoUrl?: string): Promise<OverlayOptions | null> {
-  const branding = await getBranding().catch(() => null);
-  const logo = await readAsset(logoUrl?.trim() || branding?.logoDuongBan || '/images/logo_duongban.webp');
+async function logoOverlay(frameThickness: number, logoUrl?: string): Promise<OverlayOptions | null> {
+  const logo = await readAsset(logoUrl?.trim() || '/images/qreview_toke.webp');
   if (!logo) return null;
   const input = sharp(logo, { failOn: 'none' }).resize({
     width: LOGO_MAX_WIDTH,
@@ -68,12 +60,12 @@ async function logoOverlay(barHeight: number, logoUrl?: string): Promise<Overlay
     withoutEnlargement: true,
   });
   const meta = await input.metadata().catch(() => null);
+  const logoWidth = Math.min(meta?.width || LOGO_MAX_WIDTH, LOGO_MAX_WIDTH);
   const logoHeight = Math.min(meta?.height || LOGO_MAX_HEIGHT, LOGO_MAX_HEIGHT);
-  const top = OUTPUT_SIZE - barHeight + Math.round((barHeight - logoHeight) / 2);
   return {
     input: await input.png().toBuffer(),
-    left: LOGO_LEFT,
-    top: Math.max(OUTPUT_SIZE - barHeight + 20, top),
+    left: OUTPUT_SIZE - frameThickness - LOGO_INSET - logoWidth,
+    top: OUTPUT_SIZE - frameThickness - LOGO_INSET - logoHeight,
   };
 }
 
@@ -85,34 +77,33 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
   }
   const original = await safeFetchBuffer(url, { timeoutMs: 60_000 }, 25 * 1024 * 1024);
   const scale = clampNumber(opts.scale, 1, 1.5, ZOOM);
-  const barHeight = Math.round(clampNumber(opts.barHeight, 0, 320, BAR_HEIGHT));
-  const barColor = normalizeHexColor(opts.barColor, ORANGE);
+  const frameThickness = Math.round(clampNumber(opts.barHeight, 0, 80, FRAME_THICKNESS));
   const showLogo = opts.showLogo !== false;
-  const zoomSize = Math.ceil(OUTPUT_SIZE * scale);
+  const innerSize = OUTPUT_SIZE - frameThickness * 2;
+  const zoomSize = Math.ceil(innerSize * scale);
   const base = sharp(original.buffer, { failOn: 'none', limitInputPixels: 50_000_000 })
     .rotate()
     .resize({ width: zoomSize, height: zoomSize, fit: 'cover', position: 'center' })
     .extract({
-      left: Math.floor((zoomSize - OUTPUT_SIZE) / 2),
-      top: Math.floor((zoomSize - OUTPUT_SIZE) / 2),
-      width: OUTPUT_SIZE,
-      height: OUTPUT_SIZE,
+      left: Math.floor((zoomSize - innerSize) / 2),
+      top: Math.floor((zoomSize - innerSize) / 2),
+      width: innerSize,
+      height: innerSize,
     });
 
   const overlays: OverlayOptions[] = [];
-  if (barHeight > 0) {
-    overlays.push({
-      input: Buffer.from(
-        `<svg width="${OUTPUT_SIZE}" height="${barHeight}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="${barColor}"/></svg>`,
-      ),
-      left: 0,
-      top: OUTPUT_SIZE - barHeight,
-    });
-  }
-  const logo = showLogo && barHeight > 0 ? await logoOverlay(barHeight, opts.logoUrl) : null;
+  overlays.push({ input: await base.toBuffer(), left: frameThickness, top: frameThickness });
+  const logo = showLogo ? await logoOverlay(frameThickness, opts.logoUrl) : null;
   if (logo) overlays.push(logo);
 
-  const processed = await base
+  const processed = await sharp({
+    create: {
+      width: OUTPUT_SIZE,
+      height: OUTPUT_SIZE,
+      channels: 3,
+      background: '#ffffff',
+    },
+  })
     .composite(overlays)
     .webp({ quality: 88, effort: 4 })
     .toBuffer();
