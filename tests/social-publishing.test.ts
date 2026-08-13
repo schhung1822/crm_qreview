@@ -88,4 +88,50 @@ describe('social connections', () => {
     expect(mockFetch.mock.calls[2][0]).toBe('https://upload.youtube.com/session/1');
     expect(result.url).toBe('https://www.youtube.com/watch?v=yt_1');
   });
+
+  it('đăng nhiều ảnh Facebook bằng attached_media', async () => {
+    mockFetch
+      .mockResolvedValueOnce(response({ id: 'photo_1' }))
+      .mockResolvedValueOnce(response({ id: 'photo_2' }))
+      .mockResolvedValueOnce(response({ id: 'page_1_99' }));
+    const result = await publishSocial(
+      'facebook',
+      { pageId: 'page_1', accessToken: 'secret' },
+      {
+        mediaType: 'image',
+        mediaUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+        text: 'Album',
+      },
+    );
+    expect(mockFetch.mock.calls[0][0]).toContain('/page_1/photos');
+    expect(String(mockFetch.mock.calls[0][1].body)).toContain('published=false');
+    expect(mockFetch.mock.calls[2][0]).toContain('/page_1/feed');
+    expect(String(mockFetch.mock.calls[2][1].body)).toContain('attached_media%5B0%5D=');
+    expect(result.status).toBe('published');
+  });
+
+  it('Instagram đăng carousel nhiều ảnh', async () => {
+    mockFetch
+      .mockResolvedValueOnce(response({ id: 'child_1' }))
+      .mockResolvedValueOnce(response({ status_code: 'FINISHED' }))
+      .mockResolvedValueOnce(response({ id: 'child_2' }))
+      .mockResolvedValueOnce(response({ status_code: 'FINISHED' }))
+      .mockResolvedValueOnce(response({ id: 'container_1' }))
+      .mockResolvedValueOnce(response({ status_code: 'FINISHED' }))
+      .mockResolvedValueOnce(response({ id: 'media_1' }))
+      .mockResolvedValueOnce(response({ permalink: 'https://instagram.com/p/carousel' }));
+    const result = await publishSocial(
+      'instagram',
+      { instagramUserId: 'ig_1', accessToken: 'secret' },
+      {
+        mediaType: 'image',
+        mediaUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+        text: 'Carousel',
+      },
+    );
+    expect(String(mockFetch.mock.calls[0][1].body)).toContain('is_carousel_item=true');
+    expect(String(mockFetch.mock.calls[4][1].body)).toContain('media_type=CAROUSEL');
+    expect(String(mockFetch.mock.calls[4][1].body)).toContain('children=child_1%2Cchild_2');
+    expect(result.url).toBe('https://instagram.com/p/carousel');
+  });
 });

@@ -168,13 +168,31 @@ export const prismaRepositories: Repositories = {
       return c ? connectionOut(c) : null;
     },
     async insert(r) {
-      await prisma.connection.create({
-        data: {
-          id: r.id, provider: r.provider, label: r.label, baseUrl: r.baseUrl,
-          seoPlugin: r.seoPlugin ?? null,
-          encrypted: r.encrypted, status: r.status, createdAt: new Date(r.createdAt),
-        },
-      });
+      const data = {
+        id: r.id, provider: r.provider, label: r.label, baseUrl: r.baseUrl,
+        seoPlugin: r.seoPlugin ?? null,
+        encrypted: r.encrypted, status: r.status, createdAt: new Date(r.createdAt),
+      };
+      try {
+        await prisma.connection.create({ data });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (!message.includes('bizId') && !message.includes('doesn\'t have a default value')) throw error;
+        await prisma.$executeRawUnsafe(
+          'INSERT INTO `Connection` (id, bizId, provider, label, baseUrl, locale, pathStrategy, seoPlugin, encrypted, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          r.id,
+          'global',
+          r.provider,
+          r.label,
+          r.baseUrl,
+          r.locale,
+          r.pathStrategy,
+          r.seoPlugin ?? null,
+          r.encrypted,
+          r.status,
+          new Date(r.createdAt),
+        );
+      }
     },
     async setStatus(id, status) {
       await prisma.connection.updateMany({ where: { id }, data: { status } });

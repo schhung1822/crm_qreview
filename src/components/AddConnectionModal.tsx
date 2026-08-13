@@ -218,13 +218,19 @@ export function AddConnectionModal({
 
   async function save() {
     setSaving(true);
+    setResult(null);
     try {
       const res = await fetch('/api/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (res.ok) await onSaved();
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await onSaved();
+        return;
+      }
+      setResult({ ok: false, msg: json.error || 'Không thể lưu kết nối' });
     } finally {
       setSaving(false);
     }

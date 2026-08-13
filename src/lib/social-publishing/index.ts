@@ -8,6 +8,7 @@ export interface SocialPublishInput {
   title?: string;
   mediaType: SocialMediaType;
   mediaUrl?: string;
+  mediaUrls?: string[];
   linkUrl?: string;
   privacy?: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'FOLLOWER_OF_CREATOR' | 'SELF_ONLY';
 }
@@ -56,6 +57,16 @@ function required(creds: Credentials, key: string, label = key): string {
 function requireMedia(input: SocialPublishInput, provider: string): string {
   if (!input.mediaUrl) throw new Error(`${provider} yêu cầu URL ảnh hoặc video công khai`);
   return input.mediaUrl;
+}
+
+function mediaUrls(input: SocialPublishInput): string[] {
+  return Array.from(new Set([...(input.mediaUrls ?? []), input.mediaUrl].filter(Boolean).map((url) => url!.trim()).filter(Boolean)));
+}
+
+function requireMediaUrls(input: SocialPublishInput, provider: string): string[] {
+  const urls = mediaUrls(input);
+  if (urls.length === 0) throw new Error(`${provider} yêu cầu URL ảnh hoặc video công khai`);
+  return urls;
 }
 
 async function youtubeAccessToken(creds: Credentials): Promise<string> {
@@ -108,8 +119,33 @@ async function publishFacebook(creds: Credentials, input: SocialPublishInput): P
   let endpoint = 'feed';
   const payload: Record<string, string | boolean | undefined> = { access_token: token, message: input.text };
   if (input.mediaType === 'image') {
+    const urls = requireMediaUrls(input, 'Facebook');
+    if (urls.length > 1) {
+      const attached: string[] = [];
+      for (const url of urls) {
+        const photo = await postForm(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(pageId)}/photos`, {
+          access_token: token,
+          url,
+          published: false,
+        });
+        const mediaId = String(photo.id || '');
+        if (!mediaId) throw new Error('Facebook không trả về mã ảnh');
+        attached.push(mediaId);
+      }
+      const body = new URLSearchParams();
+      body.set('access_token', token);
+      body.set('message', input.text);
+      attached.forEach((id, index) => body.set(`attached_media[${index}]`, JSON.stringify({ media_fbid: id })));
+      const data = await apiJson(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(pageId)}/feed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      const id = String(data.post_id || data.id || '');
+      return { id, url: id ? `https://www.facebook.com/${id}` : undefined, status: 'published' };
+    }
     endpoint = 'photos';
-    payload.url = requireMedia(input, 'Facebook');
+    payload.url = urls[0];
     payload.caption = input.text;
     delete payload.message;
   } else if (input.mediaType === 'video') {
@@ -139,8 +175,42 @@ async function publishInstagram(creds: Credentials, input: SocialPublishInput): 
   if (input.mediaType === 'text') throw new Error('Instagram không hỗ trợ bài chỉ có chữ qua API');
   const userId = required(creds, 'instagramUserId', 'Instagram User ID');
   const token = required(creds, 'accessToken', 'Access Token');
-  const mediaUrl = requireMedia(input, 'Instagram');
   const host = `https://graph.facebook.com/${META_VERSION}`;
+  const urls = input.mediaType === 'image' ? requireMediaUrls(input, 'Instagram') : [requireMedia(input, 'Instagram')];
+  if (input.mediaType === 'image' && urls.length > 10) throw new Error('Instagram carousel tối đa 10 ảnh');
+  if (input.mediaType === 'image' && urls.length > 1) {
+    const children: string[] = [];
+    for (const imageUrl of urls) {
+      const child = await postForm(`${host}/${encodeURIComponent(userId)}/media`, {
+        access_token: token,
+        image_url: imageUrl,
+        is_carousel_item: true,
+      });
+      const childId = String(child.id || '');
+      if (!childId) throw new Error('Instagram không trả về mã ảnh carousel');
+      await waitForMetaContainer(childId, token, host);
+      children.push(childId);
+    }
+    const created = await postForm(`${host}/${encodeURIComponent(userId)}/media`, {
+      access_token: token,
+      caption: input.text,
+      media_type: 'CAROUSEL',
+      children: children.join(','),
+    });
+    const containerId = String(created.id || '');
+    if (!containerId) throw new Error('Instagram không trả về mã media');
+    await waitForMetaContainer(containerId, token, host);
+    const published = await postForm(`${host}/${encodeURIComponent(userId)}/media_publish`, {
+      access_token: token,
+      creation_id: containerId,
+    });
+    const id = String(published.id || '');
+    const detail: JsonObject = id
+      ? await apiJson(`${host}/${encodeURIComponent(id)}?fields=permalink&access_token=${encodeURIComponent(token)}`).catch(() => ({}))
+      : {};
+    return { id, url: typeof detail.permalink === 'string' ? detail.permalink : undefined, status: 'published' };
+  }
+  const mediaUrl = urls[0];
   const created = await postForm(`${host}/${encodeURIComponent(userId)}/media`, {
     access_token: token,
     caption: input.text,
@@ -166,7 +236,10 @@ async function publishInstagram(creds: Credentials, input: SocialPublishInput): 
 async function publishThreads(creds: Credentials, input: SocialPublishInput): Promise<SocialPublishResult> {
   const token = required(creds, 'accessToken', 'Threads Access Token');
   const userId = creds.threadsUserId?.trim() || 'me';
-  const mediaUrl = input.mediaType === 'text' ? undefined : requireMedia(input, 'Threads');
+  if (input.mediaType === 'image' && mediaUrls(input).length > 1) {
+    throw new Error('Threads hiện chỉ hỗ trợ đăng một ảnh mỗi bài trong luồng này');
+  }
+  const mediaUrl = input.mediaType === 'text' ? undefined : requireMediaUrls(input, 'Threads')[0];
   const host = 'https://graph.threads.net/v1.0';
   const created = await postForm(`${host}/${encodeURIComponent(userId)}/threads`, {
     access_token: token,
@@ -200,7 +273,8 @@ async function publishTikTok(creds: Credentials, input: SocialPublishInput): Pro
   const requestedPrivacy = input.privacy || 'SELF_ONLY';
   const privacy = allowed.includes(requestedPrivacy) ? requestedPrivacy : allowed.includes('SELF_ONLY') ? 'SELF_ONLY' : allowed[0];
   if (!privacy) throw new Error('TikTok không trả về quyền riêng tư khả dụng cho tài khoản này');
-  const mediaUrl = requireMedia(input, 'TikTok');
+  const urls = input.mediaType === 'image' ? requireMediaUrls(input, 'TikTok') : [requireMedia(input, 'TikTok')];
+  if (input.mediaType === 'image' && urls.length > 35) throw new Error('TikTok photo post tối đa 35 ảnh');
   const endpoint = input.mediaType === 'image'
     ? 'https://open.tiktokapis.com/v2/post/publish/content/init/'
     : 'https://open.tiktokapis.com/v2/post/publish/video/init/';
@@ -217,7 +291,7 @@ async function publishTikTok(creds: Credentials, input: SocialPublishInput): Pro
           brand_content_toggle: false,
           brand_organic_toggle: false,
         },
-        source_info: { source: 'PULL_FROM_URL', photo_cover_index: 0, photo_images: [mediaUrl] },
+        source_info: { source: 'PULL_FROM_URL', photo_cover_index: 0, photo_images: urls },
       }
     : {
         post_info: {
@@ -229,7 +303,7 @@ async function publishTikTok(creds: Credentials, input: SocialPublishInput): Pro
           brand_content_toggle: false,
           brand_organic_toggle: false,
         },
-        source_info: { source: 'PULL_FROM_URL', video_url: mediaUrl },
+        source_info: { source: 'PULL_FROM_URL', video_url: urls[0] },
       };
   const data = await apiJson(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
   const publishData = (data.data || {}) as { publish_id?: string };

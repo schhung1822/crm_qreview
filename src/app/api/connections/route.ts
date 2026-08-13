@@ -45,10 +45,16 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const created = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () =>
-    createConnection({ ...parsed.data, locale: 'vi', pathStrategy: 'subdir' }),
-  );
-  return NextResponse.json({ connection: created });
+  try {
+    const created = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () =>
+      createConnection({ ...parsed.data, locale: 'vi', pathStrategy: 'subdir' }),
+    );
+    return NextResponse.json({ connection: created });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Không thể lưu kết nối';
+    console.error('[connections] create failed:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 // DELETE /api/connections?id=conn_xxx
