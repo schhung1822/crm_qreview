@@ -16,13 +16,16 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ];
 
+const isVercel = process.env.VERCEL === '1';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Không lộ phiên bản Next qua header X-Powered-By.
   poweredByHeader: false,
-  // Output standalone → image Docker gọn (chỉ kèm file cần để chạy).
-  output: 'standalone',
+  // Output standalone chỉ dùng cho Docker/self-host. Trên Vercel, adapter của Vercel tự đóng gói
+  // serverless functions; bật standalone có thể làm lệch file tracing (*.nft.json) sau build.
+  ...(isVercel ? {} : { output: 'standalone' }),
   // TẮT hẳn Image Optimizer: codebase không dùng next/image (preview ảnh remote dùng <img>
   // thường), còn endpoint /_next/image + remotePatterns '**' là vector DoS
   // (GHSA-9g9p-9gw9-jx7f — kẻ tấn công bơm ảnh khổng lồ cho optimizer). unoptimized cũng
