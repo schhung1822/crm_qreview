@@ -24,6 +24,16 @@ import type { SocialPostRecord } from '@/lib/store/social-posts';
 type StatusFilter = 'all' | SocialPostRecord['status'];
 type ProviderFilter = 'all' | SocialProvider;
 
+interface SocialPostGroup {
+  key: string;
+  posts: SocialPostRecord[];
+  primary: SocialPostRecord;
+  status: SocialPostRecord['status'];
+  providers: SocialProvider[];
+  publishedUrls: Array<{ provider: SocialProvider; url: string }>;
+  errors: Array<{ provider: SocialProvider; error: string }>;
+}
+
 const PROVIDER_LABEL: Record<SocialProvider, string> = {
   facebook: 'Facebook',
   instagram: 'Instagram',
@@ -53,10 +63,7 @@ const STATUS_TONE: Record<SocialPostRecord['status'], 'success' | 'info' | 'crit
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(date);
 }
 
 function previewText(post: SocialPostRecord): string {
@@ -70,13 +77,52 @@ function mediaSummary(post: SocialPostRecord): string {
   return MEDIA_LABEL[post.mediaType];
 }
 
+function groupKey(post: SocialPostRecord): string {
+  const minute = Math.floor(new Date(post.createdAt).getTime() / 60_000);
+  const media = [...post.mediaUrls].sort().join('|');
+  return [post.title || '', post.text, post.mediaType, media, minute].join('::');
+}
+
+function groupStatus(posts: SocialPostRecord[]): SocialPostRecord['status'] {
+  if (posts.some((post) => post.status === 'failed')) return 'failed';
+  if (posts.some((post) => post.status === 'processing')) return 'processing';
+  return 'published';
+}
+
+function makeGroups(posts: SocialPostRecord[]): SocialPostGroup[] {
+  const map = new Map<string, SocialPostRecord[]>();
+  for (const post of posts) {
+    const key = groupKey(post);
+    map.set(key, [...(map.get(key) ?? []), post]);
+  }
+  return Array.from(map.entries())
+    .map(([key, rows]) => {
+      const sorted = [...rows].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      const primary = sorted[0];
+      return {
+        key,
+        posts: sorted,
+        primary,
+        status: groupStatus(sorted),
+        providers: Array.from(new Set(sorted.map((post) => post.provider))),
+        publishedUrls: sorted
+          .filter((post): post is SocialPostRecord & { publishedUrl: string } => Boolean(post.publishedUrl))
+          .map((post) => ({ provider: post.provider, url: post.publishedUrl })),
+        errors: sorted
+          .filter((post): post is SocialPostRecord & { error: string } => Boolean(post.error))
+          .map((post) => ({ provider: post.provider, error: post.error })),
+      };
+    })
+    .sort((a, b) => (a.primary.createdAt < b.primary.createdAt ? 1 : -1));
+}
+
 export default function SocialPostsPage() {
   const [posts, setPosts] = useState<SocialPostRecord[] | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [provider, setProvider] = useState<ProviderFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [deletingId, setDeletingId] = useState('');
+  const [deletingKey, setDeletingKey] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -94,9 +140,9 @@ export default function SocialPostsPage() {
     void load();
   }, [load]);
 
-  const filteredPosts = useMemo(() => {
+  const groupedPosts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (posts ?? []).filter((post) => {
+    const rows = (posts ?? []).filter((post) => {
       if (provider !== 'all' && post.provider !== provider) return false;
       if (status !== 'all' && post.status !== status) return false;
       if (!q) return true;
@@ -104,21 +150,26 @@ export default function SocialPostsPage() {
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(q));
     });
+    return makeGroups(rows);
   }, [posts, provider, query, status]);
 
-  async function deletePost(id: string) {
-    setDeletingId(id);
+  async function deleteGroup(group: SocialPostGroup) {
+    setDeletingKey(group.key);
     setError('');
     try {
-      const response = await fetch(`/api/social-posts?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setError(data.error || 'Không thể xóa bản ghi bài đăng');
-        return;
+      let latest: SocialPostRecord[] | null = null;
+      for (const post of group.posts) {
+        const response = await fetch(`/api/social-posts?id=${encodeURIComponent(post.id)}`, { method: 'DELETE' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setError(data.error || 'Không thể xóa bản ghi bài đăng');
+          return;
+        }
+        latest = data.posts ?? latest;
       }
-      setPosts(data.posts ?? []);
+      if (latest) setPosts(latest);
     } finally {
-      setDeletingId('');
+      setDeletingKey('');
     }
   }
 
@@ -171,7 +222,7 @@ export default function SocialPostsPage() {
           <Card>
             <Text as="p" tone="subdued">Đang tải lịch sử bài đăng...</Text>
           </Card>
-        ) : filteredPosts.length === 0 ? (
+        ) : groupedPosts.length === 0 ? (
           <Card>
             <EmptyState
               heading="Chưa có bài đăng phù hợp"
@@ -183,65 +234,86 @@ export default function SocialPostsPage() {
           </Card>
         ) : (
           <BlockStack gap="300">
-            {filteredPosts.map((post) => (
-              <Card key={post.id}>
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" gap="300" blockAlign="start">
-                    <InlineStack gap="300" blockAlign="center" wrap={false}>
-                      <ProviderLogo id={post.provider} size={36} />
-                      <BlockStack gap="100">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text as="h2" variant="headingSm">{post.title || '(Không tiêu đề)'}</Text>
-                          <Badge tone={STATUS_TONE[post.status]}>{STATUS_LABEL[post.status]}</Badge>
+            {groupedPosts.map((group) => {
+              const post = group.primary;
+              return (
+                <Card key={group.key}>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" gap="300" blockAlign="start">
+                      <InlineStack gap="300" blockAlign="center" wrap={false}>
+                        <InlineStack gap="100" wrap={false}>
+                          {group.providers.map((item) => (
+                            <ProviderLogo key={item} id={item} size={32} />
+                          ))}
                         </InlineStack>
-                        <Text as="p" tone="subdued">
-                          {post.connectionLabel} · {PROVIDER_LABEL[post.provider]} · {formatDate(post.createdAt)}
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <ButtonGroup>
-                      {post.publishedUrl ? (
-                        <Button url={post.publishedUrl} target="_blank">
-                          Xem bài
+                        <BlockStack gap="100">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text as="h2" variant="headingSm">{post.title || '(Không tiêu đề)'}</Text>
+                            <Badge tone={STATUS_TONE[group.status]}>{STATUS_LABEL[group.status]}</Badge>
+                          </InlineStack>
+                          <Text as="p" tone="subdued">
+                            {group.posts.map((item) => `${item.connectionLabel} - ${PROVIDER_LABEL[item.provider]}`).join(', ')} · {formatDate(post.createdAt)}
+                          </Text>
+                        </BlockStack>
+                      </InlineStack>
+                      <ButtonGroup>
+                        {group.publishedUrls[0] ? (
+                          <Button url={group.publishedUrls[0].url} target="_blank">
+                            Xem bài
+                          </Button>
+                        ) : null}
+                        <Button
+                          tone="critical"
+                          loading={deletingKey === group.key}
+                          onClick={() => void deleteGroup(group)}
+                        >
+                          Xóa
                         </Button>
-                      ) : null}
-                      <Button
-                        tone="critical"
-                        loading={deletingId === post.id}
-                        onClick={() => void deletePost(post.id)}
-                      >
-                        Xóa
-                      </Button>
-                    </ButtonGroup>
-                  </InlineStack>
+                      </ButtonGroup>
+                    </InlineStack>
 
-                  {previewText(post) ? <Text as="p">{previewText(post)}</Text> : null}
+                    {previewText(post) ? <Text as="p">{previewText(post)}</Text> : null}
 
-                  <InlineStack gap="200" blockAlign="center">
-                    <Badge>{mediaSummary(post)}</Badge>
-                    {post.providerPostId ? <Badge>{`Mã: ${post.providerPostId}`}</Badge> : null}
-                    {post.error ? <Text as="span" tone="critical">{post.error}</Text> : null}
-                  </InlineStack>
-
-                  {post.mediaUrls.length ? (
-                    <InlineStack gap="200">
-                      {post.mediaUrls.slice(0, 8).map((url, index) => (
-                        <a key={`${post.id}-${url}`} href={url} target="_blank" rel="noreferrer" aria-label={`Mở media ${index + 1}`}>
-                          <Thumbnail source={post.mediaType === 'video' ? '/icon/youtube.svg' : url} alt={`Media ${index + 1}`} size="small" />
+                    <InlineStack gap="200" blockAlign="center">
+                      <Badge>{mediaSummary(post)}</Badge>
+                      <Badge>{`${group.providers.length} nền tảng`}</Badge>
+                      {group.publishedUrls.map((item) => (
+                        <a key={`${group.key}-${item.provider}`} href={item.url} target="_blank" rel="noreferrer">
+                          {PROVIDER_LABEL[item.provider]}
                         </a>
                       ))}
-                      {post.mediaUrls.length > 8 ? <Badge>{`+${post.mediaUrls.length - 8} media`}</Badge> : null}
                     </InlineStack>
-                  ) : null}
 
-                  {post.originalMediaUrls?.length ? (
-                    <Text as="p" tone="subdued">
-                      Ảnh gốc: {post.originalMediaUrls.length} URL
-                    </Text>
-                  ) : null}
-                </BlockStack>
-              </Card>
-            ))}
+                    {group.errors.length ? (
+                      <BlockStack gap="100">
+                        {group.errors.map((item, index) => (
+                          <Text key={`${group.key}-error-${index}`} as="p" tone="critical">
+                            {PROVIDER_LABEL[item.provider]}: {item.error}
+                          </Text>
+                        ))}
+                      </BlockStack>
+                    ) : null}
+
+                    {post.mediaUrls.length ? (
+                      <InlineStack gap="200">
+                        {post.mediaUrls.slice(0, 8).map((url, index) => (
+                          <a key={`${group.key}-${url}`} href={url} target="_blank" rel="noreferrer" aria-label={`Mở media ${index + 1}`}>
+                            <Thumbnail source={post.mediaType === 'video' ? '/icon/youtube.svg' : url} alt={`Media ${index + 1}`} size="small" />
+                          </a>
+                        ))}
+                        {post.mediaUrls.length > 8 ? <Badge>{`+${post.mediaUrls.length - 8} media`}</Badge> : null}
+                      </InlineStack>
+                    ) : null}
+
+                    {post.originalMediaUrls?.length ? (
+                      <Text as="p" tone="subdued">
+                        Ảnh gốc: {post.originalMediaUrls.length} URL
+                      </Text>
+                    ) : null}
+                  </BlockStack>
+                </Card>
+              );
+            })}
           </BlockStack>
         )}
       </BlockStack>
