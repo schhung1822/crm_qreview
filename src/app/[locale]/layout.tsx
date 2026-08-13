@@ -9,7 +9,7 @@ import { PolarisProvider } from '@/components/PolarisProvider';
 import { getCurrentUser } from '@/lib/auth/current';
 import { isSuperadminUser } from '@/lib/auth/superadmin';
 import { getUsage } from '@/lib/ai/usage';
-import { getBranding } from '@/lib/store/branding';
+import { getBrandingSafe } from '@/lib/store/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,7 @@ export default async function AppLayout({
   const [messages, usage, branding, isSuperadmin] = await Promise.all([
     getMessages(),
     getUsage(),
-    getBranding(),
+    getBrandingSafe('app-layout'),
     isSuperadminUser(user.id),
   ]);
 

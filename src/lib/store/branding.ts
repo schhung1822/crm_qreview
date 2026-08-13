@@ -78,15 +78,32 @@ function absolutizeAsset(v: string): string {
   return v;
 }
 
-export async function getBranding(): Promise<Branding> {
-  const d = await readGlobalConfig<Partial<Branding>>(FILE, {});
-  const b = { ...DEFAULT_BRANDING, ...nonEmpty(d) };
+function withAbsoluteAssets(input: Branding): Branding {
+  const b = { ...input };
   b.logoAmBan = absolutizeAsset(b.logoAmBan);
   b.logoDuongBan = absolutizeAsset(b.logoDuongBan);
   b.bizLogo = absolutizeAsset(b.bizLogo);
   b.favicon = absolutizeAsset(b.favicon);
   b.ogImage = absolutizeAsset(b.ogImage);
   return b;
+}
+
+export function getDefaultBranding(): Branding {
+  return withAbsoluteAssets(DEFAULT_BRANDING);
+}
+
+export async function getBranding(): Promise<Branding> {
+  const d = await readGlobalConfig<Partial<Branding>>(FILE, {});
+  return withAbsoluteAssets({ ...DEFAULT_BRANDING, ...nonEmpty(d) });
+}
+
+export async function getBrandingSafe(context = 'branding'): Promise<Branding> {
+  try {
+    return await getBranding();
+  } catch (error) {
+    console.error(`[${context}] failed to load branding; using defaults`, error);
+    return getDefaultBranding();
+  }
 }
 
 export async function saveBranding(patch: Partial<Branding>): Promise<Branding> {

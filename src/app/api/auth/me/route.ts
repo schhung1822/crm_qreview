@@ -5,13 +5,27 @@ import { getSelfRegistrationEnabled } from '@/lib/store/platform-settings';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/auth/me → user hiện tại + cần setup lần đầu hay không + tự đăng ký có đang bật không
-// (trang đăng nhập dùng cờ này để ẩn/hiện nút tạo tài khoản).
+async function settle<T>(label: string, task: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await task;
+  } catch (error) {
+    console.error(`[api/auth/me] failed to load ${label}`, error);
+    return fallback;
+  }
+}
+
+// Public bootstrap for login/onboarding. It must not take the whole login page
+// down if one optional storage read fails on serverless runtime.
 export async function GET() {
-  const user = await getCurrentUser();
+  const [user, count, selfRegistrationEnabled] = await Promise.all([
+    settle('current user', getCurrentUser(), null),
+    settle('user count', userCount(), 1),
+    settle('self registration setting', getSelfRegistrationEnabled(), true),
+  ]);
+
   return NextResponse.json({
     user,
-    needsSetup: (await userCount()) === 0,
-    selfRegistrationEnabled: await getSelfRegistrationEnabled(),
+    needsSetup: count === 0,
+    selfRegistrationEnabled,
   });
 }

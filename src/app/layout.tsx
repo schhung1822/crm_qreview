@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { TrackingPixels } from '@/components/TrackingPixels';
 import { buildBrandThemeCss } from '@/lib/branding/theme';
-import { getBranding } from '@/lib/store/branding';
+import { getBrandingSafe } from '@/lib/store/branding';
 
 // Root layout: nơi DUY NHẤT render <html>/<body> (Next 14 bắt buộc, kể cả trang lỗi).
 // lang được cập nhật theo locale ở client (HtmlLang) - app quản trị nên không cần SEO.
@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 // Tiêu đề / mô tả / favicon lấy TỪ cấu hình "Thông tin hệ thống" (Quản trị nền tảng). Chưa cấu hình
 // → mặc định (giữ nguyên diện mạo cũ).
 export async function generateMetadata(): Promise<Metadata> {
-  const b = await getBranding();
+  const b = await getBrandingSafe('metadata');
   // Ảnh bìa chia sẻ MXH: ưu tiên ogImage (superadmin đặt), fallback logo. Áp cho MỌI trang app
   // (trang chưa tự khai openGraph riêng sẽ dùng mặc định này).
   const ogImg = b.ogImage || b.logoDuongBan;
@@ -52,7 +52,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // Ghi đè token màu Polaris theo màu thương hiệu (nếu superadmin đã đặt). SSR ngay trong <head>
   // để không nhấp nháy màu mặc định. Rỗng → không phát sinh style.
-  const b = await getBranding();
+  const b = await getBrandingSafe('root-layout');
   const themeCss = buildBrandThemeCss(b);
   return (
     <html lang="vi" className={inter.variable}>
