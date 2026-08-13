@@ -5,11 +5,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
+import { bundledGeneratedImageDir, generatedImageDir } from '@/lib/generated-dir';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const DIR = path.join(process.cwd(), 'public', 'generated');
 const TYPES: Record<string, string> = {
   '.webp': 'image/webp',
   '.png': 'image/png',
@@ -31,7 +31,12 @@ export async function GET(_req: Request, props: { params: Promise<{ file: string
   if (!type) return new NextResponse('Not found', { status: 404 });
 
   try {
-    const buf = await fs.readFile(path.join(DIR, name));
+    const primary = path.join(generatedImageDir(), name);
+    const bundled = path.join(bundledGeneratedImageDir(), name);
+    const buf = await fs.readFile(primary).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT' && primary !== bundled) return fs.readFile(bundled);
+      throw error;
+    });
     return new NextResponse(buf, {
       headers: {
         'Content-Type': type,

@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import sharp from 'sharp';
+import { generatedImageDir } from '../generated-dir';
 import { registerImage } from '../store/image-library';
 
 // Slug ngắn, không dấu, để đặt TÊN FILE ảnh theo chủ đề bài (tốt cho SEO ảnh).
@@ -31,7 +32,7 @@ export async function saveGeneratedImage(
   // phải lúc nào cũng render WebP nên dùng JPEG cho chắc). maxWidth: giới hạn bề rộng (OG nên ~1200).
   opts?: { format?: 'webp' | 'jpeg'; maxWidth?: number },
 ): Promise<string> {
-  const dir = path.join(process.cwd(), 'public', 'generated');
+  const dir = generatedImageDir();
   await fs.mkdir(dir, { recursive: true });
   const slug = slugifyName(hint ?? '') || 'image';
   const format = opts?.format ?? 'webp';
