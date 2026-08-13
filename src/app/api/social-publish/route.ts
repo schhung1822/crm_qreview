@@ -7,7 +7,7 @@ import { assertPublicUrl } from '@/lib/security/ssrf';
 import { processSocialImageUrls } from '@/lib/social-publishing/image-processing';
 import { graphPermissionMessage, publishSocial } from '@/lib/social-publishing';
 import { getConnectionCreds, setConnectionStatus } from '@/lib/store/connections';
-import { addSocialPosts } from '@/lib/store/social-posts';
+import { addSocialPosts, deleteSocialPost } from '@/lib/store/social-posts';
 import { recordUserEvent } from '@/lib/tracking/events';
 import { eventContext } from '@/lib/tracking/request';
 
@@ -21,6 +21,7 @@ const Schema = z.object({
   mediaType: z.enum(['text', 'image', 'video']),
   mediaUrl: z.string().max(4000).optional(),
   mediaUrls: z.array(z.string().max(4000)).max(35).optional(),
+  reviewPostIds: z.array(z.string().min(1).max(80)).max(35).optional(),
   linkUrl: z.string().max(4000).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
@@ -182,6 +183,14 @@ export async function POST(req: Request) {
   });
   if (successCount === 0) {
     return NextResponse.json({ error: results[0]?.error || 'Không thể đăng nội dung', results }, { status: 502 });
+  }
+
+  if (parsed.data.reviewPostIds?.length) {
+    await runWithBiz({ userId: g.user.id, bizId: g.bizId }, async () => {
+      for (const id of parsed.data.reviewPostIds ?? []) await deleteSocialPost(id);
+    }).catch((error) => {
+      console.error('[social-posts] cleanup reviewed drafts failed:', error instanceof Error ? error.message : error);
+    });
   }
 
   return NextResponse.json({

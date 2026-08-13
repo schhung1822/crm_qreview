@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ProviderLogo } from '@/components/provider-logos';
 import type { SocialProvider } from '@/lib/connection-providers';
 import type { SocialMediaType } from '@/lib/social-publishing';
+import { useSearchParams } from 'next/navigation';
 
 interface SocialConnection {
   id: string;
@@ -87,8 +88,10 @@ function markdownToCaption(markdown: string): string {
 
 export default function SocialPublishPage() {
   const locale = useLocale();
+  const searchParams = useSearchParams();
   const [connections, setConnections] = useState<SocialConnection[] | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
+  const [reviewPostIds, setReviewPostIds] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [draftId, setDraftId] = useState('');
   const [mediaType, setMediaType] = useState<SocialMediaType>('text');
@@ -123,6 +126,39 @@ export default function SocialPublishPage() {
       })
       .catch(() => setConnections([]));
   }, []);
+
+  useEffect(() => {
+    const reviewId = searchParams.get('review');
+    if (!reviewId) return;
+    fetch(`/api/social-posts?id=${encodeURIComponent(reviewId)}`)
+      .then((response) => response.json())
+      .then((data: { posts?: Array<{
+        id: string;
+        connectionId: string;
+        title?: string;
+        text: string;
+        mediaType: SocialMediaType;
+        mediaUrls?: string[];
+        linkUrl?: string;
+      }> }) => {
+        const rows = data.posts ?? [];
+        const first = rows[0];
+        if (!first) return;
+        setReviewPostIds(rows.map((row) => row.id));
+        setSelectedConnectionIds(rows.map((row) => row.connectionId));
+        setTitle(first.title || '');
+        setText(first.text || '');
+        setMediaType(first.mediaType);
+        setMediaUrl((first.mediaUrls ?? []).join('\n'));
+        setLinkUrl(first.linkUrl || '');
+        setResult({
+          tone: 'warning',
+          message: 'Bài này được gửi từ API ngoài và đang chờ duyệt. Bạn có thể chỉnh sửa nội dung rồi bấm đăng.',
+          items: [],
+        });
+      })
+      .catch(() => {});
+  }, [searchParams]);
 
   const selectedConnections = useMemo(
     () => (connections ?? []).filter((item) => selectedConnectionIds.includes(item.id)),
@@ -198,6 +234,7 @@ export default function SocialPublishPage() {
           mediaType,
           mediaUrl: mediaType === 'video' ? mediaUrl.trim() : mediaType === 'image' ? imageUrls[0] : undefined,
           mediaUrls: mediaType === 'image' ? imageUrls : undefined,
+          reviewPostIds: reviewPostIds.length ? reviewPostIds : undefined,
           imageProcessing: mediaType === 'image' ? {
             enabled: imageProcessingEnabled,
             scale: imageScale,

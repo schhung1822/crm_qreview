@@ -20,7 +20,7 @@ import { StatTile } from '@/components/ui';
 import type { SocialProvider } from '@/lib/connection-providers';
 import type { SocialMediaType } from '@/lib/social-publishing';
 
-type SocialStatus = 'published' | 'processing' | 'failed';
+type SocialStatus = 'pending_review' | 'published' | 'processing' | 'failed';
 
 interface ReportData {
   range: string;
@@ -40,13 +40,14 @@ interface ReportData {
     totals: {
       attempts: number;
       uniquePosts: number;
+      pendingReview: number;
       published: number;
       processing: number;
       failed: number;
       successRate: number;
     };
-    series: Array<{ date: string; total: number; published: number; failed: number }>;
-    byProvider: Array<{ provider: SocialProvider; total: number; published: number; processing: number; failed: number }>;
+    series: Array<{ date: string; total: number; pendingReview: number; published: number; failed: number }>;
+    byProvider: Array<{ provider: SocialProvider; total: number; pending_review: number; published: number; processing: number; failed: number }>;
     byMediaType: Array<{ mediaType: SocialMediaType; total: number }>;
     recent: Array<{
       id: string;
@@ -77,12 +78,14 @@ const MEDIA_LABEL: Record<SocialMediaType, string> = {
 };
 
 const STATUS_LABEL: Record<SocialStatus, string> = {
+  pending_review: 'Chờ duyệt',
   published: 'Đã đăng',
   processing: 'Đang xử lý',
   failed: 'Lỗi',
 };
 
-const STATUS_TONE: Record<SocialStatus, 'success' | 'info' | 'critical'> = {
+const STATUS_TONE: Record<SocialStatus, 'success' | 'info' | 'critical' | 'warning'> = {
+  pending_review: 'warning',
   published: 'success',
   processing: 'info',
   failed: 'critical',
@@ -154,6 +157,7 @@ export default function ReportsPage() {
         <Text as="span" fontWeight="semibold">{PROVIDER_LABEL[item.provider]}</Text>
       </InlineStack>,
       String(item.total),
+      String(item.pending_review),
       String(item.published),
       String(item.processing),
       String(item.failed),
@@ -248,6 +252,7 @@ export default function ReportsPage() {
                 <InlineGrid columns={{ xs: 1, sm: 2, md: 5 }} gap="400">
                   <StatTile label="Lượt gửi theo kênh" value={String(data.social.totals.attempts)} />
                   <StatTile label="Bài nội dung" value={String(data.social.totals.uniquePosts)} />
+                  <StatTile label="Chờ duyệt" value={String(data.social.totals.pendingReview)} />
                   <StatTile label="Đã đăng" value={String(data.social.totals.published)} />
                   <StatTile label="Đang xử lý" value={String(data.social.totals.processing)} />
                   <StatTile label="Tỷ lệ thành công" value={`${data.social.totals.successRate}%`} />
@@ -294,8 +299,8 @@ export default function ReportsPage() {
                   </Box>
                 ) : (
                   <DataTable
-                    columnContentTypes={['text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric']}
-                    headings={['Nền tảng', 'Tổng', 'Đã đăng', 'Đang xử lý', 'Lỗi', 'Tỷ lệ']}
+                    columnContentTypes={['text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric']}
+                    headings={['Nền tảng', 'Tổng', 'Chờ duyệt', 'Đã đăng', 'Đang xử lý', 'Lỗi', 'Tỷ lệ']}
                     rows={providerRows}
                   />
                 )}

@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import { guard } from '@/lib/auth/current';
 import { runWithBiz } from '@/lib/biz/context';
-import { deleteSocialPost, listSocialPosts } from '@/lib/store/social-posts';
+import { deleteSocialPost, getSocialPostBatch, listSocialPosts } from '@/lib/store/social-posts';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   const g = await guard('content:publish');
   if ('response' in g) return g.response;
+  const id = new URL(req.url).searchParams.get('id');
+  if (id) {
+    const batch = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => getSocialPostBatch(id));
+    if (!batch.length) return NextResponse.json({ error: 'Khong tim thay bai cho duyet' }, { status: 404 });
+    return NextResponse.json({ post: batch[0], posts: batch });
+  }
   const posts = await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () => listSocialPosts());
   return NextResponse.json({ posts });
 }

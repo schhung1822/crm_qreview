@@ -2,17 +2,17 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { bearerAuth } from '@/lib/auth/bearer';
 import { runWithBiz } from '@/lib/biz/context';
-import { isSocialProvider, type SocialProvider } from '@/lib/connection-providers';
+import type { SocialProvider } from '@/lib/connection-providers';
 import { assertPublicUrl } from '@/lib/security/ssrf';
 import { clientIp, rateLimit } from '@/lib/security/rate-limit';
-import { graphPermissionMessage, publishSocial } from '@/lib/social-publishing';
-import { processSocialImageUrls } from '@/lib/social-publishing/image-processing';
-import { getConnectionCreds, setConnectionStatus } from '@/lib/store/connections';
-import { addSocialPosts } from '@/lib/store/social-posts';
+import { listConnections } from '@/lib/store/connections';
+import { addSocialPosts, genSocialPostBatchId } from '@/lib/store/social-posts';
 
 export const dynamic = 'force-dynamic';
 
 const Schema = z.object({
+  platform: z.union([z.string(), z.array(z.string())]).optional(),
+  platforms: z.union([z.string(), z.array(z.string())]).optional(),
   connectionId: z.string().min(1).max(120).optional(),
   connectionIds: z.array(z.string().min(1).max(120)).max(20).optional(),
   text: z.string().min(1).max(10_000),
@@ -30,6 +30,19 @@ const Schema = z.object({
     logoUrl: z.string().max(4000).optional(),
   }).optional(),
 });
+
+const PLATFORM_ALIASES: Record<string, SocialProvider> = {
+  fb: 'facebook',
+  facebook: 'facebook',
+  ig: 'instagram',
+  instagram: 'instagram',
+  th: 'threads',
+  threads: 'threads',
+  tk: 'tiktok',
+  tiktok: 'tiktok',
+  yt: 'youtube',
+  youtube: 'youtube',
+};
 
 function allowedOrigins(): string[] {
   return (process.env.SOCIAL_PUBLISH_ALLOWED_ORIGINS || '')
@@ -85,12 +98,14 @@ function uniqueUrls(urls: Array<string | undefined>): string[] {
   return Array.from(new Set(urls.filter(Boolean).map((url) => url!.trim()).filter(Boolean)));
 }
 
-function providerErrorMessage(provider: string, message: string): string {
-  const lower = message.toLowerCase();
-  if (provider === 'instagram' && lower.includes('aspect ratio')) {
-    return 'Instagram khong nhan ty le anh nay. Hay dung anh trong khoang 4:5 den 1.91:1, vi du 1080x1080, 1080x1350 hoac 1080x566.';
-  }
-  return graphPermissionMessage(provider, message);
+function splitPlatforms(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value;
+  return (value ?? '').split(/[\s,]+/);
+}
+
+function requestedProviders(input: z.infer<typeof Schema>): SocialProvider[] {
+  const raw = [...splitPlatforms(input.platforms), ...splitPlatforms(input.platform)];
+  return Array.from(new Set(raw.map((item) => PLATFORM_ALIASES[item.trim().toLowerCase()]).filter(Boolean)));
 }
 
 export async function OPTIONS(req: Request) {
@@ -115,10 +130,13 @@ export async function POST(req: Request) {
   const parsed = Schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json({ error: 'Tham so khong hop le', issues: parsed.error.flatten() }, 400, d.origin);
 
-  const connectionIds = Array.from(
-    new Set([...(parsed.data.connectionIds ?? []), parsed.data.connectionId].filter(Boolean)),
-  ) as string[];
-  if (!connectionIds.length) return json({ error: 'Vui long truyen connectionId hoac connectionIds' }, 400, d.origin);
+  const providers = requestedProviders(parsed.data);
+  if (!providers.length) {
+    return json({
+      error: 'Vui long truyen platforms bang ten viet tat: fb, ig, th, tk, yt',
+      aliases: { facebook: 'fb', instagram: 'ig', threads: 'th', tiktok: 'tk', youtube: 'yt' },
+    }, 400, d.origin);
+  }
 
   for (const url of [parsed.data.mediaUrl, ...(parsed.data.mediaUrls ?? []), parsed.data.linkUrl]) {
     if (!url) continue;
@@ -130,93 +148,51 @@ export async function POST(req: Request) {
     }
   }
 
-  const originalMediaUrls = parsed.data.mediaType === 'image'
+  const mediaUrls = parsed.data.mediaType === 'image'
     ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
     : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
       ? [parsed.data.mediaUrl.trim()]
       : [];
-  const publishInput = { ...parsed.data };
-  if (parsed.data.mediaType === 'image') {
-    if (!originalMediaUrls.length) return json({ error: 'Vui long truyen it nhat mot URL anh' }, 400, d.origin);
-    if (parsed.data.imageProcessing?.enabled === false) {
-      publishInput.mediaUrl = originalMediaUrls[0];
-      publishInput.mediaUrls = originalMediaUrls;
-    } else {
-      try {
-        const processedUrls = await processSocialImageUrls(
-          originalMediaUrls,
-          req,
-          parsed.data.title || 'external-social-image',
-          parsed.data.imageProcessing,
-        );
-        publishInput.mediaUrl = processedUrls[0];
-        publishInput.mediaUrls = processedUrls;
-      } catch (error) {
-        return json({ error: error instanceof Error ? error.message : 'Khong the xu ly anh truoc khi dang' }, 502, d.origin);
-      }
-    }
+  if (parsed.data.mediaType === 'image' && !mediaUrls.length) return json({ error: 'Vui long truyen it nhat mot URL anh' }, 400, d.origin);
+  if (parsed.data.mediaType === 'video' && !mediaUrls.length) return json({ error: 'Vui long truyen URL video' }, 400, d.origin);
+
+  const connections = await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () => listConnections());
+  const selectedConnections = providers.map((provider) => connections.find((item) => item.kind === 'social' && item.provider === provider)).filter(Boolean);
+  const missingProviders = providers.filter((provider) => !selectedConnections.some((item) => item?.provider === provider));
+  if (missingProviders.length) {
+    return json({ error: `Chua co ket noi cho nen tang: ${missingProviders.join(', ')}` }, 404, d.origin);
   }
 
-  const loadedConnections = await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () =>
-    Promise.all(connectionIds.map((id) => getConnectionCreds(id).then((loaded) => ({ id, loaded })))),
-  );
-  const missing = loadedConnections.find((item) => !item.loaded);
-  if (missing) return json({ error: `Khong tim thay ket noi ${missing.id}` }, 404, d.origin);
-  const socialConnections = loadedConnections.map((item) => item.loaded!);
-  const invalid = socialConnections.find((item) => !isSocialProvider(item.record.provider));
-  if (invalid) return json({ error: `Ket noi ${invalid.record.label} khong phai mang xa hoi` }, 400, d.origin);
-
-  const results = await Promise.all(
-    socialConnections.map(async (loaded) => {
-      try {
-        const result = await publishSocial(loaded.record.provider as SocialProvider, loaded.credentials, publishInput);
-        await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () => setConnectionStatus(loaded.record.id, 'active'));
-        return { connectionId: loaded.record.id, provider: loaded.record.provider, label: loaded.record.label, ok: true, result };
-      } catch (error) {
-        const rawMessage = error instanceof Error ? error.message : 'Khong the dang noi dung';
-        return {
-          connectionId: loaded.record.id,
-          provider: loaded.record.provider,
-          label: loaded.record.label,
-          ok: false,
-          error: providerErrorMessage(loaded.record.provider, rawMessage),
-        };
-      }
-    }),
-  );
-
-  const finalMediaUrls = parsed.data.mediaType === 'image'
-    ? publishInput.mediaUrls ?? []
-    : parsed.data.mediaType === 'video' && publishInput.mediaUrl
-      ? [publishInput.mediaUrl]
-      : [];
-  await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () =>
-    addSocialPosts(results.map((item) => ({
-      connectionId: item.connectionId,
-      provider: item.provider as SocialProvider,
-      connectionLabel: item.label,
+  const batchId = genSocialPostBatchId();
+  const posts = await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () =>
+    addSocialPosts(selectedConnections.map((item) => ({
+      batchId,
+      connectionId: item!.id,
+      provider: item!.provider as SocialProvider,
+      connectionLabel: item!.label,
       title: parsed.data.title,
       text: parsed.data.text,
       mediaType: parsed.data.mediaType,
-      mediaUrls: finalMediaUrls,
-      originalMediaUrls,
+      mediaUrls,
+      originalMediaUrls: parsed.data.mediaType === 'image' ? mediaUrls : undefined,
       linkUrl: parsed.data.linkUrl,
-      providerPostId: item.ok ? item.result?.id : undefined,
-      publishedUrl: item.ok ? item.result?.url : undefined,
-      status: item.ok ? item.result?.status ?? 'published' : 'failed',
-      error: item.ok ? undefined : item.error,
+      status: 'pending_review',
       createdBy: a.token.createdBy,
+      source: 'external_api',
     }))),
-  ).catch((error) => {
-    console.error('[api/v1/social-publish] save history failed:', error instanceof Error ? error.message : error);
-  });
-
-  const successCount = results.filter((item) => item.ok).length;
-  if (!successCount) return json({ error: results[0]?.error || 'Khong the dang noi dung', results }, 502, d.origin);
+  );
 
   return json({
-    published: results.every((item) => item.ok && item.result?.status === 'published'),
-    partial: successCount < results.length,
-    results,
-  }, 200, d.origin);
+    status: 'pending_review',
+    message: 'Da tao bai cho duyet. Nguoi dung can vao app de chinh sua/duyet truoc khi dang.',
+    batchId,
+    reviewUrl: `/social-publish?review=${encodeURIComponent(posts[0]?.id ?? '')}`,
+    posts: posts.map((post) => ({
+      id: post.id,
+      connectionId: post.connectionId,
+      platform: post.provider,
+      label: post.connectionLabel,
+      status: post.status,
+    })),
+  }, 202, d.origin);
 }

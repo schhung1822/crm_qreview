@@ -9,6 +9,7 @@ const MAX_ROWS = 1000;
 
 export interface SocialPostRecord {
   id: string;
+  batchId?: string;
   connectionId: string;
   provider: SocialProvider;
   connectionLabel: string;
@@ -20,13 +21,15 @@ export interface SocialPostRecord {
   linkUrl?: string;
   providerPostId?: string;
   publishedUrl?: string;
-  status: 'published' | 'processing' | 'failed';
+  status: 'pending_review' | 'published' | 'processing' | 'failed';
   error?: string;
   createdBy?: string;
+  source?: 'app' | 'external_api';
   createdAt: string;
 }
 
 export interface SocialPostInput {
+  batchId?: string;
   connectionId: string;
   provider: SocialProvider;
   connectionLabel: string;
@@ -38,13 +41,18 @@ export interface SocialPostInput {
   linkUrl?: string;
   providerPostId?: string;
   publishedUrl?: string;
-  status: 'published' | 'processing' | 'failed';
+  status: 'pending_review' | 'published' | 'processing' | 'failed';
   error?: string;
   createdBy?: string;
+  source?: 'app' | 'external_api';
 }
 
 function genId(): string {
   return `sp_${randomBytes(9).toString('hex')}`;
+}
+
+export function genSocialPostBatchId(): string {
+  return `spb_${randomBytes(9).toString('hex')}`;
 }
 
 function normalize(record: SocialPostRecord): SocialPostRecord {
@@ -57,6 +65,14 @@ function normalize(record: SocialPostRecord): SocialPostRecord {
 
 export async function listSocialPosts(): Promise<SocialPostRecord[]> {
   return (await readJson<SocialPostRecord[]>(globalFile(NAME), [])).map(normalize);
+}
+
+export async function getSocialPostBatch(id: string): Promise<SocialPostRecord[]> {
+  const rows = await listSocialPosts();
+  const found = rows.find((row) => row.id === id);
+  if (!found) return [];
+  if (found.batchId) return rows.filter((row) => row.batchId === found.batchId);
+  return [found];
 }
 
 export async function addSocialPosts(inputs: SocialPostInput[]): Promise<SocialPostRecord[]> {

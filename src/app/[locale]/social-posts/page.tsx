@@ -49,12 +49,14 @@ const MEDIA_LABEL: Record<SocialPostRecord['mediaType'], string> = {
 };
 
 const STATUS_LABEL: Record<SocialPostRecord['status'], string> = {
+  pending_review: 'Chờ duyệt',
   published: 'Đã đăng',
   processing: 'Đang xử lý',
   failed: 'Lỗi',
 };
 
-const STATUS_TONE: Record<SocialPostRecord['status'], 'success' | 'info' | 'critical'> = {
+const STATUS_TONE: Record<SocialPostRecord['status'], 'success' | 'info' | 'critical' | 'warning'> = {
+  pending_review: 'warning',
   published: 'success',
   processing: 'info',
   failed: 'critical',
@@ -78,6 +80,7 @@ function mediaSummary(post: SocialPostRecord): string {
 }
 
 function groupKey(post: SocialPostRecord): string {
+  if (post.batchId) return post.batchId;
   const minute = Math.floor(new Date(post.createdAt).getTime() / 60_000);
   const media = [...post.mediaUrls].sort().join('|');
   return [post.title || '', post.text, post.mediaType, media, minute].join('::');
@@ -85,6 +88,7 @@ function groupKey(post: SocialPostRecord): string {
 
 function groupStatus(posts: SocialPostRecord[]): SocialPostRecord['status'] {
   if (posts.some((post) => post.status === 'failed')) return 'failed';
+  if (posts.some((post) => post.status === 'pending_review')) return 'pending_review';
   if (posts.some((post) => post.status === 'processing')) return 'processing';
   return 'published';
 }
@@ -210,6 +214,7 @@ export default function SocialPostsPage() {
               onChange={(value) => setStatus(value as StatusFilter)}
               options={[
                 { label: 'Tất cả trạng thái', value: 'all' },
+                { label: STATUS_LABEL.pending_review, value: 'pending_review' },
                 { label: STATUS_LABEL.published, value: 'published' },
                 { label: STATUS_LABEL.processing, value: 'processing' },
                 { label: STATUS_LABEL.failed, value: 'failed' },
@@ -257,6 +262,11 @@ export default function SocialPostsPage() {
                         </BlockStack>
                       </InlineStack>
                       <ButtonGroup>
+                        {group.status === 'pending_review' ? (
+                          <Button url={`/social-publish?review=${encodeURIComponent(post.id)}`}>
+                            Duyệt / chỉnh sửa
+                          </Button>
+                        ) : null}
                         {group.publishedUrls[0] ? (
                           <Button url={group.publishedUrls[0].url} target="_blank">
                             Xem bài

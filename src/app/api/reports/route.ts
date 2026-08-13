@@ -70,11 +70,12 @@ export async function GET(req: Request) {
   const socialPosts = allSocialPosts.filter((post) => new Date(post.createdAt).getTime() >= cutoff);
   const socialUniquePosts = new Set(socialPosts.map((post) => `${post.title || ''}|${post.text}|${post.createdAt}`)).size;
   const socialSuccess = socialPosts.filter((post) => post.status === 'published').length;
+  const socialPending = socialPosts.filter((post) => post.status === 'pending_review').length;
   const socialProcessing = socialPosts.filter((post) => post.status === 'processing').length;
   const socialFailed = socialPosts.filter((post) => post.status === 'failed').length;
   const byProvider = Object.entries(
-    socialPosts.reduce<Record<string, { total: number; published: number; processing: number; failed: number }>>((acc, post) => {
-      acc[post.provider] ??= { total: 0, published: 0, processing: 0, failed: 0 };
+    socialPosts.reduce<Record<string, { total: number; pending_review: number; published: number; processing: number; failed: number }>>((acc, post) => {
+      acc[post.provider] ??= { total: 0, pending_review: 0, published: 0, processing: 0, failed: 0 };
       acc[post.provider].total += 1;
       acc[post.provider][post.status] += 1;
       return acc;
@@ -96,6 +97,7 @@ export async function GET(req: Request) {
       date: item.date,
       total: dayPosts.length,
       published: dayPosts.filter((post) => post.status === 'published').length,
+      pendingReview: dayPosts.filter((post) => post.status === 'pending_review').length,
       failed: dayPosts.filter((post) => post.status === 'failed').length,
     };
   });
@@ -120,6 +122,7 @@ export async function GET(req: Request) {
       totals: {
         attempts: socialPosts.length,
         uniquePosts: socialUniquePosts,
+        pendingReview: socialPending,
         published: socialSuccess,
         processing: socialProcessing,
         failed: socialFailed,
