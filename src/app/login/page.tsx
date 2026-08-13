@@ -206,14 +206,14 @@ function LoginInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (res.ok && data.user) window.location.href = nextUrl ?? '/dashboard';
-      else if (res.ok && data.requiresVerification) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.user) window.location.href = nextUrl ?? '/dashboard';
+      else if (res.ok && data?.requiresVerification) {
         // Đăng ký xong, chờ kích hoạt qua email → về màn đăng nhập + hướng dẫn kiểm tra hộp thư.
         setMode('login');
         setPassword('');
-        setUnverifiedEmail(data.email ?? email);
-        if (data.emailError) setError(tVerifySendFail);
+        setUnverifiedEmail(data?.email ?? email);
+        if (data?.emailError) setError(tVerifySendFail);
         else setNotice(tVerifySent);
       } else if (data?.unverified) {
         // Đăng nhập đúng mật khẩu nhưng tài khoản chưa kích hoạt → cho gửi lại link.
