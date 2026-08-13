@@ -54,6 +54,29 @@ function required(creds: Credentials, key: string, label = key): string {
   return value;
 }
 
+export function graphPermissionMessage(provider: string, message: string): string {
+  const lower = message.toLowerCase();
+  if (provider === 'instagram' && (lower.includes('#10') || lower.includes('permission'))) {
+    return `${message}. Tài khoản/app Meta chưa có quyền đăng Instagram. Cần dùng Instagram Professional đã liên kết Facebook Page, token có instagram_basic và instagram_content_publish, app đã được cấp quyền này trong Meta App Review hoặc token được tạo từ user có vai trò trong app.`;
+  }
+  if (provider === 'facebook' && lower.includes('unpublished posts must be posted to a page as the page itself')) {
+    return `${message}. Token hiện tại không phải Page Access Token hợp lệ cho Page này. Hãy dùng Page Access Token có pages_manage_posts/pages_read_engagement hoặc cấp user token có pages_show_list để hệ thống tự lấy Page token.`;
+  }
+  return message;
+}
+
+async function facebookPageAccessToken(creds: Credentials, pageId: string): Promise<string> {
+  const token = required(creds, 'accessToken', 'Page Access Token');
+  const explicit = creds.pageAccessToken?.trim();
+  if (explicit) return explicit;
+  const accounts = await apiJson(
+    `https://graph.facebook.com/${META_VERSION}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(token)}`,
+  ).catch(() => null);
+  const rows = Array.isArray(accounts?.data) ? accounts.data as Array<{ id?: string; access_token?: string }> : [];
+  const page = rows.find((item) => String(item.id || '') === pageId);
+  return page?.access_token || token;
+}
+
 function requireMedia(input: SocialPublishInput, provider: string): string {
   if (!input.mediaUrl) throw new Error(`${provider} yêu cầu URL ảnh hoặc video công khai`);
   return input.mediaUrl;
@@ -87,7 +110,7 @@ export async function testSocialConnection(
   try {
     if (provider === 'facebook') {
       const pageId = required(credentials, 'pageId', 'Page ID');
-      const token = required(credentials, 'accessToken', 'Page Access Token');
+      const token = await facebookPageAccessToken(credentials, pageId);
       await apiJson(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`);
     } else if (provider === 'instagram') {
       const userId = required(credentials, 'instagramUserId', 'Instagram User ID');
@@ -115,7 +138,7 @@ export async function testSocialConnection(
 
 async function publishFacebook(creds: Credentials, input: SocialPublishInput): Promise<SocialPublishResult> {
   const pageId = required(creds, 'pageId', 'Page ID');
-  const token = required(creds, 'accessToken', 'Page Access Token');
+  const token = await facebookPageAccessToken(creds, pageId);
   let endpoint = 'feed';
   const payload: Record<string, string | boolean | undefined> = { access_token: token, message: input.text };
   if (input.mediaType === 'image') {

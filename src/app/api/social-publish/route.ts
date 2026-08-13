@@ -5,7 +5,7 @@ import { runWithBiz } from '@/lib/biz/context';
 import { isSocialProvider, type SocialProvider } from '@/lib/connection-providers';
 import { assertPublicUrl } from '@/lib/security/ssrf';
 import { processSocialImageUrls } from '@/lib/social-publishing/image-processing';
-import { publishSocial } from '@/lib/social-publishing';
+import { graphPermissionMessage, publishSocial } from '@/lib/social-publishing';
 import { getConnectionCreds, setConnectionStatus } from '@/lib/store/connections';
 import { addSocialPosts } from '@/lib/store/social-posts';
 import { recordUserEvent } from '@/lib/tracking/events';
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
         };
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'Không thể đăng nội dung';
-        const message = providerErrorMessage(loaded.record.provider, rawMessage);
+        const message = providerErrorMessage(loaded.record.provider, graphPermissionMessage(loaded.record.provider, rawMessage));
         recordUserEvent({
           eventName: 'social_publish',
           eventType: 'conversion',
