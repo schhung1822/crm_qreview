@@ -95,6 +95,7 @@ export default function SocialPublishPage() {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [imageProcessingEnabled, setImageProcessingEnabled] = useState(true);
   const [imageScale, setImageScale] = useState(1.1);
   const [imageBarColor, setImageBarColor] = useState('#f97316');
   const [imageBarHeight, setImageBarHeight] = useState(150);
@@ -153,11 +154,11 @@ export default function SocialPublishPage() {
     if (selectedConnections.some((connection) => connection.status !== 'active')) return false;
     if (unsupportedConnections.length > 0) return false;
     if (mediaType === 'image' && (imageUrls.length === 0 || imageUrls.some((url) => !/^https?:\/\//i.test(url)))) return false;
-    if (mediaType === 'image' && !/^#[0-9a-fA-F]{6}$/.test(imageBarColor)) return false;
+    if (mediaType === 'image' && imageProcessingEnabled && !/^#[0-9a-fA-F]{6}$/.test(imageBarColor)) return false;
     if (mediaType === 'video' && !/^https?:\/\//i.test(mediaUrl.trim())) return false;
     if (linkUrl && !/^https?:\/\//i.test(linkUrl.trim())) return false;
     return true;
-  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, imageBarColor, mediaUrl, linkUrl]);
+  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, imageProcessingEnabled, imageBarColor, mediaUrl, linkUrl]);
 
   function toggleConnection(id: string, checked: boolean) {
     setSelectedConnectionIds((current) => checked ? [...current, id] : current.filter((item) => item !== id));
@@ -200,6 +201,7 @@ export default function SocialPublishPage() {
           mediaUrl: mediaType === 'video' ? mediaUrl.trim() : mediaType === 'image' ? imageUrls[0] : undefined,
           mediaUrls: mediaType === 'image' ? imageUrls : undefined,
           imageProcessing: mediaType === 'image' ? {
+            enabled: imageProcessingEnabled,
             scale: imageScale,
             barColor: imageBarColor,
             barHeight: imageBarHeight,
@@ -294,7 +296,7 @@ export default function SocialPublishPage() {
                   multiline={mediaType === 'image' ? 5 : false}
                   autoComplete="off"
                   placeholder={mediaType === 'image' ? 'https://example.com/image.jpg' : 'https://example.com/video.mp4'}
-                  helpText={mediaType === 'image' ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL. Ảnh sẽ được tải về, crop 1:1, zoom 1.1 lần, thêm dải cam và logo trước khi đăng.' : undefined}
+                  helpText={mediaType === 'image' ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL. Nếu tắt xử lý ảnh, hệ thống sẽ dùng nguyên URL đã dán và không lưu ảnh về máy chủ.' : undefined}
                 />
               ) : selectedConnections.some((connection) => ['facebook', 'threads'].includes(connection.provider)) ? (
                 <TextField label="Liên kết đính kèm (tùy chọn)" value={linkUrl} onChange={setLinkUrl} type="url" autoComplete="off" />
@@ -303,47 +305,60 @@ export default function SocialPublishPage() {
                 <Card>
                   <BlockStack gap="300">
                     <Text as="h3" variant="headingSm">Xử lý ảnh trước khi đăng</Text>
-                    <RangeSlider
-                      label={`Scale ảnh: ${imageScale.toFixed(2)}x`}
-                      min={1}
-                      max={1.5}
-                      step={0.05}
-                      value={imageScale}
-                      onChange={(value) => setImageScale(Number(value))}
-                      output
-                    />
-                    <RangeSlider
-                      label={`Chiều cao dải dưới: ${imageBarHeight}px`}
-                      min={0}
-                      max={320}
-                      step={10}
-                      value={imageBarHeight}
-                      onChange={(value) => setImageBarHeight(Number(value))}
-                      output
-                    />
-                    <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
-                      <TextField
-                        label="Màu dải dưới"
-                        value={imageBarColor}
-                        onChange={setImageBarColor}
-                        autoComplete="off"
-                        placeholder="#f97316"
-                        error={/^#[0-9a-fA-F]{6}$/.test(imageBarColor) ? undefined : 'Nhập màu HEX dạng #f97316'}
-                      />
-                      <TextField
-                        label="Logo riêng (tùy chọn)"
-                        value={imageLogoUrl}
-                        onChange={setImageLogoUrl}
-                        autoComplete="off"
-                        placeholder="Để trống = logo hệ thống"
-                        helpText="Có thể dùng URL http(s), data URI hoặc đường dẫn nội bộ /images/..."
-                      />
-                    </InlineGrid>
                     <Checkbox
-                      label="Chèn logo vào bên trái dải màu"
-                      checked={imageShowLogo}
-                      onChange={setImageShowLogo}
+                      label="Bật xử lý ảnh: tải về, crop 1:1, scale, thêm dải màu và logo"
+                      checked={imageProcessingEnabled}
+                      onChange={setImageProcessingEnabled}
                     />
+                    {imageProcessingEnabled ? (
+                      <>
+                        <RangeSlider
+                          label={`Scale ảnh: ${imageScale.toFixed(2)}x`}
+                          min={1}
+                          max={1.5}
+                          step={0.05}
+                          value={imageScale}
+                          onChange={(value) => setImageScale(Number(value))}
+                          output
+                        />
+                        <RangeSlider
+                          label={`Chiều cao dải dưới: ${imageBarHeight}px`}
+                          min={0}
+                          max={320}
+                          step={10}
+                          value={imageBarHeight}
+                          onChange={(value) => setImageBarHeight(Number(value))}
+                          output
+                        />
+                        <InlineGrid columns={{ xs: 1, md: 2 }} gap="300">
+                          <TextField
+                            label="Màu dải dưới"
+                            value={imageBarColor}
+                            onChange={setImageBarColor}
+                            autoComplete="off"
+                            placeholder="#f97316"
+                            error={/^#[0-9a-fA-F]{6}$/.test(imageBarColor) ? undefined : 'Nhập màu HEX dạng #f97316'}
+                          />
+                          <TextField
+                            label="Logo riêng (tùy chọn)"
+                            value={imageLogoUrl}
+                            onChange={setImageLogoUrl}
+                            autoComplete="off"
+                            placeholder="Để trống = logo hệ thống"
+                            helpText="Có thể dùng URL http(s), data URI hoặc đường dẫn nội bộ /images/..."
+                          />
+                        </InlineGrid>
+                        <Checkbox
+                          label="Chèn logo vào bên trái dải màu"
+                          checked={imageShowLogo}
+                          onChange={setImageShowLogo}
+                        />
+                      </>
+                    ) : (
+                      <Text as="p" tone="subdued">
+                        Hệ thống sẽ gửi nguyên các URL ảnh đã dán lên nền tảng. URL phải là HTTPS công khai và đúng yêu cầu tỷ lệ/dung lượng của từng mạng xã hội.
+                      </Text>
+                    )}
                   </BlockStack>
                 </Card>
               ) : null}

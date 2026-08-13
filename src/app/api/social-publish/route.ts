@@ -24,6 +24,7 @@ const Schema = z.object({
   linkUrl: z.string().max(4000).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
+    enabled: z.boolean().optional(),
     scale: z.number().min(1).max(1.5).optional(),
     barColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     barHeight: z.number().min(0).max(320).optional(),
@@ -79,13 +80,18 @@ export async function POST(req: Request) {
     if (rawImageUrls.length === 0) {
       return NextResponse.json({ error: 'Vui lòng nhập ít nhất một URL ảnh' }, { status: 400 });
     }
-    try {
-      const processedUrls = await processSocialImageUrls(rawImageUrls, req, parsed.data.title || 'social-image', parsed.data.imageProcessing);
-      publishInput.mediaUrl = processedUrls[0];
-      publishInput.mediaUrls = processedUrls;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể xử lý ảnh trước khi đăng';
-      return NextResponse.json({ error: message }, { status: 502 });
+    if (parsed.data.imageProcessing?.enabled === false) {
+      publishInput.mediaUrl = rawImageUrls[0];
+      publishInput.mediaUrls = rawImageUrls;
+    } else {
+      try {
+        const processedUrls = await processSocialImageUrls(rawImageUrls, req, parsed.data.title || 'social-image', parsed.data.imageProcessing);
+        publishInput.mediaUrl = processedUrls[0];
+        publishInput.mediaUrls = processedUrls;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Không thể xử lý ảnh trước khi đăng';
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
     }
   }
 
