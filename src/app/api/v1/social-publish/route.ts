@@ -47,13 +47,25 @@ const PLATFORM_ALIASES: Record<string, SocialProvider> = {
 function allowedOrigins(): string[] {
   return (process.env.SOCIAL_PUBLISH_ALLOWED_ORIGINS || '')
     .split(',')
-    .map((item) => item.trim().replace(/\/+$/, ''))
+    .map(normalizeOrigin)
     .filter(Boolean);
 }
 
+function normalizeOrigin(value: string | null): string {
+  const raw = (value || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw;
+  }
+}
+
 function requestOrigin(req: Request): string | null {
-  const origin = req.headers.get('origin');
-  if (origin) return origin.replace(/\/+$/, '');
+  const explicit = normalizeOrigin(req.headers.get('x-qreview-origin') || req.headers.get('x-source-origin'));
+  if (explicit) return explicit;
+  const origin = normalizeOrigin(req.headers.get('origin'));
+  if (origin) return origin;
   const referer = req.headers.get('referer');
   if (!referer) return null;
   try {
@@ -67,7 +79,7 @@ function corsHeaders(origin: string | null): HeadersInit {
   return {
     'Access-Control-Allow-Origin': origin || 'null',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-QReview-Origin, X-Source-Origin',
     'Vary': 'Origin',
   };
 }
@@ -82,6 +94,9 @@ function domainAllowed(req: Request): { ok: true; origin: string } | { ok: false
         {
           error: 'Domain khong duoc phep goi API dang mang xa hoi.',
           allowedEnv: 'SOCIAL_PUBLISH_ALLOWED_ORIGINS',
+          receivedOrigin: origin,
+          allowedOrigins: allowed,
+          hint: 'Neu goi tu n8n/server-to-server, hay them header X-QReview-Origin bang origin da khai bao trong env.',
         },
         { status: 403, headers: corsHeaders(origin) },
       ),

@@ -75,6 +75,12 @@ Trong file \`.env\` trên server, khai báo domain được phép gọi API:
 
 Giá trị phải là origin đầy đủ gồm scheme và host. Không thêm path phía sau.
 
+Khi gọi từ n8n hoặc server-to-server, request thường không tự có header \`Origin\`. Hãy thêm header:
+
+\`X-QReview-Origin: https://example.com\`
+
+Giá trị này phải trùng với một origin trong \`SOCIAL_PUBLISH_ALLOWED_ORIGINS\`.
+
 ### Chọn nền tảng bằng tên viết tắt
 
 Trường \`platforms\` nhận danh sách mã nền tảng:
@@ -163,6 +169,7 @@ Người dùng mở \`reviewUrl\`, kiểm tra nội dung, chỉnh sửa nếu c�
 
 \`curl -X POST https://your-domain.com/api/v1/social-publish \\
   -H "Authorization: Bearer YOUR_API_TOKEN" \\
+  -H "X-QReview-Origin: https://example.com" \\
   -H "Content-Type: application/json" \\
   -d '{"platforms":["fb","ig"],"title":"Tiêu đề","text":"Nội dung cần duyệt","mediaType":"image","mediaUrls":["https://example.com/image.jpg"]}'\`
 
