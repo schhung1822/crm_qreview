@@ -65,7 +65,7 @@ Gửi Bearer token trong header:
 
 \`Authorization: Bearer <API_TOKEN>\`
 
-Token được tạo trong phần quản lý API token của hệ thống. Giữ token như mật khẩu.
+Token được tạo tại **Quản lý kết nối** → tab **Khác** → khung **API token cho API ngoài**. Giữ token như mật khẩu.
 
 ### Cho phép domain gọi API
 

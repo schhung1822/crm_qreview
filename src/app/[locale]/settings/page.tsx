@@ -63,6 +63,15 @@ interface Conn {
   seoPlugin?: string;
   status: 'active' | 'error';
 }
+interface ApiToken {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  createdBy: string;
+  lastUsedAt?: string;
+  revoked?: boolean;
+}
 
 // Phân loại: CMS · Mạng xã hội · AI · Khác (tích hợp/khác).
 type Cat = 'cms' | 'social' | 'ai' | 'other';
@@ -92,6 +101,10 @@ export default function ConnectionsHubPage() {
   const [connections, setConnections] = useState<Conn[] | null>(null);
   const [drive, setDrive] = useState<DriveStatus | null>(null);
   const [dfs, setDfs] = useState<DfsStatus | null>(null);
+  const [apiTokens, setApiTokens] = useState<ApiToken[] | null>(null);
+  const [apiTokenName, setApiTokenName] = useState('');
+  const [newApiToken, setNewApiToken] = useState('');
+  const [apiTokenError, setApiTokenError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   const [add, setAdd] = useState<AddTarget | null>(null);
@@ -159,9 +172,17 @@ export default function ConnectionsHubPage() {
       setApify({ keys: [], usingFallback: false });
     }
   }, []);
+  const loadApiTokens = useCallback(async () => {
+    try {
+      const res = await fetch('/api/api-tokens');
+      setApiTokens(res.ok ? (await res.json()).tokens : []);
+    } catch {
+      setApiTokens([]);
+    }
+  }, []);
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadAi(), loadInt(), loadConns(), loadDrive(), loadDfs(), loadApify()]);
-  }, [loadAi, loadInt, loadConns, loadDrive, loadDfs, loadApify]);
+    await Promise.all([loadAi(), loadInt(), loadConns(), loadDrive(), loadDfs(), loadApify(), loadApiTokens()]);
+  }, [loadAi, loadInt, loadConns, loadDrive, loadDfs, loadApify, loadApiTokens]);
 
   useEffect(() => {
     void reloadAll();
@@ -179,10 +200,15 @@ export default function ConnectionsHubPage() {
   const driveConnected = drive?.connected ? 1 : 0;
   const dfsConfigured = dfs?.configured ? 1 : 0;
   const apifyConfigured = apify?.keys?.length || apify?.usingFallback ? 1 : 0;
+  const activeApiTokenCount = apiTokens?.filter((token) => !token.revoked).length ?? 0;
   const aiCount =
     providers.filter((p) => p.hasKey).length + ints.filter((i) => i.hasKey && intCat(i.id) === 'ai').length;
   const intCount =
-    ints.filter((i) => i.hasKey && intCat(i.id) === 'other').length + driveConnected + dfsConfigured + apifyConfigured;
+    ints.filter((i) => i.hasKey && intCat(i.id) === 'other').length +
+    driveConnected +
+    dfsConfigured +
+    apifyConfigured +
+    activeApiTokenCount;
   const total = aiCount + conns.length + intCount;
 
   const cat = CATS[tab];
@@ -329,6 +355,50 @@ export default function ConnectionsHubPage() {
     await performDelete(target);
   }
 
+  async function createApiToken() {
+    const name = apiTokenName.trim();
+    if (!name) {
+      setApiTokenError('Nhap ten token de de nhan dien.');
+      return;
+    }
+    setBusy('api-token-create');
+    setApiTokenError('');
+    setNewApiToken('');
+    try {
+      const res = await fetch('/api/api-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setApiTokenError(payload.error || 'Khong tao duoc API token.');
+        return;
+      }
+      setNewApiToken(payload.plaintext || '');
+      setApiTokenName('');
+      await loadApiTokens();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function revokeApiToken(id: string) {
+    setBusy(`api-token-${id}`);
+    setApiTokenError('');
+    try {
+      const res = await fetch(`/api/api-tokens?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setApiTokenError(payload.error || 'Khong thu hoi duoc API token.');
+        return;
+      }
+      setApiTokens(payload.tokens ?? []);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <Page
       title={t('title')}
@@ -459,6 +529,88 @@ export default function ConnectionsHubPage() {
         </Card>
 
         {/* ── Danh sách đã kết nối ── */}
+        {show('other') ? (
+          <Card>
+            <BlockStack gap="300">
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <Text as="h2" variant="headingSm">
+                    API token cho API ngoài
+                  </Text>
+                  <Text as="p" tone="subdued">
+                    Tạo token để n8n hoặc hệ thống bên ngoài gọi API tạo bài đăng mạng xã hội chờ duyệt.
+                  </Text>
+                </BlockStack>
+                <Badge tone={activeApiTokenCount > 0 ? 'success' : undefined}>{`${activeApiTokenCount} active`}</Badge>
+              </InlineStack>
+
+              {apiTokenError ? <Banner tone="critical">{apiTokenError}</Banner> : null}
+              {newApiToken ? (
+                <Banner tone="success">
+                  Token mới chỉ hiển thị một lần. Hãy lưu lại trước khi đóng trang.
+                  <Box paddingBlockStart="200">
+                    <TextField label="Bearer token" value={newApiToken} readOnly autoComplete="off" />
+                  </Box>
+                </Banner>
+              ) : null}
+
+              <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                <TextField
+                  label="Tên token"
+                  value={apiTokenName}
+                  onChange={setApiTokenName}
+                  placeholder="Ví dụ: n8n production"
+                  autoComplete="off"
+                />
+                <div style={{ display: 'flex', alignItems: 'end' }}>
+                  <Button variant="primary" loading={busy === 'api-token-create'} onClick={() => void createApiToken()}>
+                    Tạo token
+                  </Button>
+                </div>
+              </InlineGrid>
+
+              {apiTokens === null ? (
+                <Spinner size="small" />
+              ) : apiTokens.length === 0 ? (
+                <Text as="p" tone="subdued">
+                  Chưa có API token nào.
+                </Text>
+              ) : (
+                <BlockStack gap="200">
+                  {apiTokens.map((token) => (
+                    <Box key={token.id} padding="300" borderWidth="025" borderColor="border" borderRadius="200">
+                      <InlineStack align="space-between" blockAlign="center" gap="300" wrap={false}>
+                        <BlockStack gap="050">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text as="p" fontWeight="semibold">
+                              {token.name}
+                            </Text>
+                            <Badge tone={token.revoked ? 'critical' : 'success'}>
+                              {token.revoked ? 'Đã thu hồi' : 'Active'}
+                            </Badge>
+                          </InlineStack>
+                          <Text as="p" tone="subdued" variant="bodySm">
+                            {token.prefix}... · tạo {new Date(token.createdAt).toLocaleString('vi-VN')}
+                            {token.lastUsedAt ? ` · dùng lần cuối ${new Date(token.lastUsedAt).toLocaleString('vi-VN')}` : ''}
+                          </Text>
+                        </BlockStack>
+                        <Button
+                          tone="critical"
+                          disabled={Boolean(token.revoked)}
+                          loading={busy === `api-token-${token.id}`}
+                          onClick={() => void revokeApiToken(token.id)}
+                        >
+                          Thu hồi
+                        </Button>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              )}
+            </BlockStack>
+          </Card>
+        ) : null}
+
         <Card padding="0">
           <Box padding="400" borderBlockEndWidth="025" borderColor="border">
             <InlineStack align="space-between" blockAlign="center">
