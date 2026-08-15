@@ -12,7 +12,9 @@ import type { ArticleRecord } from '../../store/articles';
 import type { ConnectionRecord, ConnectionProvider } from '../../store/connections';
 import type { KeywordSetRecord, StoredKeyword } from '../../store/keywordsets';
 import type { PlanItem, PlanRecord } from '../../store/plans';
-import type { Repositories } from './types';
+import type { SocialPostRecord } from '../../store/social-posts';
+import { sourceKey, sourceLabel } from '../../social-publishing/source';
+import { NO_SOURCE_KEY, type Repositories, type SocialPostFilter } from './types';
 
 const iso = (d: Date) => d.toISOString();
 
@@ -71,6 +73,88 @@ function articleOut(r: Record<string, unknown>): ArticleRecord {
     publishedUrl: (r.publishedUrl as string) ?? undefined,
     updatedAt: iso(r.updatedAt as Date),
   };
+}
+
+// ─────────────────────── SocialPost ↔ hàng DB ───────────────────────
+// Mảng/đối tượng lưu cột Json (MySQL không có kiểu mảng). Trường vắng mặt → undefined, KHÔNG null,
+// để record khớp đúng SocialPostRecord như driver file trả về.
+const jsonArray = (value: unknown): string[] | undefined =>
+  Array.isArray(value) ? (value as string[]) : undefined;
+const orUndefined = <T,>(value: T | null): T | undefined => (value === null ? undefined : value);
+
+function socialPostOut(r: Record<string, unknown>): SocialPostRecord {
+  return {
+    id: r.id as string,
+    batchId: r.batchId as string,
+    connectionId: r.connectionId as string,
+    provider: r.provider as SocialPostRecord['provider'],
+    connectionLabel: r.connectionLabel as string,
+    title: orUndefined(r.title as string | null),
+    text: r.text as string,
+    mediaType: r.mediaType as SocialPostRecord['mediaType'],
+    mediaUrls: jsonArray(r.mediaUrls) ?? [],
+    originalMediaUrls: jsonArray(r.originalMediaUrls),
+    imageProcessing: orUndefined(r.imageProcessing as SocialPostRecord['imageProcessing'] | null),
+    linkUrl: orUndefined(r.linkUrl as string | null),
+    articleSource: orUndefined(r.articleSource as string | null),
+    urlSource: orUndefined(r.urlSource as string | null),
+    affiliateLinks: jsonArray(r.affiliateLinks),
+    providerPostId: orUndefined(r.providerPostId as string | null),
+    publishedUrl: orUndefined(r.publishedUrl as string | null),
+    status: r.status as SocialPostRecord['status'],
+    error: orUndefined(r.error as string | null),
+    createdBy: orUndefined(r.createdBy as string | null),
+    source: orUndefined(r.source as SocialPostRecord['source'] | null),
+    createdAt: iso(r.createdAt as Date),
+  };
+}
+
+function socialPostIn(r: SocialPostRecord) {
+  return {
+    id: r.id,
+    batchId: r.batchId,
+    connectionId: r.connectionId,
+    provider: r.provider,
+    connectionLabel: r.connectionLabel,
+    title: r.title ?? null,
+    text: r.text,
+    mediaType: r.mediaType,
+    mediaUrls: r.mediaUrls as unknown as object,
+    originalMediaUrls: (r.originalMediaUrls as unknown as object) ?? undefined,
+    imageProcessing: (r.imageProcessing as unknown as object) ?? undefined,
+    linkUrl: r.linkUrl ?? null,
+    articleSource: r.articleSource ?? null,
+    articleSourceKey: sourceKey(r.articleSource) || null,
+    urlSource: r.urlSource ?? null,
+    affiliateLinks: (r.affiliateLinks as unknown as object) ?? undefined,
+    providerPostId: r.providerPostId ?? null,
+    publishedUrl: r.publishedUrl ?? null,
+    status: r.status,
+    error: r.error ?? null,
+    createdBy: r.createdBy ?? null,
+    source: r.source ?? null,
+    createdAt: new Date(r.createdAt),
+  };
+}
+
+function socialPostWhere(filter: SocialPostFilter) {
+  const where: Record<string, unknown> = {};
+  if (filter.provider) where.provider = filter.provider;
+  if (filter.status) where.status = filter.status;
+  if (filter.sourceKey === NO_SOURCE_KEY) where.articleSourceKey = null;
+  else if (filter.sourceKey) where.articleSourceKey = filter.sourceKey;
+  const q = filter.search?.trim();
+  if (q) {
+    where.OR = [
+      { title: { contains: q } },
+      { text: { contains: q } },
+      { connectionLabel: { contains: q } },
+      { publishedUrl: { contains: q } },
+      { providerPostId: { contains: q } },
+      { articleSource: { contains: q } },
+    ];
+  }
+  return where;
 }
 
 function connectionOut(r: Record<string, unknown>): ConnectionRecord {
@@ -284,6 +368,78 @@ export const prismaRepositories: Repositories = {
     async remove(id) {
       await prisma.contentPlan.deleteMany({ where: { id } });
     },
+  },
+
+  // Bài đăng mạng xã hội — bảng SocialPost, mỗi kênh một hàng, lọc bằng index.
+  socialPosts: {
+    async page(filter, limit, offset) {
+      const where = socialPostWhere(filter);
+      // Lấy DANH SÁCH LẦN ĐĂNG của trang trước, rồi mới lấy hàng — phân trang theo lần đăng
+      // để một lần đăng nhiều kênh không bị cắt đôi giữa hai trang.
+      const [pageBatches, allBatches] = await Promise.all([
+        prisma.socialPost.groupBy({
+          by: ['batchId'],
+          where,
+          _max: { createdAt: true },
+          orderBy: { _max: { createdAt: 'desc' } },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.socialPost.groupBy({ by: ['batchId'], where }),
+      ]);
+      const batchIds = pageBatches.map((row) => row.batchId);
+      if (!batchIds.length) return { rows: [], totalBatches: allBatches.length };
+      const rows = await prisma.socialPost.findMany({
+        where: { AND: [where, { batchId: { in: batchIds } }] },
+        orderBy: { createdAt: 'desc' },
+      });
+      return { rows: rows.map(socialPostOut), totalBatches: allBatches.length };
+    },
+    async batch(id) {
+      const found = await prisma.socialPost.findUnique({ where: { id } });
+      if (!found) return [];
+      const rows = await prisma.socialPost.findMany({
+        where: { batchId: found.batchId },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(socialPostOut);
+    },
+    async since(createdAtIso) {
+      const rows = await prisma.socialPost.findMany({
+        where: { createdAt: { gte: new Date(createdAtIso) } },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(socialPostOut);
+    },
+    async sources() {
+      const groups = await prisma.socialPost.groupBy({
+        by: ['articleSourceKey'],
+        _count: { _all: true },
+        _max: { articleSource: true },
+      });
+      const rows: Array<{ key: string; label: string; count: number }> = [];
+      let missing = 0;
+      for (const group of groups) {
+        if (!group.articleSourceKey) {
+          missing += group._count._all;
+          continue;
+        }
+        rows.push({
+          key: group.articleSourceKey,
+          label: sourceLabel(group._max.articleSource || group.articleSourceKey),
+          count: group._count._all,
+        });
+      }
+      return { rows, missing };
+    },
+    async insertMany(records) {
+      if (!records.length) return;
+      await prisma.socialPost.createMany({ data: records.map(socialPostIn) });
+    },
+    async remove(id) {
+      await prisma.socialPost.deleteMany({ where: { id } });
+    },
+    count: () => prisma.socialPost.count(),
   },
 
   // Cấu hình key→JSON: có ngữ cảnh biz → BizConfig (cô lập theo biz); không có → PlatformConfig (toàn cục).

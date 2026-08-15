@@ -11,6 +11,7 @@ import {
   InlineGrid,
   InlineStack,
   Page,
+  Pagination,
   Select,
   Text,
   TextField,
@@ -21,6 +22,7 @@ import { ProviderLogo } from '@/components/provider-logos';
 import { SocialPostEditModal } from '@/components/SocialPostEditModal';
 import { ChevronDownIcon, ChevronUpIcon } from '@/components/icons';
 import { SOCIAL_PROVIDERS, type SocialProvider } from '@/lib/connection-providers';
+import { isSourceUrl, sourceLabel } from '@/lib/social-publishing/source';
 import type { SocialPostRecord } from '@/lib/store/social-posts';
 
 type StatusFilter = 'all' | SocialPostRecord['status'];
@@ -28,7 +30,10 @@ type ProviderFilter = 'all' | SocialProvider;
 // '' = tất cả nguồn, NO_SOURCE = bài chưa ghi nguồn, còn lại là khóa nguồn (xem sourceKey).
 type SourceFilter = string;
 
+// Phải khớp NO_SOURCE_KEY ở lib/data/repos/types.ts (giá trị API hiểu là "bài chưa có nguồn").
 const NO_SOURCE = '__none__';
+// Số LẦN ĐĂNG mỗi trang (không phải số hàng — một lần đăng nhiều kênh vẫn hiện trọn nhóm).
+const PAGE_SIZE = 20;
 
 interface SocialPostGroup {
   key: string;
@@ -85,45 +90,6 @@ function mediaSummary(post: SocialPostRecord): string {
   return MEDIA_LABEL[post.mediaType];
 }
 
-function isUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value);
-}
-
-// Khóa gom nhóm nguồn: URL gom theo domain (nhiều bài cùng site = một nguồn), còn lại lấy
-// nguyên chữ. Dùng chung cho cả thẻ hiển thị lẫn bộ lọc để hai chỗ luôn khớp nhau.
-function sourceKey(value: string | undefined): string {
-  const raw = (value || '').trim();
-  if (!raw) return '';
-  if (isUrl(raw)) {
-    try {
-      return new URL(raw).hostname.replace(/^www\./i, '').toLowerCase();
-    } catch {
-      // URL hỏng thì rơi về so khớp theo chữ.
-    }
-  }
-  return raw.toLowerCase();
-}
-
-// Nhãn hiển thị trên thẻ: domain cho URL, chữ rút gọn cho nguồn dạng tên.
-function sourceLabel(value: string): string {
-  const raw = value.trim();
-  if (isUrl(raw)) {
-    try {
-      return new URL(raw).hostname.replace(/^www\./i, '');
-    } catch {
-      // bỏ qua, dùng nhánh rút gọn bên dưới
-    }
-  }
-  return raw.length > 40 ? `${raw.slice(0, 40)}...` : raw;
-}
-
-function groupKey(post: SocialPostRecord): string {
-  if (post.batchId) return post.batchId;
-  const minute = Math.floor(new Date(post.createdAt).getTime() / 60_000);
-  const media = [...post.mediaUrls].sort().join('|');
-  return [post.title || '', post.text, post.mediaType, media, minute].join('::');
-}
-
 function groupStatus(posts: SocialPostRecord[]): SocialPostRecord['status'] {
   if (posts.some((post) => post.status === 'failed')) return 'failed';
   if (posts.some((post) => post.status === 'pending_review')) return 'pending_review';
@@ -131,11 +97,12 @@ function groupStatus(posts: SocialPostRecord[]): SocialPostRecord['status'] {
   return 'published';
 }
 
+// Gom theo batchId: một lần bấm đăng (dù nhiều kênh) là một nhóm. Server đã trả về trọn nhóm
+// nên không có chuyện nhóm bị cắt đôi giữa hai trang.
 function makeGroups(posts: SocialPostRecord[]): SocialPostGroup[] {
   const map = new Map<string, SocialPostRecord[]>();
   for (const post of posts) {
-    const key = groupKey(post);
-    map.set(key, [...(map.get(key) ?? []), post]);
+    map.set(post.batchId, [...(map.get(post.batchId) ?? []), post]);
   }
   return Array.from(map.entries())
     .map(([key, rows]) => {
@@ -162,18 +129,39 @@ export default function SocialPostsPage() {
   const [posts, setPosts] = useState<SocialPostRecord[] | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  // Ô tìm kiếm nay gọi server → trì hoãn để không bắn request theo từng phím gõ.
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [provider, setProvider] = useState<ProviderFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [source, setSource] = useState<SourceFilter>('');
+  const [offset, setOffset] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [sourceRows, setSourceRows] = useState<Array<{ key: string; label: string; count: number }>>([]);
+  const [missingSource, setMissingSource] = useState(0);
   const [deletingKey, setDeletingKey] = useState('');
   const [approvingKey, setApprovingKey] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
   const [editingGroup, setEditingGroup] = useState<SocialPostGroup | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Đổi bộ lọc → về trang đầu, tránh đứng ở trang 5 của một tập kết quả đã khác.
+  useEffect(() => {
+    setOffset(0);
+  }, [debouncedQuery, provider, source, status]);
+
   const load = useCallback(async () => {
     setError('');
-    const response = await fetch('/api/social-posts');
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (provider !== 'all') params.set('provider', provider);
+    if (status !== 'all') params.set('status', status);
+    if (source) params.set('source', source);
+    if (debouncedQuery) params.set('q', debouncedQuery);
+    const response = await fetch(`/api/social-posts?${params.toString()}`);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       setError(data.error || 'Không thể tải danh sách bài đăng mạng xã hội');
@@ -181,73 +169,45 @@ export default function SocialPostsPage() {
       return;
     }
     setPosts(data.posts ?? []);
-  }, []);
+    setTotalBatches(data.totalBatches ?? 0);
+    setSourceRows(data.sources ?? []);
+    setMissingSource(data.missingSource ?? 0);
+  }, [debouncedQuery, offset, provider, source, status]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Danh sách nguồn lấy từ TOÀN BỘ bài (không theo bộ lọc đang chọn) để lựa chọn không tự biến mất.
-  const sourceOptions = useMemo(() => {
-    const counts = new Map<string, { label: string; count: number }>();
-    let missing = 0;
-    for (const post of posts ?? []) {
-      const key = sourceKey(post.articleSource);
-      if (!key) {
-        missing += 1;
-        continue;
-      }
-      const current = counts.get(key);
-      if (current) current.count += 1;
-      else counts.set(key, { label: sourceLabel(post.articleSource!), count: 1 });
-    }
-    const rows = Array.from(counts.entries())
-      .sort((a, b) => a[1].label.localeCompare(b[1].label, 'vi'))
-      .map(([key, item]) => ({ label: `${item.label} (${item.count})`, value: key }));
-    return [
+  // Danh sách nguồn do server dựng từ TOÀN BỘ bài (không theo bộ lọc đang chọn).
+  const sourceOptions = useMemo(
+    () => [
       { label: 'Tất cả nguồn', value: '' },
-      ...rows,
-      ...(missing ? [{ label: `Chưa có nguồn (${missing})`, value: NO_SOURCE }] : []),
-    ];
-  }, [posts]);
+      ...sourceRows.map((row) => ({ label: `${row.label} (${row.count})`, value: row.key })),
+      ...(missingSource ? [{ label: `Chưa có nguồn (${missingSource})`, value: NO_SOURCE }] : []),
+    ],
+    [missingSource, sourceRows],
+  );
 
   // Nguồn đang lọc có thể biến mất sau khi xóa bài — trả bộ lọc về "Tất cả nguồn".
   useEffect(() => {
-    if (source && !sourceOptions.some((option) => option.value === source)) setSource('');
-  }, [source, sourceOptions]);
+    if (source && sourceRows.length && !sourceOptions.some((option) => option.value === source)) setSource('');
+  }, [source, sourceOptions, sourceRows]);
 
-  const groupedPosts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const rows = (posts ?? []).filter((post) => {
-      if (provider !== 'all' && post.provider !== provider) return false;
-      if (status !== 'all' && post.status !== status) return false;
-      if (source) {
-        const key = sourceKey(post.articleSource);
-        if (source === NO_SOURCE ? key !== '' : key !== source) return false;
-      }
-      if (!q) return true;
-      return [post.title, post.text, post.connectionLabel, post.publishedUrl, post.providerPostId, post.articleSource]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(q));
-    });
-    return makeGroups(rows);
-  }, [posts, provider, query, source, status]);
+  const groupedPosts = useMemo(() => makeGroups(posts ?? []), [posts]);
 
   async function deleteGroup(group: SocialPostGroup) {
     setDeletingKey(group.key);
     setError('');
     try {
-      let latest: SocialPostRecord[] | null = null;
       for (const post of group.posts) {
         const response = await fetch(`/api/social-posts?id=${encodeURIComponent(post.id)}`, { method: 'DELETE' });
-        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
           setError(data.error || 'Không thể xóa bản ghi bài đăng');
           return;
         }
-        latest = data.posts ?? latest;
       }
-      if (latest) setPosts(latest);
+      await load();
     } finally {
       setDeletingKey('');
     }
@@ -280,8 +240,11 @@ export default function SocialPostsPage() {
           mediaType: post.mediaType,
           mediaUrl: post.mediaType === 'video' ? mediaUrls[0] : post.mediaType === 'image' ? mediaUrls[0] : undefined,
           mediaUrls: post.mediaType === 'image' ? mediaUrls : undefined,
-          linkUrl: post.mediaType === 'text' ? post.linkUrl : undefined,
+          // Giữ link bài gốc cho MỌI loại nội dung: với bài ảnh/video nền tảng không dùng tới,
+          // nhưng đây là link tra cứu nội bộ nên không được rơi mất khi duyệt.
+          linkUrl: post.linkUrl || undefined,
           articleSource: post.articleSource || undefined,
+          urlSource: post.urlSource || undefined,
           affiliateLinks: post.affiliateLinks?.length ? post.affiliateLinks : undefined,
           privacy: group.providers.includes('tiktok') ? 'SELF_ONLY' : undefined,
           imageProcessing:
@@ -405,6 +368,19 @@ export default function SocialPostsPage() {
                           </InlineStack>
                           <Text as="p" tone="subdued">
                             {group.posts.map((item) => `${item.connectionLabel} - ${PROVIDER_LABEL[item.provider]}`).join(', ')} · {formatDate(post.createdAt)}
+                            {/* Chỉ hiện khi có link, và chỉ khi là http(s) — chặn javascript: URI. */}
+                            {post.urlSource && isSourceUrl(post.urlSource) ? (
+                              <>
+                                {' · '}
+                                <a href={post.urlSource} target="_blank" rel="noreferrer">Xem bài viết nguồn</a>
+                              </>
+                            ) : null}
+                            {post.linkUrl && isSourceUrl(post.linkUrl) ? (
+                              <>
+                                {' · '}
+                                <a href={post.linkUrl} target="_blank" rel="noreferrer">Link đính kèm</a>
+                              </>
+                            ) : null}
                           </Text>
                         </BlockStack>
                       </InlineStack>
@@ -485,10 +461,32 @@ export default function SocialPostsPage() {
                           </InlineStack>
                         ) : null}
 
+                        {post.urlSource ? (
+                          <Text as="p" tone="subdued">
+                            Bài viết nguồn:{' '}
+                            {isSourceUrl(post.urlSource) ? (
+                              <a href={post.urlSource} target="_blank" rel="noreferrer">{post.urlSource}</a>
+                            ) : (
+                              post.urlSource
+                            )}
+                          </Text>
+                        ) : null}
+
+                        {post.linkUrl ? (
+                          <Text as="p" tone="subdued">
+                            Link đính kèm:{' '}
+                            {isSourceUrl(post.linkUrl) ? (
+                              <a href={post.linkUrl} target="_blank" rel="noreferrer">{post.linkUrl}</a>
+                            ) : (
+                              post.linkUrl
+                            )}
+                          </Text>
+                        ) : null}
+
                         {post.articleSource ? (
                           <Text as="p" tone="subdued">
                             Nguồn bài viết:{' '}
-                            {isUrl(post.articleSource) ? (
+                            {isSourceUrl(post.articleSource) ? (
                               <a href={post.articleSource} target="_blank" rel="noreferrer">
                                 {post.articleSource}
                               </a>
@@ -505,7 +503,7 @@ export default function SocialPostsPage() {
                             </Text>
                             {post.affiliateLinks.map((link, index) => (
                               <Text key={`${group.key}-aff-${index}`} as="p" variant="bodySm">
-                                {isUrl(link) ? (
+                                {isSourceUrl(link) ? (
                                   <a href={link} target="_blank" rel="noreferrer">{link}</a>
                                 ) : (
                                   link
@@ -528,6 +526,20 @@ export default function SocialPostsPage() {
             })}
           </BlockStack>
         )}
+
+        {totalBatches > PAGE_SIZE ? (
+          <Card>
+            <InlineStack align="center" gap="300" blockAlign="center">
+              <Pagination
+                hasPrevious={offset > 0}
+                onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                hasNext={offset + PAGE_SIZE < totalBatches}
+                onNext={() => setOffset(offset + PAGE_SIZE)}
+                label={`${offset + 1}–${Math.min(offset + PAGE_SIZE, totalBatches)} / ${totalBatches} lần đăng`}
+              />
+            </InlineStack>
+          </Card>
+        ) : null}
       </BlockStack>
       {editingGroup ? (
         <SocialPostEditModal

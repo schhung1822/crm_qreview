@@ -7,7 +7,7 @@ import { assertPublicUrl } from '@/lib/security/ssrf';
 import { processSocialImageUrls } from '@/lib/social-publishing/image-processing';
 import { graphPermissionMessage, publishSocial } from '@/lib/social-publishing';
 import { getConnectionCreds, setConnectionStatus } from '@/lib/store/connections';
-import { addSocialPosts, deleteSocialPost } from '@/lib/store/social-posts';
+import { addSocialPosts, deleteSocialPost, genSocialPostBatchId } from '@/lib/store/social-posts';
 import { recordUserEvent } from '@/lib/tracking/events';
 import { eventContext } from '@/lib/tracking/request';
 
@@ -24,6 +24,7 @@ const Schema = z.object({
   reviewPostIds: z.array(z.string().min(1).max(80)).max(35).optional(),
   linkUrl: z.string().max(4000).optional(),
   articleSource: z.string().max(300).optional(),
+  urlSource: z.string().max(4000).optional(),
   affiliateLinks: z.array(z.string().max(2000)).max(20).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
@@ -80,6 +81,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Mỗi link affiliate phải chứa một URL http(s)' }, { status: 400 });
   }
   const articleSource = parsed.data.articleSource?.trim() || undefined;
+  // Được render thành thẻ <a> ở giao diện → bắt buộc http(s) để chặn javascript: URI.
+  const urlSource = parsed.data.urlSource?.trim() || undefined;
+  if (urlSource && !/^https?:\/\//i.test(urlSource)) {
+    return NextResponse.json({ error: 'Link bài nguồn phải là URL http(s)' }, { status: 400 });
+  }
   const originalMediaUrls = parsed.data.mediaType === 'image'
     ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
     : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
@@ -171,8 +177,11 @@ export async function POST(req: Request) {
     : parsed.data.mediaType === 'video' && publishInput.mediaUrl
       ? [publishInput.mediaUrl]
       : [];
+  // Một lần bấm đăng = MỘT batch, dù đăng lên nhiều kênh. Trang lịch sử gom nhóm theo batchId này.
+  const batchId = genSocialPostBatchId();
   await runWithBiz({ userId: g.user.id, bizId: g.bizId }, () =>
     addSocialPosts(results.map((item) => ({
+      batchId,
       connectionId: item.connectionId,
       provider: item.provider as SocialProvider,
       connectionLabel: item.label,
@@ -183,6 +192,7 @@ export async function POST(req: Request) {
       originalMediaUrls,
       linkUrl: parsed.data.linkUrl,
       articleSource,
+      urlSource,
       affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
       providerPostId: item.ok ? item.result?.id : undefined,
       publishedUrl: item.ok ? item.result?.url : undefined,

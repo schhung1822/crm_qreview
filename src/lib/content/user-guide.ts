@@ -40,6 +40,8 @@ Trang **Đăng mạng xã hội** cho phép đăng nội dung lên một hoặc 
 
 - Chọn loại nội dung: bài viết, hình ảnh hoặc video.
 - **Nguồn bài viết** (tùy chọn): ghi tên nguồn hoặc URL bài gốc để biết nội dung lấy từ đâu. Trường này chỉ hiển thị nội bộ ở trang **Bài đăng mạng xã hội**, không gửi lên mạng xã hội.
+- **Link bài viết nguồn** (tùy chọn): link bài tham khảo. Hiện ngay sau thời gian tạo bài ở trang **Bài đăng mạng xã hội** dưới dạng **Xem bài viết nguồn**, không gửi lên mạng xã hội.
+- **Liên kết đính kèm** (tùy chọn): với bài chỉ có chữ, Facebook/Threads đính kèm link vào bài; với bài ảnh/video link chỉ được lưu để tra cứu.
 - **Link affiliate** (tùy chọn): mỗi dòng một link. Sau khi đăng lên Facebook, mỗi link được đăng thành **một comment riêng** dưới bài. Các nền tảng khác bỏ qua trường này. Nếu một comment lỗi, bài đăng vẫn giữ nguyên và hệ thống báo rõ link nào chưa đăng được.
 - Có thể nhập nhiều URL ảnh, mỗi dòng một ảnh.
 - Có thể bật/tắt xử lý ảnh trước khi đăng.
@@ -111,6 +113,33 @@ Trường \`articleSource\` (chuỗi, tối đa 300 ký tự) dùng để ghi nh
 \`"articleSource": "https://example.com/bai-goc"\`
 
 Link affiliate không nhận qua API ngoài — thêm trực tiếp trong app trước khi bấm đăng.
+
+### Link bài viết nguồn (tùy chọn)
+
+Trường \`urlSource\` (URL http(s), tối đa 4000 ký tự) lưu link bài tham khảo mà nội dung dựa vào.
+Hệ thống **không** gửi trường này lên mạng xã hội. Ở trang **Bài đăng mạng xã hội**, link hiện
+ngay sau thời gian tạo bài dưới dạng **Xem bài viết nguồn**; bài nào không có thì không hiện gì.
+
+\`"urlSource": "https://example.com/bai-tham-khao"\`
+
+### Liên kết đính kèm (tùy chọn)
+
+Trường \`linkUrl\` (URL http(s) công khai, tối đa 4000 ký tự) khác \`urlSource\`:
+
+- **Bài chỉ có chữ** (\`mediaType: "text"\`): Facebook và Threads đính kèm link này VÀO bài đăng.
+- **Bài ảnh/video**: nền tảng không đính kèm, link chỉ được lưu để tra cứu.
+
+### Body mẫu đầy đủ các trường tra cứu
+
+\`{
+  "platforms": ["fb", "ig"],
+  "text": "Noi dung bai dang",
+  "mediaType": "image",
+  "mediaUrls": ["https://example.com/image.jpg"],
+  "urlSource": "https://example.com/bai-tham-khao",
+  "articleSource": "Tinh Te",
+  "linkUrl": "https://example.com/bai-viet"
+}\`
 
 ### Body mẫu cho bài hình ảnh
 

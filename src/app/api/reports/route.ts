@@ -3,7 +3,7 @@ import { guard } from '@/lib/auth/current';
 import { listArticles } from '@/lib/store/articles';
 import { listKeywordSets } from '@/lib/store/keywordsets';
 import { listPlans } from '@/lib/store/plans';
-import { listSocialPosts } from '@/lib/store/social-posts';
+import { listSocialPostsSince } from '@/lib/store/social-posts';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,9 +66,10 @@ export async function GET(req: Request) {
 
   const keywordSets = await listKeywordSets();
   const plans = await listPlans();
-  const allSocialPosts = await listSocialPosts();
-  const socialPosts = allSocialPosts.filter((post) => new Date(post.createdAt).getTime() >= cutoff);
-  const socialUniquePosts = new Set(socialPosts.map((post) => `${post.title || ''}|${post.text}|${post.createdAt}`)).size;
+  // Chỉ kéo bài trong khoảng thống kê thay vì toàn bộ lịch sử.
+  const socialPosts = await listSocialPostsSince(new Date(cutoff).toISOString());
+  // Một lần đăng nhiều kênh = một bài; batchId là mốc gom nhóm chuẩn.
+  const socialUniquePosts = new Set(socialPosts.map((post) => post.batchId)).size;
   const socialSuccess = socialPosts.filter((post) => post.status === 'published').length;
   const socialPending = socialPosts.filter((post) => post.status === 'pending_review').length;
   const socialProcessing = socialPosts.filter((post) => post.status === 'processing').length;

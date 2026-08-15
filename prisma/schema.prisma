@@ -10,31 +10,31 @@ datasource db {
 
 // Tài khoản và phiên đăng nhập của hệ thống single-workspace.
 model User {
-  id                String    @id
-  email             String    @unique
-  name              String    @db.Text
-  role              String    @db.Text
-  passwordHash      String    @db.Text
-  salt              String    @db.Text
-  active            Boolean   @default(true)
-  permissions       Json?
-  emailVerified     Boolean   @default(true)
-  firstTouchUtm     Json?
-  lastTouchUtm      Json?
-  fbp               String?   @db.VarChar(255)
-  fbc               String?   @db.VarChar(255)
-  ttclid             String?   @db.VarChar(255)
-  ttp                String?   @db.VarChar(255)
-  gclid              String?   @db.VarChar(255)
-  gaClientId         String?   @db.VarChar(255)
-  landingPage        String?   @db.Text
-  referrer           String?   @db.Text
-  signupIp           Bytes?    @db.VarBinary(16)
-  signupUserAgent    String?   @db.Text
-  lastIp             Bytes?    @db.VarBinary(16)
-  lastUserAgent      String?   @db.Text
-  lastSeenAt         DateTime?
-  createdAt          DateTime  @default(now())
+  id              String    @id
+  email           String    @unique
+  name            String    @db.Text
+  role            String    @db.Text
+  passwordHash    String    @db.Text
+  salt            String    @db.Text
+  active          Boolean   @default(true)
+  permissions     Json?
+  emailVerified   Boolean   @default(true)
+  firstTouchUtm   Json?
+  lastTouchUtm    Json?
+  fbp             String?   @db.VarChar(255)
+  fbc             String?   @db.VarChar(255)
+  ttclid          String?   @db.VarChar(255)
+  ttp             String?   @db.VarChar(255)
+  gclid           String?   @db.VarChar(255)
+  gaClientId      String?   @db.VarChar(255)
+  landingPage     String?   @db.Text
+  referrer        String?   @db.Text
+  signupIp        Bytes?    @db.VarBinary(16)
+  signupUserAgent String?   @db.Text
+  lastIp          Bytes?    @db.VarBinary(16)
+  lastUserAgent   String?   @db.Text
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
 
   consents   UserConsent[]
   events     UserEvent[]
@@ -149,6 +149,43 @@ model PublishJob {
   updatedAt    DateTime  @default(now())
 
   @@index([status])
+}
+
+// Bài đăng mạng xã hội. MỘT hàng = một bài trên MỘT kênh; các kênh trong cùng một lần đăng
+// chia sẻ batchId (dùng để gom nhóm + phân trang theo "lần đăng", không cắt đôi nhóm).
+// Cột dùng để LỌC phải là VarChar (mặc định) — MySQL không index được TEXT nếu không có prefix.
+model SocialPost {
+  id                String   @id
+  batchId           String
+  connectionId      String   @db.Text
+  provider          String
+  connectionLabel   String   @db.Text
+  title             String?  @db.Text
+  text              String   @db.LongText
+  mediaType         String
+  mediaUrls         Json
+  originalMediaUrls Json?
+  imageProcessing   Json?
+  linkUrl           String?  @db.Text
+  articleSource     String?  @db.Text
+  // Khóa gom nhóm nguồn (domain với URL, chữ thường với tên) — sinh lúc ghi để lọc bằng index.
+  articleSourceKey  String?
+  // Link bài viết nguồn tham khảo. CHỈ lưu để tra cứu nội bộ, không gửi lên mạng xã hội.
+  urlSource         String?  @db.Text
+  affiliateLinks    Json?
+  providerPostId    String?  @db.Text
+  publishedUrl      String?  @db.Text
+  status            String
+  error             String?  @db.Text
+  createdBy         String?  @db.Text
+  source            String?
+  createdAt         DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([batchId])
+  @@index([status])
+  @@index([provider])
+  @@index([articleSourceKey])
 }
 
 model Comment {

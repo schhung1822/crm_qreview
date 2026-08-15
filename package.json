@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "worker": "node scripts/worker.mjs",
+    "migrate:social-posts": "node scripts/migrate-social-posts.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

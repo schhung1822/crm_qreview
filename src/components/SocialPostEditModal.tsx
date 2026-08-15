@@ -74,6 +74,7 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
   const [mediaUrl, setMediaUrl] = useState(initialMediaUrls.join('\n'));
   const [linkUrl, setLinkUrl] = useState(post.linkUrl || '');
   const [articleSource, setArticleSource] = useState(post.articleSource || '');
+  const [urlSource, setUrlSource] = useState(post.urlSource || '');
   const [affiliateLinksText, setAffiliateLinksText] = useState((post.affiliateLinks ?? []).join('\n'));
   const [privacy, setPrivacy] = useState('SELF_ONLY');
   const [imageProcessingEnabled, setImageProcessingEnabled] = useState(post.imageProcessing?.enabled !== false);
@@ -122,10 +123,12 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
     if (unsupportedConnections.length) return false;
     if (mediaType === 'image' && (!mediaUrls.length || mediaUrls.some((url) => !/^https?:\/\//i.test(url)))) return false;
     if (mediaType === 'video' && !/^https?:\/\//i.test(mediaUrl.trim())) return false;
-    if (mediaType === 'text' && linkUrl.trim() && !/^https?:\/\//i.test(linkUrl.trim())) return false;
+    // Link bài gốc nay lưu cho mọi loại nội dung → phải hợp lệ ở mọi loại (API cũng chặn).
+    if (linkUrl.trim() && !/^https?:\/\//i.test(linkUrl.trim())) return false;
+    if (urlSource.trim() && !/^https?:\/\//i.test(urlSource.trim())) return false;
     if (invalidAffiliateLinks.length) return false;
     return true;
-  }, [busy, connections, invalidAffiliateLinks, linkUrl, mediaType, mediaUrl, mediaUrls, selectedConnections, text, unsupportedConnections]);
+  }, [busy, connections, invalidAffiliateLinks, linkUrl, mediaType, mediaUrl, mediaUrls, selectedConnections, text, unsupportedConnections, urlSource]);
 
   function toggleConnection(id: string, checked: boolean) {
     setSelectedConnectionIds((current) =>
@@ -150,8 +153,10 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
           mediaType,
           mediaUrl: mediaType === 'video' ? mediaUrl.trim() : mediaType === 'image' ? mediaUrls[0] : undefined,
           mediaUrls: mediaType === 'image' ? mediaUrls : undefined,
-          linkUrl: mediaType === 'text' && linkUrl.trim() ? linkUrl.trim() : undefined,
+          // Lưu link bài gốc cho mọi loại nội dung (nền tảng chỉ đính kèm với bài chỉ có chữ).
+          linkUrl: linkUrl.trim() || undefined,
           articleSource: articleSource.trim() || undefined,
+          urlSource: urlSource.trim() || undefined,
           affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
           privacy: hasTikTok ? privacy : undefined,
           imageProcessing:
@@ -226,6 +231,15 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
                 helpText="Chỉ ghi nhận nội bộ, không gửi lên mạng xã hội."
               />
               <TextField
+                label="Link bài viết nguồn (tùy chọn)"
+                value={urlSource}
+                onChange={setUrlSource}
+                type="url"
+                autoComplete="off"
+                placeholder="https://example.com/bai-tham-khao"
+                helpText="Link bài tham khảo để mở lại khi cần. Chỉ lưu nội bộ, không gửi lên mạng xã hội."
+              />
+              <TextField
                 label="Nội dung / chú thích"
                 value={text}
                 onChange={setText}
@@ -244,15 +258,21 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
                   autoComplete="off"
                   helpText={mediaType === 'image' ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL.' : undefined}
                 />
-              ) : (
-                <TextField
-                  label="Liên kết đính kèm (tùy chọn)"
-                  value={linkUrl}
-                  onChange={setLinkUrl}
-                  type="url"
-                  autoComplete="off"
-                />
-              )}
+              ) : null}
+
+              <TextField
+                label="Liên kết đính kèm (tùy chọn)"
+                value={linkUrl}
+                onChange={setLinkUrl}
+                type="url"
+                autoComplete="off"
+                placeholder="https://example.com/bai-viet"
+                helpText={
+                  mediaType === 'text'
+                    ? 'Facebook và Threads đính kèm link này vào bài chỉ có chữ.'
+                    : 'Bài ảnh/video không đính kèm link lên nền tảng; link chỉ được lưu để tra cứu.'
+                }
+              />
 
               <TextField
                 label="Link affiliate (tùy chọn)"

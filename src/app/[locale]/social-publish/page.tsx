@@ -113,6 +113,7 @@ export default function SocialPublishPage() {
   const [imageLogoUrl, setImageLogoUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [articleSource, setArticleSource] = useState('');
+  const [urlSource, setUrlSource] = useState('');
   const [affiliateLinksText, setAffiliateLinksText] = useState('');
   const [privacy, setPrivacy] = useState('SELF_ONLY');
   const [publishing, setPublishing] = useState(false);
@@ -151,6 +152,7 @@ export default function SocialPublishPage() {
         mediaUrls?: string[];
         linkUrl?: string;
         articleSource?: string;
+        urlSource?: string;
         affiliateLinks?: string[];
         imageProcessing?: {
           enabled?: boolean;
@@ -172,6 +174,7 @@ export default function SocialPublishPage() {
         setMediaUrl((first.mediaUrls ?? []).join('\n'));
         setLinkUrl(first.linkUrl || '');
         setArticleSource(first.articleSource || '');
+        setUrlSource(first.urlSource || '');
         setAffiliateLinksText((first.affiliateLinks ?? []).join('\n'));
         setImageProcessingEnabled(first.imageProcessing?.enabled !== false);
         setImageCropSquare(first.imageProcessing?.cropSquare !== false);
@@ -228,9 +231,10 @@ export default function SocialPublishPage() {
     if (mediaType === 'image' && (imageUrls.length === 0 || imageUrls.some((url) => !/^https?:\/\//i.test(url)))) return false;
     if (mediaType === 'video' && !/^https?:\/\//i.test(mediaUrl.trim())) return false;
     if (linkUrl && !/^https?:\/\//i.test(linkUrl.trim())) return false;
+    if (urlSource && !/^https?:\/\//i.test(urlSource.trim())) return false;
     if (invalidAffiliateLinks.length > 0) return false;
     return true;
-  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, mediaUrl, linkUrl, invalidAffiliateLinks]);
+  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, mediaUrl, linkUrl, urlSource, invalidAffiliateLinks]);
 
   function toggleConnection(id: string, checked: boolean) {
     setSelectedConnectionIds((current) => checked ? [...current, id] : current.filter((item) => item !== id));
@@ -281,8 +285,10 @@ export default function SocialPublishPage() {
             showLogo: imageShowLogo,
             logoUrl: imageLogoUrl.trim() || undefined,
           } : undefined,
-          linkUrl: mediaType === 'text' && linkUrl.trim() ? linkUrl.trim() : undefined,
+          // Lưu link bài gốc cho mọi loại nội dung (nền tảng chỉ đính kèm với bài chỉ có chữ).
+          linkUrl: linkUrl.trim() || undefined,
           articleSource: articleSource.trim() || undefined,
+          urlSource: urlSource.trim() || undefined,
           affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
           privacy: selectedConnections.some((connection) => connection.provider === 'tiktok') ? privacy : undefined,
         }),
@@ -378,6 +384,15 @@ export default function SocialPublishPage() {
                 placeholder="Tên nguồn hoặc URL bài gốc"
                 helpText="Chỉ dùng để ghi nhận nội bộ trong trang Bài đăng mạng xã hội. Không gửi lên mạng xã hội."
               />
+              <TextField
+                label="Link bài viết nguồn (tùy chọn)"
+                value={urlSource}
+                onChange={setUrlSource}
+                type="url"
+                autoComplete="off"
+                placeholder="https://example.com/bai-tham-khao"
+                helpText="Link bài tham khảo để mở lại khi cần. Chỉ lưu nội bộ, không gửi lên mạng xã hội."
+              />
               <TextField label="Nội dung / chú thích" value={text} onChange={setText} multiline={10} autoComplete="off" showCharacterCount maxLength={10_000} />
               <TextField
                 label="Link affiliate (tùy chọn)"
@@ -404,9 +419,20 @@ export default function SocialPublishPage() {
                   placeholder={mediaType === 'image' ? 'https://example.com/image.jpg' : 'https://example.com/video.mp4'}
                   helpText={mediaType === 'image' ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL. Nếu tắt xử lý ảnh, hệ thống sẽ dùng nguyên URL đã dán và không lưu ảnh về máy chủ.' : undefined}
                 />
-              ) : selectedConnections.some((connection) => ['facebook', 'threads'].includes(connection.provider)) ? (
-                <TextField label="Liên kết đính kèm (tùy chọn)" value={linkUrl} onChange={setLinkUrl} type="url" autoComplete="off" />
               ) : null}
+              <TextField
+                label="Liên kết đính kèm (tùy chọn)"
+                value={linkUrl}
+                onChange={setLinkUrl}
+                type="url"
+                autoComplete="off"
+                placeholder="https://example.com/bai-viet"
+                helpText={
+                  mediaType === 'text'
+                    ? 'Facebook và Threads đính kèm link này vào bài chỉ có chữ.'
+                    : 'Bài ảnh/video không đính kèm link lên nền tảng; link chỉ được lưu để tra cứu.'
+                }
+              />
               {mediaType === 'image' ? (
                 <Card>
                   <BlockStack gap="300">

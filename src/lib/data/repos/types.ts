@@ -8,6 +8,7 @@ import type { ConnectionRecord } from '../../store/connections';
 import type { ImageConfig } from '../../store/image-config';
 import type { KeywordSetRecord } from '../../store/keywordsets';
 import type { PlanRecord } from '../../store/plans';
+import type { SocialPostRecord } from '../../store/social-posts';
 
 export interface SessionRow {
   token: string;
@@ -62,6 +63,40 @@ export interface PlansRepo {
   remove(id: string): Promise<void>;
 }
 
+// Bộ lọc bài đăng mạng xã hội. Rỗng = không lọc theo tiêu chí đó.
+export interface SocialPostFilter {
+  provider?: string;
+  status?: string;
+  // Khóa nguồn (xem lib/social-publishing/source.ts). NO_SOURCE_KEY = chỉ lấy bài CHƯA có nguồn.
+  sourceKey?: string;
+  search?: string;
+}
+
+export interface SocialPostSource {
+  key: string;
+  label: string;
+  count: number;
+}
+
+// Phân trang theo LẦN ĐĂNG (batchId) chứ không theo từng hàng: một lần đăng nhiều kênh sinh
+// nhiều hàng, cắt theo hàng sẽ xé đôi nhóm giữa hai trang.
+export interface SocialPostPage {
+  rows: SocialPostRecord[];
+  totalBatches: number;
+}
+
+export const NO_SOURCE_KEY = '__none__';
+
+export interface SocialPostsRepo {
+  page(filter: SocialPostFilter, limit: number, offset: number): Promise<SocialPostPage>;
+  batch(id: string): Promise<SocialPostRecord[]>;
+  since(createdAtIso: string): Promise<SocialPostRecord[]>;
+  sources(): Promise<{ rows: SocialPostSource[]; missing: number }>;
+  insertMany(records: SocialPostRecord[]): Promise<void>;
+  remove(id: string): Promise<void>;
+  count(): Promise<number>;
+}
+
 export interface ConfigRepo {
   get<T>(key: string, fallback: T): Promise<T>;
   set<T>(key: string, value: T): Promise<void>;
@@ -74,6 +109,7 @@ export interface Repositories {
   articles: ArticlesRepo;
   keywordSets: KeywordSetsRepo;
   plans: PlansRepo;
+  socialPosts: SocialPostsRepo;
   config: ConfigRepo;
 }
 

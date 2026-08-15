@@ -23,6 +23,8 @@ const Schema = z.object({
   linkUrl: z.string().max(4000).optional(),
   // Nguồn bài viết (tùy chọn): hiển thị trong trang quản trị nội bộ để biết bài lấy từ đâu.
   articleSource: z.string().max(300).optional(),
+  // Link bài viết nguồn tham khảo (tùy chọn). Chỉ lưu để tra cứu nội bộ.
+  urlSource: z.string().max(4000).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
     enabled: z.boolean().optional(),
@@ -166,6 +168,13 @@ export async function POST(req: Request) {
     }
   }
 
+  // urlSource chỉ để tra cứu (không tải, không gửi lên nền tảng) nhưng ĐƯỢC RENDER thành thẻ <a>
+  // ở giao diện → bắt buộc http(s) để chặn javascript: URI.
+  const urlSource = parsed.data.urlSource?.trim() || undefined;
+  if (urlSource && !/^https?:\/\//i.test(urlSource)) {
+    return json({ error: 'urlSource phai la URL http(s)' }, 400, d.origin);
+  }
+
   const mediaUrls = parsed.data.mediaType === 'image'
     ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
     : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
@@ -196,6 +205,7 @@ export async function POST(req: Request) {
       imageProcessing: parsed.data.mediaType === 'image' ? parsed.data.imageProcessing : undefined,
       linkUrl: parsed.data.linkUrl,
       articleSource: parsed.data.articleSource?.trim() || undefined,
+      urlSource: urlSource,
       status: 'pending_review',
       createdBy: a.token.createdBy,
       source: 'external_api',

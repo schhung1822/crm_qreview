@@ -6,17 +6,22 @@ import type { ArticleRecord } from '../../store/articles';
 import type { ConnectionRecord } from '../../store/connections';
 import type { KeywordSetRecord } from '../../store/keywordsets';
 import type { PlanRecord } from '../../store/plans';
+import type { SocialPostRecord } from '../../store/social-posts';
+import { sourceKey, sourceLabel } from '../../social-publishing/source';
 import { mutateJson, readJson } from '../json-store';
-import type {
-  ArticlesRepo,
-  ConfigRepo,
-  ConnectionsRepo,
-  KeywordSetsRepo,
-  PlansRepo,
-  Repositories,
-  SessionRow,
-  SessionsRepo,
-  UsersRepo,
+import {
+  NO_SOURCE_KEY,
+  type ArticlesRepo,
+  type ConfigRepo,
+  type ConnectionsRepo,
+  type KeywordSetsRepo,
+  type PlansRepo,
+  type Repositories,
+  type SessionRow,
+  type SessionsRepo,
+  type SocialPostFilter,
+  type SocialPostsRepo,
+  type UsersRepo,
 } from './types';
 
 export function dataDir(): string {
@@ -30,6 +35,7 @@ const connectionsFile = () => file('connections.json');
 const articlesFile = () => file('articles.json');
 const keywordSetsFile = () => file('keywordsets.json');
 const plansFile = () => file('plans.json');
+const socialPostsFile = () => file('social-posts.json');
 const configFile = () => file('app-config.json');
 
 const usersRepo: UsersRepo = {
@@ -175,6 +181,84 @@ const plansRepo: PlansRepo = {
     ]),
 };
 
+// ─────────────────────── Bài đăng mạng xã hội ───────────────────────
+// Driver file giữ nguyên .data/social-posts.json (không cần di trú); lọc/phân trang trong bộ nhớ
+// cho khớp hành vi của driver prisma. Không còn trần MAX_ROWS — bài cũ KHÔNG bị cắt âm thầm nữa.
+const allSocialPosts = () => readJson<SocialPostRecord[]>(socialPostsFile(), []);
+
+function newestFirst(rows: SocialPostRecord[]): SocialPostRecord[] {
+  return [...rows].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+}
+
+function matchesFilter(post: SocialPostRecord, filter: SocialPostFilter): boolean {
+  if (filter.provider && post.provider !== filter.provider) return false;
+  if (filter.status && post.status !== filter.status) return false;
+  if (filter.sourceKey) {
+    const key = sourceKey(post.articleSource);
+    if (filter.sourceKey === NO_SOURCE_KEY ? key !== '' : key !== filter.sourceKey) return false;
+  }
+  const q = filter.search?.trim().toLowerCase();
+  if (q) {
+    const haystack = [post.title, post.text, post.connectionLabel, post.publishedUrl, post.providerPostId, post.articleSource];
+    if (!haystack.some((value) => value?.toLowerCase().includes(q))) return false;
+  }
+  return true;
+}
+
+const socialPostsRepo: SocialPostsRepo = {
+  async page(filter, limit, offset) {
+    const matched = newestFirst((await allSocialPosts()).filter((post) => matchesFilter(post, filter)));
+    // Gom theo lần đăng, giữ thứ tự lần xuất hiện đầu tiên (đã sắp mới nhất trước).
+    const batchOrder: string[] = [];
+    for (const post of matched) if (!batchOrder.includes(post.batchId)) batchOrder.push(post.batchId);
+    const pageBatches = new Set(batchOrder.slice(offset, offset + limit));
+    return {
+      rows: matched.filter((post) => pageBatches.has(post.batchId)),
+      totalBatches: batchOrder.length,
+    };
+  },
+  async batch(id) {
+    const rows = await allSocialPosts();
+    const found = rows.find((row) => row.id === id);
+    if (!found) return [];
+    return newestFirst(rows.filter((row) => row.batchId === found.batchId));
+  },
+  async since(createdAtIso) {
+    return newestFirst((await allSocialPosts()).filter((row) => row.createdAt >= createdAtIso));
+  },
+  async sources() {
+    const counts = new Map<string, { label: string; count: number }>();
+    let missing = 0;
+    for (const post of await allSocialPosts()) {
+      const key = sourceKey(post.articleSource);
+      if (!key) {
+        missing += 1;
+        continue;
+      }
+      const current = counts.get(key);
+      if (current) current.count += 1;
+      else counts.set(key, { label: sourceLabel(post.articleSource!), count: 1 });
+    }
+    return {
+      rows: Array.from(counts.entries()).map(([key, item]) => ({ key, ...item })),
+      missing,
+    };
+  },
+  insertMany: (records) =>
+    mutateJson<SocialPostRecord[], void>(socialPostsFile(), [], (rows) => [
+      [...records, ...rows],
+      undefined,
+    ]),
+  remove: (id) =>
+    mutateJson<SocialPostRecord[], void>(socialPostsFile(), [], (rows) => [
+      rows.filter((row) => row.id !== id),
+      undefined,
+    ]),
+  async count() {
+    return (await allSocialPosts()).length;
+  },
+};
+
 const configRepo: ConfigRepo = {
   async get(key, fallback) {
     const all = await readJson<Record<string, unknown>>(configFile(), {});
@@ -194,5 +278,6 @@ export const fileRepositories: Repositories = {
   articles: articlesRepo,
   keywordSets: keywordSetsRepo,
   plans: plansRepo,
+  socialPosts: socialPostsRepo,
   config: configRepo,
 };
