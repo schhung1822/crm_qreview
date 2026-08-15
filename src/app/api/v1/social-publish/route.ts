@@ -24,6 +24,7 @@ const Schema = z.object({
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
     enabled: z.boolean().optional(),
+    cropSquare: z.boolean().optional(),
     scale: z.number().min(1).max(1.5).optional(),
     barHeight: z.number().min(0).max(80).optional(),
     showLogo: z.boolean().optional(),
@@ -190,6 +191,7 @@ export async function POST(req: Request) {
       mediaType: parsed.data.mediaType,
       mediaUrls,
       originalMediaUrls: parsed.data.mediaType === 'image' ? mediaUrls : undefined,
+      imageProcessing: parsed.data.mediaType === 'image' ? parsed.data.imageProcessing : undefined,
       linkUrl: parsed.data.linkUrl,
       status: 'pending_review',
       createdBy: a.token.createdBy,

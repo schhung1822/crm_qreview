@@ -26,6 +26,7 @@ const Schema = z.object({
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
     enabled: z.boolean().optional(),
+    cropSquare: z.boolean().optional(),
     scale: z.number().min(1).max(1.5).optional(),
     barColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     barHeight: z.number().min(0).max(320).optional(),

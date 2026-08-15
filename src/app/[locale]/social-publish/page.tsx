@@ -99,6 +99,7 @@ export default function SocialPublishPage() {
   const [text, setText] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [imageProcessingEnabled, setImageProcessingEnabled] = useState(true);
+  const [imageCropSquare, setImageCropSquare] = useState(true);
   const [imageScale, setImageScale] = useState(1.1);
   const [imageBarHeight, setImageBarHeight] = useState(10);
   const [imageShowLogo, setImageShowLogo] = useState(true);
@@ -140,6 +141,14 @@ export default function SocialPublishPage() {
         mediaType: SocialMediaType;
         mediaUrls?: string[];
         linkUrl?: string;
+        imageProcessing?: {
+          enabled?: boolean;
+          cropSquare?: boolean;
+          scale?: number;
+          barHeight?: number;
+          showLogo?: boolean;
+          logoUrl?: string;
+        };
       }> }) => {
         const rows = data.posts ?? [];
         const first = rows[0];
@@ -151,6 +160,12 @@ export default function SocialPublishPage() {
         setMediaType(first.mediaType);
         setMediaUrl((first.mediaUrls ?? []).join('\n'));
         setLinkUrl(first.linkUrl || '');
+        setImageProcessingEnabled(first.imageProcessing?.enabled !== false);
+        setImageCropSquare(first.imageProcessing?.cropSquare !== false);
+        setImageScale(first.imageProcessing?.scale ?? 1.1);
+        setImageBarHeight(first.imageProcessing?.barHeight ?? 10);
+        setImageShowLogo(first.imageProcessing?.showLogo !== false);
+        setImageLogoUrl(first.imageProcessing?.logoUrl ?? '');
         setResult({
           tone: 'warning',
           message: 'Bài này được gửi từ API ngoài và đang chờ duyệt. Bạn có thể chỉnh sửa nội dung rồi bấm đăng.',
@@ -237,6 +252,7 @@ export default function SocialPublishPage() {
           reviewPostIds: reviewPostIds.length ? reviewPostIds : undefined,
           imageProcessing: mediaType === 'image' ? {
             enabled: imageProcessingEnabled,
+            cropSquare: imageCropSquare,
             scale: imageScale,
             barHeight: imageBarHeight,
             showLogo: imageShowLogo,
@@ -340,12 +356,18 @@ export default function SocialPublishPage() {
                   <BlockStack gap="300">
                     <Text as="h3" variant="headingSm">Xử lý ảnh trước khi đăng</Text>
                     <Checkbox
-                      label="Bật xử lý ảnh: tải về, crop 1:1, scale, thêm khung trắng và logo"
+                      label="Bật xử lý ảnh: tải về, tùy chỉnh kích thước, thêm khung trắng và logo"
                       checked={imageProcessingEnabled}
                       onChange={setImageProcessingEnabled}
                     />
                     {imageProcessingEnabled ? (
                       <>
+                        <Checkbox
+                          label="Cắt ảnh thành hình vuông (tỷ lệ 1:1)"
+                          helpText="Mặc định bật. Tắt tùy chọn này để giữ nguyên tỷ lệ ảnh gốc."
+                          checked={imageCropSquare}
+                          onChange={setImageCropSquare}
+                        />
                         <RangeSlider
                           label={`Scale ảnh: ${imageScale.toFixed(2)}x`}
                           min={1}

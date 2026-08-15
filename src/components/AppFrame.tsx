@@ -206,10 +206,15 @@ export function AppFrame({
       userMenu={userMenu}
     />
   );
-  const logo = branding.logoAmBan
+  const topBarLogo = branding.logoAmBan.trim();
+  const contextualSaveBarLogo = branding.logoDuongBan.trim() || topBarLogo;
+  const logo = topBarLogo
     ? {
         width: 184,
-        topBarSource: branding.logoAmBan,
+        topBarSource: topBarLogo,
+        // Polaris luôn render ảnh logo của ContextualSaveBar khi Frame có `logo`.
+        // Thiếu field này khiến thư viện fallback về chuỗi rỗng và tạo <img src="">.
+        contextualSaveBarSource: contextualSaveBarLogo,
         url: '/dashboard',
         accessibilityLabel: branding.title,
       }

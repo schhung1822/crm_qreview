@@ -41,7 +41,7 @@ Trang **Đăng mạng xã hội** cho phép đăng nội dung lên một hoặc 
 - Chọn loại nội dung: bài viết, hình ảnh hoặc video.
 - Có thể nhập nhiều URL ảnh, mỗi dòng một ảnh.
 - Có thể bật/tắt xử lý ảnh trước khi đăng.
-- Khi bật xử lý ảnh, hệ thống tải ảnh về, crop 1:1, scale theo cấu hình, thêm khung trắng và logo.
+- Khi bật xử lý ảnh, hệ thống tải ảnh về, mặc định cắt vuông 1:1 (có thể tắt để giữ tỷ lệ gốc), scale theo cấu hình, thêm khung trắng và logo.
 - Nếu tắt xử lý ảnh, hệ thống dùng nguyên URL đã dán và không lưu ảnh về máy chủ.
 - Sau khi đăng, lịch sử được lưu tại **Bài đăng mạng xã hội**.
 
@@ -116,6 +116,7 @@ Gửi JSON:
   ],
   "imageProcessing": {
     "enabled": true,
+    "cropSquare": true,
     "scale": 1.1,
     "barHeight": 10,
     "showLogo": true

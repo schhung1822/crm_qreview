@@ -16,6 +16,7 @@ export interface SocialImageProcessingOptions {
   scale?: number;
   barColor?: string;
   barHeight?: number;
+  cropSquare?: boolean;
   showLogo?: boolean;
   logoUrl?: string;
 }
@@ -50,23 +51,90 @@ async function readAsset(value: string): Promise<Buffer | null> {
   return null;
 }
 
-async function logoOverlay(frameThickness: number, logoUrl?: string): Promise<OverlayOptions | null> {
+async function logoOverlay(
+  frameThickness: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  logoUrl?: string,
+): Promise<OverlayOptions | null> {
   const logo = await readAsset(logoUrl?.trim() || '/images/qreview_toke.webp');
   if (!logo) return null;
-  const input = sharp(logo, { failOn: 'none' }).resize({
-    width: LOGO_MAX_WIDTH,
-    height: LOGO_MAX_HEIGHT,
+
+  const maxLogoWidth = Math.min(
+    LOGO_MAX_WIDTH,
+    canvasWidth - frameThickness * 2 - LOGO_INSET * 2,
+  );
+  const maxLogoHeight = Math.min(
+    LOGO_MAX_HEIGHT,
+    canvasHeight - frameThickness * 2 - LOGO_INSET * 2,
+  );
+  if (maxLogoWidth < 8 || maxLogoHeight < 8) return null;
+
+  const renderedLogo = await sharp(logo, { failOn: 'none' }).resize({
+    width: maxLogoWidth,
+    height: maxLogoHeight,
     fit: 'inside',
     withoutEnlargement: true,
-  });
-  const meta = await input.metadata().catch(() => null);
-  const logoWidth = Math.min(meta?.width || LOGO_MAX_WIDTH, LOGO_MAX_WIDTH);
-  const logoHeight = Math.min(meta?.height || LOGO_MAX_HEIGHT, LOGO_MAX_HEIGHT);
+  }).png().toBuffer({ resolveWithObject: true });
+  const logoWidth = renderedLogo.info.width;
+  const logoHeight = renderedLogo.info.height;
+
   return {
-    input: await input.png().toBuffer(),
-    left: OUTPUT_SIZE - frameThickness - LOGO_INSET - logoWidth,
-    top: OUTPUT_SIZE - frameThickness - LOGO_INSET - logoHeight,
+    input: renderedLogo.data,
+    left: canvasWidth - frameThickness - LOGO_INSET - logoWidth,
+    top: canvasHeight - frameThickness - LOGO_INSET - logoHeight,
   };
+}
+
+export function getSocialImageOutputDimensions(
+  sourceWidth: number,
+  sourceHeight: number,
+  frameThickness: number,
+  cropSquare = true,
+) {
+  const safeFrameThickness = Math.max(0, Math.round(frameThickness));
+  const maxInnerSize = Math.max(1, OUTPUT_SIZE - safeFrameThickness * 2);
+
+  if (cropSquare) {
+    return {
+      innerWidth: maxInnerSize,
+      innerHeight: maxInnerSize,
+      outputWidth: OUTPUT_SIZE,
+      outputHeight: OUTPUT_SIZE,
+    };
+  }
+
+  const safeWidth = Number.isFinite(sourceWidth) && sourceWidth > 0 ? sourceWidth : 1;
+  const safeHeight = Number.isFinite(sourceHeight) && sourceHeight > 0 ? sourceHeight : 1;
+  let innerWidth = maxInnerSize;
+  let innerHeight = maxInnerSize;
+
+  if (safeWidth >= safeHeight) {
+    innerHeight = Math.max(1, Math.round(maxInnerSize * (safeHeight / safeWidth)));
+  } else {
+    innerWidth = Math.max(1, Math.round(maxInnerSize * (safeWidth / safeHeight)));
+  }
+
+  return {
+    innerWidth,
+    innerHeight,
+    outputWidth: innerWidth + safeFrameThickness * 2,
+    outputHeight: innerHeight + safeFrameThickness * 2,
+  };
+}
+
+function getOrientedSourceDimensions(metadata: {
+  width?: number;
+  height?: number;
+  orientation?: number;
+}) {
+  const width = metadata.width ?? 1;
+  const height = metadata.height ?? 1;
+  const swapsDimensions = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
+
+  return swapsDimensions
+    ? { width: height, height: width }
+    : { width, height };
 }
 
 export async function processSocialImageUrl(url: string, req: Request, hint?: string, opts: SocialImageProcessingOptions = {}): Promise<string> {
@@ -78,28 +146,39 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
   const original = await safeFetchBuffer(url, { timeoutMs: 60_000 }, 25 * 1024 * 1024);
   const scale = clampNumber(opts.scale, 1, 1.5, ZOOM);
   const frameThickness = Math.round(clampNumber(opts.barHeight, 0, 80, FRAME_THICKNESS));
+  const cropSquare = opts.cropSquare !== false;
   const showLogo = opts.showLogo !== false;
-  const innerSize = OUTPUT_SIZE - frameThickness * 2;
-  const zoomSize = Math.ceil(innerSize * scale);
+  const metadata = await sharp(original.buffer, { failOn: 'none' }).metadata();
+  const sourceDimensions = getOrientedSourceDimensions(metadata);
+  const { innerWidth, innerHeight, outputWidth, outputHeight } = getSocialImageOutputDimensions(
+    sourceDimensions.width,
+    sourceDimensions.height,
+    frameThickness,
+    cropSquare,
+  );
+  const zoomWidth = Math.ceil(innerWidth * scale);
+  const zoomHeight = Math.ceil(innerHeight * scale);
   const base = sharp(original.buffer, { failOn: 'none', limitInputPixels: 50_000_000 })
     .rotate()
-    .resize({ width: zoomSize, height: zoomSize, fit: 'cover', position: 'center' })
+    .resize({ width: zoomWidth, height: zoomHeight, fit: 'cover', position: 'center' })
     .extract({
-      left: Math.floor((zoomSize - innerSize) / 2),
-      top: Math.floor((zoomSize - innerSize) / 2),
-      width: innerSize,
-      height: innerSize,
+      left: Math.floor((zoomWidth - innerWidth) / 2),
+      top: Math.floor((zoomHeight - innerHeight) / 2),
+      width: innerWidth,
+      height: innerHeight,
     });
 
   const overlays: OverlayOptions[] = [];
   overlays.push({ input: await base.toBuffer(), left: frameThickness, top: frameThickness });
-  const logo = showLogo ? await logoOverlay(frameThickness, opts.logoUrl) : null;
+  const logo = showLogo
+    ? await logoOverlay(frameThickness, outputWidth, outputHeight, opts.logoUrl)
+    : null;
   if (logo) overlays.push(logo);
 
   const processed = await sharp({
     create: {
-      width: OUTPUT_SIZE,
-      height: OUTPUT_SIZE,
+      width: outputWidth,
+      height: outputHeight,
       channels: 3,
       background: '#ffffff',
     },

@@ -9,15 +9,12 @@ import {
   Button,
   Card,
   Checkbox,
-  EmptyState,
-  InlineGrid,
   InlineStack,
   Modal,
   Page,
   Spinner,
   Text,
   TextField,
-  Thumbnail,
   Toast,
 } from '@shopify/polaris';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,6 +34,16 @@ function fmtBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function fmtDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
 const KIND_LABEL: Record<LibImage['kind'], string> = {
   ai: 'AI tạo',
   upload: 'Tải lên',
@@ -46,6 +53,7 @@ const KIND_LABEL: Record<LibImage['kind'], string> = {
 export default function ImageLibraryPage() {
   const [images, setImages] = useState<LibImage[] | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [editingFile, setEditingFile] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<LibImage | null>(null);
@@ -133,7 +141,11 @@ export default function ImageLibraryPage() {
 
   async function saveName(img: LibImage) {
     const name = (names[img.file] ?? '').trim();
-    if (name === img.name) return;
+    if (!name || name === img.name) {
+      setNames((current) => ({ ...current, [img.file]: img.name }));
+      setEditingFile(null);
+      return;
+    }
     setBusy(img.file);
     try {
       const res = await fetch('/api/image-library', {
@@ -144,6 +156,7 @@ export default function ImageLibraryPage() {
       if (res.ok) {
         setImages((list) => (list ? list.map((i) => (i.file === img.file ? { ...i, name } : i)) : list));
         setToast('Đã lưu tên ảnh.');
+        setEditingFile(null);
       } else setToast('Không lưu được tên.');
     } finally {
       setBusy(null);
@@ -178,6 +191,11 @@ export default function ImageLibraryPage() {
     }
   }
 
+  function cancelRename(img: LibImage) {
+    setNames((current) => ({ ...current, [img.file]: img.name }));
+    setEditingFile(null);
+  }
+
   return (
     <Page
       title="Thư viện ảnh"
@@ -204,90 +222,138 @@ export default function ImageLibraryPage() {
         </Box>
       ) : images.length === 0 ? (
         <Card>
-          <EmptyState heading="Chưa có ảnh nào" image="">
-            <p>Ảnh do AI tạo (ảnh bìa, minh họa…) hoặc ảnh bạn tải lên sẽ xuất hiện ở đây.</p>
-          </EmptyState>
+          <Box paddingBlock="800" paddingInline="400">
+            <BlockStack gap="300" inlineAlign="center">
+              <Text as="h2" variant="headingMd" alignment="center">Chưa có ảnh nào</Text>
+              <Text as="p" tone="subdued" alignment="center">
+                Ảnh do AI tạo hoặc ảnh bạn tải lên sẽ xuất hiện tại đây để dễ tìm và sử dụng lại.
+              </Text>
+              <Button variant="primary" onClick={() => fileRef.current?.click()}>Tải ảnh đầu tiên</Button>
+            </BlockStack>
+          </Box>
         </Card>
       ) : (
         <BlockStack gap="300">
-          <InlineStack align="space-between" blockAlign="center" wrap gap="200">
-            <Text as="p" tone="subdued" variant="bodySm">
-              {images.length} ảnh{selected.size > 0 ? ` · đã chọn ${selected.size}` : ''}
-            </Text>
-            <InlineStack gap="200">
-              <Button
-                variant="plain"
-                onClick={selected.size === images.length ? clearSel : selectAll}
-              >
-                {selected.size === images.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-              </Button>
-              {selected.size > 0 ? (
-                <Button
-                  tone="critical"
-                  variant="primary"
-                  onClick={() => {
-                    setConfirmText('');
-                    setBulkOpen(true);
-                  }}
-                >
-                  {`Xóa ${selected.size} ảnh đã chọn`}
+          <div className={`image-library-toolbar${selected.size ? ' image-library-toolbar--active' : ''}`}>
+            <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+              <BlockStack gap="050">
+                <Text as="p" fontWeight="semibold">
+                  {selected.size ? `${selected.size} ảnh được chọn` : `${images.length} ảnh trong thư viện`}
+                </Text>
+                <Text as="p" tone="subdued" variant="bodySm">
+                  {selected.size ? 'Bạn có thể bỏ chọn hoặc xóa các ảnh này.' : 'Chọn ảnh để thao tác hàng loạt.'}
+                </Text>
+              </BlockStack>
+              <InlineStack gap="200">
+                <Button onClick={selected.size === images.length ? clearSel : selectAll}>
+                  {selected.size === images.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </Button>
-              ) : null}
+                {selected.size > 0 ? (
+                  <Button
+                    tone="critical"
+                    onClick={() => {
+                      setConfirmText('');
+                      setBulkOpen(true);
+                    }}
+                  >
+                    {`Xóa ${selected.size} ảnh`}
+                  </Button>
+                ) : null}
+              </InlineStack>
             </InlineStack>
-          </InlineStack>
-          <InlineGrid columns={{ xs: 1, sm: 2, md: 3, lg: 4 }} gap="300">
+          </div>
+
+          <div className="image-library-grid">
             {images.map((img) => (
-              <Card key={img.file}>
-                <BlockStack gap="200">
-                  <Checkbox
-                    label="Chọn ảnh này"
-                    checked={selected.has(img.file)}
-                    onChange={() => toggleSel(img.file)}
-                  />
-                  <a href={img.url} target="_blank" rel="noopener noreferrer">
-                    <Thumbnail source={img.url} alt={img.name} size="large" />
-                  </a>
-                  <InlineStack gap="150" blockAlign="center">
+              <article
+                key={img.file}
+                className={`image-library-card${selected.has(img.file) ? ' image-library-card--selected' : ''}`}
+              >
+                <div className="image-library-card__preview">
+                  {img.url ? (
+                    <a href={img.url} target="_blank" rel="noopener noreferrer" aria-label={`Mở ảnh ${img.name}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={img.name} loading="lazy" />
+                    </a>
+                  ) : (
+                    <div className="image-library-card__missing">Không có ảnh xem trước</div>
+                  )}
+                  <div className="image-library-card__select">
+                    <Checkbox
+                      label={`Chọn ảnh ${img.name}`}
+                      labelHidden
+                      checked={selected.has(img.file)}
+                      onChange={() => toggleSel(img.file)}
+                    />
+                  </div>
+                  <div className="image-library-card__kind">
                     <Badge tone={img.kind === 'ai' ? 'info' : img.kind === 'upload' ? 'success' : undefined}>
                       {KIND_LABEL[img.kind]}
                     </Badge>
-                    <Text as="span" tone="subdued" variant="bodySm">
-                      {fmtBytes(img.size)}
-                    </Text>
+                  </div>
+                </div>
+
+                <div className="image-library-card__body">
+                  {editingFile === img.file ? (
+                    <BlockStack gap="200">
+                      <TextField
+                        label="Tên ảnh"
+                        labelHidden
+                        value={names[img.file] ?? ''}
+                        onChange={(value) => setNames((current) => ({ ...current, [img.file]: value }))}
+                        autoComplete="off"
+                      />
+                      <InlineStack align="end" gap="150">
+                        <Button size="slim" variant="plain" disabled={busy === img.file} onClick={() => cancelRename(img)}>
+                          Hủy
+                        </Button>
+                        <Button
+                          size="slim"
+                          variant="primary"
+                          loading={busy === img.file}
+                          disabled={!(names[img.file] ?? '').trim() || (names[img.file] ?? '').trim() === img.name}
+                          onClick={() => void saveName(img)}
+                        >
+                          Lưu
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  ) : (
+                    <div className="image-library-card__title" title={img.name}>
+                      <Text as="h3" fontWeight="semibold" truncate>{img.name || '(Chưa đặt tên)'}</Text>
+                    </div>
+                  )}
+
+                  <InlineStack gap="150" blockAlign="center">
+                    <Text as="span" tone="subdued" variant="bodySm">{fmtBytes(img.size)}</Text>
+                    {fmtDate(img.createdAt) ? <span className="image-library-card__dot" aria-hidden="true">·</span> : null}
+                    {fmtDate(img.createdAt) ? (
+                      <Text as="span" tone="subdued" variant="bodySm">{fmtDate(img.createdAt)}</Text>
+                    ) : null}
                   </InlineStack>
-                  <TextField
-                    label="Tên ảnh"
-                    labelHidden
-                    value={names[img.file] ?? ''}
-                    onChange={(v) => setNames((n) => ({ ...n, [img.file]: v }))}
-                    autoComplete="off"
-                    connectedRight={
-                      <Button
-                        loading={busy === img.file}
-                        disabled={(names[img.file] ?? '').trim() === img.name}
-                        onClick={() => void saveName(img)}
-                      >
-                        Lưu
-                      </Button>
-                    }
-                  />
-                  <InlineStack gap="200">
-                    <Button size="slim" onClick={() => void copyUrl(img.url)}>
-                      Copy URL
-                    </Button>
+                </div>
+
+                <div className="image-library-card__actions">
+                  <Button size="slim" disabled={!img.url} onClick={() => void copyUrl(img.url)}>Copy URL</Button>
+                  <InlineStack gap="100">
                     <Button
                       size="slim"
-                      tone="critical"
                       variant="plain"
-                      onClick={() => setPendingDelete(img)}
+                      onClick={() => {
+                        setNames((current) => ({ ...current, [img.file]: img.name }));
+                        setEditingFile(img.file);
+                      }}
                     >
+                      Đổi tên
+                    </Button>
+                    <Button size="slim" tone="critical" variant="plain" onClick={() => setPendingDelete(img)}>
                       Xóa
                     </Button>
                   </InlineStack>
-                </BlockStack>
-              </Card>
+                </div>
+              </article>
             ))}
-          </InlineGrid>
+          </div>
         </BlockStack>
       )}
 

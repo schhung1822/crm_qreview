@@ -219,7 +219,9 @@ function LoginInner() {
         // Đăng nhập đúng mật khẩu nhưng tài khoản chưa kích hoạt → cho gửi lại link.
         setUnverifiedEmail(email);
         setError(tErrUnverified);
-      } else setError(data.error ?? t.errGeneric);
+      } else setError(data?.error ?? t.errGeneric);
+    } catch {
+      setError(t.errGeneric);
     } finally {
       setBusy(false);
     }

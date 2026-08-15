@@ -3,9 +3,14 @@ import type { SocialProvider } from '../connection-providers';
 import { globalFile } from '../data/biz-path';
 import { mutateJson, readJson } from '../data/json-store';
 import type { SocialMediaType } from '../social-publishing';
+import type { SocialImageProcessingOptions } from '../social-publishing/image-processing';
 
 const NAME = 'social-posts.json';
 const MAX_ROWS = 1000;
+
+export interface SocialPostImageProcessing extends SocialImageProcessingOptions {
+  enabled?: boolean;
+}
 
 export interface SocialPostRecord {
   id: string;
@@ -18,6 +23,7 @@ export interface SocialPostRecord {
   mediaType: SocialMediaType;
   mediaUrls: string[];
   originalMediaUrls?: string[];
+  imageProcessing?: SocialPostImageProcessing;
   linkUrl?: string;
   providerPostId?: string;
   publishedUrl?: string;
@@ -38,6 +44,7 @@ export interface SocialPostInput {
   mediaType: SocialMediaType;
   mediaUrls?: string[];
   originalMediaUrls?: string[];
+  imageProcessing?: SocialPostImageProcessing;
   linkUrl?: string;
   providerPostId?: string;
   publishedUrl?: string;

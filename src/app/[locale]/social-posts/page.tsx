@@ -18,6 +18,8 @@ import {
 } from '@shopify/polaris';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProviderLogo } from '@/components/provider-logos';
+import { SocialPostEditModal } from '@/components/SocialPostEditModal';
+import { ChevronDownIcon, ChevronUpIcon } from '@/components/icons';
 import { SOCIAL_PROVIDERS, type SocialProvider } from '@/lib/connection-providers';
 import type { SocialPostRecord } from '@/lib/store/social-posts';
 
@@ -127,6 +129,10 @@ export default function SocialPostsPage() {
   const [provider, setProvider] = useState<ProviderFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [deletingKey, setDeletingKey] = useState('');
+  const [approvingKey, setApprovingKey] = useState('');
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+  const [editingGroup, setEditingGroup] = useState<SocialPostGroup | null>(null);
+  const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'warning' } | null>(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -177,6 +183,62 @@ export default function SocialPostsPage() {
     }
   }
 
+  function toggleExpanded(key: string) {
+    setExpandedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function approveGroup(group: SocialPostGroup) {
+    const post = group.primary;
+    const mediaUrls = post.originalMediaUrls?.length ? post.originalMediaUrls : post.mediaUrls;
+    setApprovingKey(group.key);
+    setError('');
+    setNotice(null);
+    try {
+      const response = await fetch('/api/social-publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectionIds: group.posts.map((item) => item.connectionId),
+          reviewPostIds: group.posts.map((item) => item.id),
+          title: post.title || undefined,
+          text: post.text,
+          mediaType: post.mediaType,
+          mediaUrl: post.mediaType === 'video' ? mediaUrls[0] : post.mediaType === 'image' ? mediaUrls[0] : undefined,
+          mediaUrls: post.mediaType === 'image' ? mediaUrls : undefined,
+          linkUrl: post.mediaType === 'text' ? post.linkUrl : undefined,
+          privacy: group.providers.includes('tiktok') ? 'SELF_ONLY' : undefined,
+          imageProcessing:
+            post.mediaType === 'image'
+              ? post.imageProcessing ?? { enabled: true, cropSquare: true, scale: 1.1, barHeight: 10, showLogo: true }
+              : undefined,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || 'Không thể duyệt và đăng bài');
+        return;
+      }
+      const results = Array.isArray(data.results) ? data.results : [];
+      const failed = results.filter((item: { ok?: boolean }) => item.ok === false).length;
+      setNotice({
+        tone: failed ? 'warning' : 'success',
+        message: failed
+          ? `Đã duyệt và đăng ${results.length - failed}/${results.length} kênh. Một số kênh đăng thất bại.`
+          : 'Đã duyệt và đăng bài thành công.',
+      });
+      await load();
+    } catch {
+      setError('Không thể kết nối máy chủ. Vui lòng thử lại.');
+    } finally {
+      setApprovingKey('');
+    }
+  }
+
   const loading = posts === null;
 
   return (
@@ -187,6 +249,7 @@ export default function SocialPostsPage() {
     >
       <BlockStack gap="400">
         {error ? <Banner tone="critical">{error}</Banner> : null}
+        {notice ? <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>{notice.message}</Banner> : null}
 
         <Card>
           <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
@@ -238,17 +301,18 @@ export default function SocialPostsPage() {
             </EmptyState>
           </Card>
         ) : (
-          <BlockStack gap="300">
+          <BlockStack gap="200">
             {groupedPosts.map((group) => {
               const post = group.primary;
+              const expanded = expandedKeys.has(group.key);
               return (
                 <Card key={group.key}>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" gap="300" blockAlign="start">
-                      <InlineStack gap="300" blockAlign="center" wrap={false}>
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" gap="300" blockAlign="center">
+                      <InlineStack gap="200" blockAlign="center" wrap={false}>
                         <InlineStack gap="100" wrap={false}>
                           {group.providers.map((item) => (
-                            <ProviderLogo key={item} id={item} size={32} />
+                            <ProviderLogo key={item} id={item} size={28} />
                           ))}
                         </InlineStack>
                         <BlockStack gap="100">
@@ -263,8 +327,21 @@ export default function SocialPostsPage() {
                       </InlineStack>
                       <ButtonGroup>
                         {group.status === 'pending_review' ? (
-                          <Button url={`/social-publish?review=${encodeURIComponent(post.id)}`}>
-                            Duyệt / chỉnh sửa
+                          <Button
+                            variant="primary"
+                            loading={approvingKey === group.key}
+                            disabled={Boolean(approvingKey || deletingKey)}
+                            onClick={() => void approveGroup(group)}
+                          >
+                            Duyệt
+                          </Button>
+                        ) : null}
+                        {group.status === 'pending_review' ? (
+                          <Button
+                            disabled={Boolean(approvingKey || deletingKey)}
+                            onClick={() => setEditingGroup(group)}
+                          >
+                            Chỉnh sửa
                           </Button>
                         ) : null}
                         {group.publishedUrls[0] ? (
@@ -279,46 +356,58 @@ export default function SocialPostsPage() {
                         >
                           Xóa
                         </Button>
+                        <Button
+                          variant="plain"
+                          icon={expanded ? ChevronUpIcon : ChevronDownIcon}
+                          ariaExpanded={expanded}
+                          onClick={() => toggleExpanded(group.key)}
+                        >
+                          {expanded ? 'Thu gọn' : 'Xem thêm'}
+                        </Button>
                       </ButtonGroup>
                     </InlineStack>
 
-                    {previewText(post) ? <Text as="p">{previewText(post)}</Text> : null}
+                    {expanded ? (
+                      <BlockStack gap="300">
+                        {previewText(post) ? <Text as="p">{previewText(post)}</Text> : null}
 
-                    <InlineStack gap="200" blockAlign="center">
-                      <Badge>{mediaSummary(post)}</Badge>
-                      <Badge>{`${group.providers.length} nền tảng`}</Badge>
-                      {group.publishedUrls.map((item) => (
-                        <a key={`${group.key}-${item.provider}`} href={item.url} target="_blank" rel="noreferrer">
-                          {PROVIDER_LABEL[item.provider]}
-                        </a>
-                      ))}
-                    </InlineStack>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Badge>{mediaSummary(post)}</Badge>
+                          <Badge>{`${group.providers.length} nền tảng`}</Badge>
+                          {group.publishedUrls.map((item) => (
+                            <a key={`${group.key}-${item.provider}`} href={item.url} target="_blank" rel="noreferrer">
+                              {PROVIDER_LABEL[item.provider]}
+                            </a>
+                          ))}
+                        </InlineStack>
 
-                    {group.errors.length ? (
-                      <BlockStack gap="100">
-                        {group.errors.map((item, index) => (
-                          <Text key={`${group.key}-error-${index}`} as="p" tone="critical">
-                            {PROVIDER_LABEL[item.provider]}: {item.error}
+                        {group.errors.length ? (
+                          <BlockStack gap="100">
+                            {group.errors.map((item, index) => (
+                              <Text key={`${group.key}-error-${index}`} as="p" tone="critical">
+                                {PROVIDER_LABEL[item.provider]}: {item.error}
+                              </Text>
+                            ))}
+                          </BlockStack>
+                        ) : null}
+
+                        {post.mediaUrls.length ? (
+                          <InlineStack gap="200">
+                            {post.mediaUrls.slice(0, 8).map((url, index) => (
+                              <a key={`${group.key}-${url}`} href={url} target="_blank" rel="noreferrer" aria-label={`Mở media ${index + 1}`}>
+                                <Thumbnail source={post.mediaType === 'video' ? '/icon/youtube.svg' : url} alt={`Media ${index + 1}`} size="small" />
+                              </a>
+                            ))}
+                            {post.mediaUrls.length > 8 ? <Badge>{`+${post.mediaUrls.length - 8} media`}</Badge> : null}
+                          </InlineStack>
+                        ) : null}
+
+                        {post.originalMediaUrls?.length ? (
+                          <Text as="p" tone="subdued">
+                            Ảnh gốc: {post.originalMediaUrls.length} URL
                           </Text>
-                        ))}
+                        ) : null}
                       </BlockStack>
-                    ) : null}
-
-                    {post.mediaUrls.length ? (
-                      <InlineStack gap="200">
-                        {post.mediaUrls.slice(0, 8).map((url, index) => (
-                          <a key={`${group.key}-${url}`} href={url} target="_blank" rel="noreferrer" aria-label={`Mở media ${index + 1}`}>
-                            <Thumbnail source={post.mediaType === 'video' ? '/icon/youtube.svg' : url} alt={`Media ${index + 1}`} size="small" />
-                          </a>
-                        ))}
-                        {post.mediaUrls.length > 8 ? <Badge>{`+${post.mediaUrls.length - 8} media`}</Badge> : null}
-                      </InlineStack>
-                    ) : null}
-
-                    {post.originalMediaUrls?.length ? (
-                      <Text as="p" tone="subdued">
-                        Ảnh gốc: {post.originalMediaUrls.length} URL
-                      </Text>
                     ) : null}
                   </BlockStack>
                 </Card>
@@ -327,6 +416,21 @@ export default function SocialPostsPage() {
           </BlockStack>
         )}
       </BlockStack>
+      {editingGroup ? (
+        <SocialPostEditModal
+          key={editingGroup.key}
+          posts={editingGroup.posts}
+          onClose={() => setEditingGroup(null)}
+          onPublished={async (message, partial) => {
+            setEditingGroup(null);
+            setNotice({
+              tone: partial ? 'warning' : 'success',
+              message: message || 'Đã lưu chỉnh sửa và đăng bài thành công.',
+            });
+            await load();
+          }}
+        />
+      ) : null}
     </Page>
   );
 }
