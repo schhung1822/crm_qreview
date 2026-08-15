@@ -25,6 +25,10 @@ import type { SocialPostRecord } from '@/lib/store/social-posts';
 
 type StatusFilter = 'all' | SocialPostRecord['status'];
 type ProviderFilter = 'all' | SocialProvider;
+// '' = tất cả nguồn, NO_SOURCE = bài chưa ghi nguồn, còn lại là khóa nguồn (xem sourceKey).
+type SourceFilter = string;
+
+const NO_SOURCE = '__none__';
 
 interface SocialPostGroup {
   key: string;
@@ -81,6 +85,38 @@ function mediaSummary(post: SocialPostRecord): string {
   return MEDIA_LABEL[post.mediaType];
 }
 
+function isUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+// Khóa gom nhóm nguồn: URL gom theo domain (nhiều bài cùng site = một nguồn), còn lại lấy
+// nguyên chữ. Dùng chung cho cả thẻ hiển thị lẫn bộ lọc để hai chỗ luôn khớp nhau.
+function sourceKey(value: string | undefined): string {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  if (isUrl(raw)) {
+    try {
+      return new URL(raw).hostname.replace(/^www\./i, '').toLowerCase();
+    } catch {
+      // URL hỏng thì rơi về so khớp theo chữ.
+    }
+  }
+  return raw.toLowerCase();
+}
+
+// Nhãn hiển thị trên thẻ: domain cho URL, chữ rút gọn cho nguồn dạng tên.
+function sourceLabel(value: string): string {
+  const raw = value.trim();
+  if (isUrl(raw)) {
+    try {
+      return new URL(raw).hostname.replace(/^www\./i, '');
+    } catch {
+      // bỏ qua, dùng nhánh rút gọn bên dưới
+    }
+  }
+  return raw.length > 40 ? `${raw.slice(0, 40)}...` : raw;
+}
+
 function groupKey(post: SocialPostRecord): string {
   if (post.batchId) return post.batchId;
   const minute = Math.floor(new Date(post.createdAt).getTime() / 60_000);
@@ -128,6 +164,7 @@ export default function SocialPostsPage() {
   const [query, setQuery] = useState('');
   const [provider, setProvider] = useState<ProviderFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
+  const [source, setSource] = useState<SourceFilter>('');
   const [deletingKey, setDeletingKey] = useState('');
   const [approvingKey, setApprovingKey] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
@@ -150,18 +187,51 @@ export default function SocialPostsPage() {
     void load();
   }, [load]);
 
+  // Danh sách nguồn lấy từ TOÀN BỘ bài (không theo bộ lọc đang chọn) để lựa chọn không tự biến mất.
+  const sourceOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    let missing = 0;
+    for (const post of posts ?? []) {
+      const key = sourceKey(post.articleSource);
+      if (!key) {
+        missing += 1;
+        continue;
+      }
+      const current = counts.get(key);
+      if (current) current.count += 1;
+      else counts.set(key, { label: sourceLabel(post.articleSource!), count: 1 });
+    }
+    const rows = Array.from(counts.entries())
+      .sort((a, b) => a[1].label.localeCompare(b[1].label, 'vi'))
+      .map(([key, item]) => ({ label: `${item.label} (${item.count})`, value: key }));
+    return [
+      { label: 'Tất cả nguồn', value: '' },
+      ...rows,
+      ...(missing ? [{ label: `Chưa có nguồn (${missing})`, value: NO_SOURCE }] : []),
+    ];
+  }, [posts]);
+
+  // Nguồn đang lọc có thể biến mất sau khi xóa bài — trả bộ lọc về "Tất cả nguồn".
+  useEffect(() => {
+    if (source && !sourceOptions.some((option) => option.value === source)) setSource('');
+  }, [source, sourceOptions]);
+
   const groupedPosts = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = (posts ?? []).filter((post) => {
       if (provider !== 'all' && post.provider !== provider) return false;
       if (status !== 'all' && post.status !== status) return false;
+      if (source) {
+        const key = sourceKey(post.articleSource);
+        if (source === NO_SOURCE ? key !== '' : key !== source) return false;
+      }
       if (!q) return true;
-      return [post.title, post.text, post.connectionLabel, post.publishedUrl, post.providerPostId]
+      return [post.title, post.text, post.connectionLabel, post.publishedUrl, post.providerPostId, post.articleSource]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(q));
     });
     return makeGroups(rows);
-  }, [posts, provider, query, status]);
+  }, [posts, provider, query, source, status]);
 
   async function deleteGroup(group: SocialPostGroup) {
     setDeletingKey(group.key);
@@ -211,6 +281,8 @@ export default function SocialPostsPage() {
           mediaUrl: post.mediaType === 'video' ? mediaUrls[0] : post.mediaType === 'image' ? mediaUrls[0] : undefined,
           mediaUrls: post.mediaType === 'image' ? mediaUrls : undefined,
           linkUrl: post.mediaType === 'text' ? post.linkUrl : undefined,
+          articleSource: post.articleSource || undefined,
+          affiliateLinks: post.affiliateLinks?.length ? post.affiliateLinks : undefined,
           privacy: group.providers.includes('tiktok') ? 'SELF_ONLY' : undefined,
           imageProcessing:
             post.mediaType === 'image'
@@ -252,7 +324,7 @@ export default function SocialPostsPage() {
         {notice ? <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>{notice.message}</Banner> : null}
 
         <Card>
-          <InlineGrid columns={{ xs: 1, md: 3 }} gap="300">
+          <InlineGrid columns={{ xs: 1, md: 4 }} gap="300">
             <TextField
               label="Tìm kiếm"
               value={query}
@@ -282,6 +354,14 @@ export default function SocialPostsPage() {
                 { label: STATUS_LABEL.processing, value: 'processing' },
                 { label: STATUS_LABEL.failed, value: 'failed' },
               ]}
+            />
+            <Select
+              label="Nguồn bài viết"
+              value={source}
+              onChange={setSource}
+              options={sourceOptions}
+              disabled={sourceOptions.length <= 1}
+              helpText={sourceOptions.length <= 1 ? 'Chưa có bài nào ghi nguồn.' : undefined}
             />
           </InlineGrid>
         </Card>
@@ -319,6 +399,9 @@ export default function SocialPostsPage() {
                           <InlineStack gap="200" blockAlign="center">
                             <Text as="h2" variant="headingSm">{post.title || '(Không tiêu đề)'}</Text>
                             <Badge tone={STATUS_TONE[group.status]}>{STATUS_LABEL[group.status]}</Badge>
+                            {post.articleSource ? (
+                              <Badge tone="info">{`Nguồn: ${sourceLabel(post.articleSource)}`}</Badge>
+                            ) : null}
                           </InlineStack>
                           <Text as="p" tone="subdued">
                             {group.posts.map((item) => `${item.connectionLabel} - ${PROVIDER_LABEL[item.provider]}`).join(', ')} · {formatDate(post.createdAt)}
@@ -400,6 +483,36 @@ export default function SocialPostsPage() {
                             ))}
                             {post.mediaUrls.length > 8 ? <Badge>{`+${post.mediaUrls.length - 8} media`}</Badge> : null}
                           </InlineStack>
+                        ) : null}
+
+                        {post.articleSource ? (
+                          <Text as="p" tone="subdued">
+                            Nguồn bài viết:{' '}
+                            {isUrl(post.articleSource) ? (
+                              <a href={post.articleSource} target="_blank" rel="noreferrer">
+                                {post.articleSource}
+                              </a>
+                            ) : (
+                              post.articleSource
+                            )}
+                          </Text>
+                        ) : null}
+
+                        {post.affiliateLinks?.length ? (
+                          <BlockStack gap="100">
+                            <Text as="p" tone="subdued">
+                              {`Link affiliate (mỗi link là một comment Facebook): ${post.affiliateLinks.length}`}
+                            </Text>
+                            {post.affiliateLinks.map((link, index) => (
+                              <Text key={`${group.key}-aff-${index}`} as="p" variant="bodySm">
+                                {isUrl(link) ? (
+                                  <a href={link} target="_blank" rel="noreferrer">{link}</a>
+                                ) : (
+                                  link
+                                )}
+                              </Text>
+                            ))}
+                          </BlockStack>
                         ) : null}
 
                         {post.originalMediaUrls?.length ? (

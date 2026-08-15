@@ -1,16 +1,29 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import sharp, { type OverlayOptions } from 'sharp';
+import sharp, { type OverlayOptions, type Sharp } from 'sharp';
 import { saveGeneratedImage } from '../ai/image-store';
 import { requestBaseUrl } from '../base-url';
 import { safeFetchBuffer } from '../security/safe-fetch';
 
+// Kích thước "thiết kế" (design units) — mọi thông số bố cục (khung, logo, inset) tính theo khung
+// 1080 này. Ảnh THẬT được render ở bội số của khung (renderScale) tuỳ độ phân giải ảnh gốc, để
+// không phải hạ ảnh 4000px xuống 1080px một cách vô ích. Xem getSocialImageRenderScale.
 const OUTPUT_SIZE = 1080;
+// Trần pixel thật. 2048 là mức Facebook lưu ảnh "chất lượng cao"; Instagram/Threads tự hạ xuống
+// 1080 bằng bộ nén của họ — đưa ảnh lớn hơn vào luôn cho kết quả nét hơn là tự hạ trước.
+const MAX_OUTPUT_SIZE = 2048;
+const MAX_RENDER_SCALE = MAX_OUTPUT_SIZE / OUTPUT_SIZE;
 const ZOOM = 1.1;
 const FRAME_THICKNESS = 10;
 const LOGO_MAX_WIDTH = 150;
 const LOGO_MAX_HEIGHT = 150;
 const LOGO_INSET = 24;
+// JPEG là định dạng DUY NHẤT cả Facebook, Instagram, Threads và TikTok đều nhận (Instagram chỉ
+// nhận JPEG). Nén một lần duy nhất ở chất lượng cao, chroma 4:4:4 để không mất chi tiết màu/viền
+// chữ trước khi mạng xã hội nén lại lần của họ.
+const JPEG_QUALITY_STEPS = [95, 92, 88, 84];
+// Ngân sách dung lượng: Facebook/Instagram từ chối ảnh quá lớn (~4MB/8MB). Giữ dưới ngưỡng an toàn.
+const MAX_OUTPUT_BYTES = 3.8 * 1024 * 1024;
 
 export interface SocialImageProcessingOptions {
   scale?: number;
@@ -55,34 +68,37 @@ async function logoOverlay(
   frameThickness: number,
   canvasWidth: number,
   canvasHeight: number,
+  renderScale: number,
   logoUrl?: string,
 ): Promise<OverlayOptions | null> {
   const logo = await readAsset(logoUrl?.trim() || '/images/qreview_toke.webp');
   if (!logo) return null;
 
+  const inset = Math.round(LOGO_INSET * renderScale);
   const maxLogoWidth = Math.min(
-    LOGO_MAX_WIDTH,
-    canvasWidth - frameThickness * 2 - LOGO_INSET * 2,
+    Math.round(LOGO_MAX_WIDTH * renderScale),
+    canvasWidth - frameThickness * 2 - inset * 2,
   );
   const maxLogoHeight = Math.min(
-    LOGO_MAX_HEIGHT,
-    canvasHeight - frameThickness * 2 - LOGO_INSET * 2,
+    Math.round(LOGO_MAX_HEIGHT * renderScale),
+    canvasHeight - frameThickness * 2 - inset * 2,
   );
   if (maxLogoWidth < 8 || maxLogoHeight < 8) return null;
 
+  // PNG = lossless, logo giữ nguyên viền/alpha khi ghép lên canvas.
   const renderedLogo = await sharp(logo, { failOn: 'none' }).resize({
     width: maxLogoWidth,
     height: maxLogoHeight,
     fit: 'inside',
     withoutEnlargement: true,
-  }).png().toBuffer({ resolveWithObject: true });
+  }).png({ compressionLevel: 9 }).toBuffer({ resolveWithObject: true });
   const logoWidth = renderedLogo.info.width;
   const logoHeight = renderedLogo.info.height;
 
   return {
     input: renderedLogo.data,
-    left: canvasWidth - frameThickness - LOGO_INSET - logoWidth,
-    top: canvasHeight - frameThickness - LOGO_INSET - logoHeight,
+    left: canvasWidth - frameThickness - inset - logoWidth,
+    top: canvasHeight - frameThickness - inset - logoHeight,
   };
 }
 
@@ -123,6 +139,20 @@ export function getSocialImageOutputDimensions(
   };
 }
 
+// Ảnh gốc thường lớn hơn khung 1080 rất nhiều. Thay vì luôn ép về 1080 (mất chi tiết vĩnh viễn),
+// render ở bội số lớn nhất mà ảnh gốc còn ĐỦ pixel để không phải phóng to — tối đa MAX_RENDER_SCALE.
+// Trả 1 khi ảnh gốc nhỏ (không phóng to ảnh mờ cho to ra, chỉ tốn dung lượng).
+export function getSocialImageRenderScale(
+  sourceWidth: number,
+  sourceHeight: number,
+  zoomWidth: number,
+  zoomHeight: number,
+): number {
+  const available = Math.min(sourceWidth / zoomWidth, sourceHeight / zoomHeight);
+  if (!Number.isFinite(available)) return 1;
+  return Math.min(MAX_RENDER_SCALE, Math.max(1, available));
+}
+
 function getOrientedSourceDimensions(metadata: {
   width?: number;
   height?: number;
@@ -150,17 +180,38 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
   const showLogo = opts.showLogo !== false;
   const metadata = await sharp(original.buffer, { failOn: 'none' }).metadata();
   const sourceDimensions = getOrientedSourceDimensions(metadata);
-  const { innerWidth, innerHeight, outputWidth, outputHeight } = getSocialImageOutputDimensions(
+  const design = getSocialImageOutputDimensions(
     sourceDimensions.width,
     sourceDimensions.height,
     frameThickness,
     cropSquare,
   );
-  const zoomWidth = Math.ceil(innerWidth * scale);
-  const zoomHeight = Math.ceil(innerHeight * scale);
+  const renderScale = getSocialImageRenderScale(
+    sourceDimensions.width,
+    sourceDimensions.height,
+    design.innerWidth * scale,
+    design.innerHeight * scale,
+  );
+  const frame = frameThickness > 0 ? Math.max(1, Math.round(frameThickness * renderScale)) : 0;
+  const innerWidth = Math.max(1, Math.round(design.innerWidth * renderScale));
+  const innerHeight = Math.max(1, Math.round(design.innerHeight * renderScale));
+  const outputWidth = innerWidth + frame * 2;
+  const outputHeight = innerHeight + frame * 2;
+  const zoomWidth = Math.max(innerWidth, Math.ceil(innerWidth * scale));
+  const zoomHeight = Math.max(innerHeight, Math.ceil(innerHeight * scale));
+  // MỘT lần lấy mẫu duy nhất từ ảnh gốc: xoay theo EXIF → resize lanczos3 → cắt.
+  // (sharp tự chuyển ảnh có ICC profile — Display-P3/AdobeRGB — về sRGB nên màu không bị bạc.)
+  // fastShrinkOnLoad tắt để JPEG không bị giảm mẫu thô ngay lúc giải mã.
   const base = sharp(original.buffer, { failOn: 'none', limitInputPixels: 50_000_000 })
     .rotate()
-    .resize({ width: zoomWidth, height: zoomHeight, fit: 'cover', position: 'center' })
+    .resize({
+      width: zoomWidth,
+      height: zoomHeight,
+      fit: 'cover',
+      position: 'center',
+      kernel: 'lanczos3',
+      fastShrinkOnLoad: false,
+    })
     .extract({
       left: Math.floor((zoomWidth - innerWidth) / 2),
       top: Math.floor((zoomHeight - innerHeight) / 2),
@@ -168,14 +219,25 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
       height: innerHeight,
     });
 
-  const overlays: OverlayOptions[] = [];
-  overlays.push({ input: await base.toBuffer(), left: frameThickness, top: frameThickness });
+  // Raw = pixel thô, KHÔNG mã hoá trung gian. Trước đây bước này encode lại theo định dạng gốc
+  // (ảnh JPEG bị nén lần 2 ở q80) rồi mới ghép — mất chất lượng mà không ai thấy.
+  const baseRaw = await base.raw().toBuffer({ resolveWithObject: true });
+  const overlays: OverlayOptions[] = [{
+    input: baseRaw.data,
+    raw: {
+      width: baseRaw.info.width,
+      height: baseRaw.info.height,
+      channels: baseRaw.info.channels,
+    },
+    left: frame,
+    top: frame,
+  }];
   const logo = showLogo
-    ? await logoOverlay(frameThickness, outputWidth, outputHeight, opts.logoUrl)
+    ? await logoOverlay(frame, outputWidth, outputHeight, renderScale, opts.logoUrl)
     : null;
   if (logo) overlays.push(logo);
 
-  const processed = await sharp({
+  const canvas = sharp({
     create: {
       width: outputWidth,
       height: outputHeight,
@@ -184,13 +246,36 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
     },
   })
     .composite(overlays)
-    .webp({ quality: 88, effort: 4 })
-    .toBuffer();
+    .withIccProfile('srgb');
+
+  const processed = await encodeWithinBudget(canvas);
+  // reencode: false — bytes đã là bản cuối. Nén lại ở image-store (WebP q72) chính là chỗ làm
+  // ảnh xuống cấp rõ nhất trước đây.
   const rel = await saveGeneratedImage(processed.toString('base64'), hint || 'social-image', {
-    format: 'webp',
-    maxWidth: OUTPUT_SIZE,
+    format: 'jpeg',
+    reencode: false,
   });
   return `${baseUrl}${rel}`;
+}
+
+// Nén JPEG một lần ở chất lượng cao nhất còn nằm trong ngân sách dung lượng của mạng xã hội.
+async function encodeWithinBudget(canvas: Sharp): Promise<Buffer> {
+  let last: Buffer | null = null;
+  for (const quality of JPEG_QUALITY_STEPS) {
+    const buffer = await canvas
+      .clone()
+      .jpeg({
+        quality,
+        mozjpeg: true,
+        progressive: true,
+        // 4:4:4 giữ nguyên độ phân giải kênh màu — viền chữ/logo không bị nhoè màu.
+        chromaSubsampling: quality >= 92 ? '4:4:4' : '4:2:0',
+      })
+      .toBuffer();
+    last = buffer;
+    if (buffer.length <= MAX_OUTPUT_BYTES) return buffer;
+  }
+  return last!;
 }
 
 export async function processSocialImageUrls(urls: string[], req: Request, hint?: string, opts: SocialImageProcessingOptions = {}): Promise<string[]> {

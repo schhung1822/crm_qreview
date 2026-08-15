@@ -11,6 +11,15 @@ export interface SocialPublishInput {
   mediaUrls?: string[];
   linkUrl?: string;
   privacy?: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'FOLLOWER_OF_CREATOR' | 'SELF_ONLY';
+  // Mỗi phần tử được đăng thành MỘT comment riêng dưới bài Facebook vừa đăng.
+  // Các nền tảng khác bỏ qua trường này.
+  affiliateLinks?: string[];
+}
+
+export interface AffiliateCommentSummary {
+  total: number;
+  posted: number;
+  errors: string[];
 }
 
 export interface SocialPublishResult {
@@ -18,6 +27,7 @@ export interface SocialPublishResult {
   url?: string;
   status: 'published' | 'processing';
   message?: string;
+  affiliateComments?: AffiliateCommentSummary;
 }
 
 type Credentials = Record<string, string>;
@@ -136,6 +146,31 @@ export async function testSocialConnection(
   }
 }
 
+// Đăng từng link affiliate thành một comment riêng dưới bài vừa đăng.
+// Comment lỗi KHÔNG làm hỏng bài đã đăng — chỉ gom lỗi để báo lại cho người dùng tự xử lý.
+async function commentAffiliateLinks(
+  postId: string,
+  token: string,
+  links: string[] | undefined,
+): Promise<AffiliateCommentSummary | undefined> {
+  const messages = (links ?? []).map((link) => link.trim()).filter(Boolean);
+  if (!messages.length) return undefined;
+  const errors: string[] = [];
+  let posted = 0;
+  for (const message of messages) {
+    try {
+      await postForm(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(postId)}/comments`, {
+        access_token: token,
+        message,
+      });
+      posted += 1;
+    } catch (error) {
+      errors.push(`${message}: ${error instanceof Error ? error.message : 'Không thêm được comment'}`);
+    }
+  }
+  return { total: messages.length, posted, errors };
+}
+
 async function publishFacebook(creds: Credentials, input: SocialPublishInput): Promise<SocialPublishResult> {
   const pageId = required(creds, 'pageId', 'Page ID');
   const token = await facebookPageAccessToken(creds, pageId);
@@ -165,7 +200,12 @@ async function publishFacebook(creds: Credentials, input: SocialPublishInput): P
         body,
       });
       const id = String(data.post_id || data.id || '');
-      return { id, url: id ? `https://www.facebook.com/${id}` : undefined, status: 'published' };
+      return {
+        id,
+        url: id ? `https://www.facebook.com/${id}` : undefined,
+        status: 'published',
+        affiliateComments: id ? await commentAffiliateLinks(id, token, input.affiliateLinks) : undefined,
+      };
     }
     endpoint = 'photos';
     payload.url = urls[0];
@@ -180,7 +220,12 @@ async function publishFacebook(creds: Credentials, input: SocialPublishInput): P
   } else if (input.linkUrl) payload.link = input.linkUrl;
   const data = await postForm(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(pageId)}/${endpoint}`, payload);
   const id = String(data.post_id || data.id || '');
-  return { id, url: id ? `https://www.facebook.com/${id}` : undefined, status: 'published' };
+  return {
+    id,
+    url: id ? `https://www.facebook.com/${id}` : undefined,
+    status: 'published',
+    affiliateComments: id ? await commentAffiliateLinks(id, token, input.affiliateLinks) : undefined,
+  };
 }
 
 async function waitForMetaContainer(containerId: string, token: string, host: string): Promise<void> {

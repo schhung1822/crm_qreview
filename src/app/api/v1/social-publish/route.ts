@@ -21,6 +21,8 @@ const Schema = z.object({
   mediaUrl: z.string().max(4000).optional(),
   mediaUrls: z.array(z.string().max(4000)).max(35).optional(),
   linkUrl: z.string().max(4000).optional(),
+  // Nguồn bài viết (tùy chọn): hiển thị trong trang quản trị nội bộ để biết bài lấy từ đâu.
+  articleSource: z.string().max(300).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
     enabled: z.boolean().optional(),
@@ -193,6 +195,7 @@ export async function POST(req: Request) {
       originalMediaUrls: parsed.data.mediaType === 'image' ? mediaUrls : undefined,
       imageProcessing: parsed.data.mediaType === 'image' ? parsed.data.imageProcessing : undefined,
       linkUrl: parsed.data.linkUrl,
+      articleSource: parsed.data.articleSource?.trim() || undefined,
       status: 'pending_review',
       createdBy: a.token.createdBy,
       source: 'external_api',

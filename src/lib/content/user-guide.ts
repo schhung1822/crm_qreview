@@ -39,9 +39,12 @@ CRM QReview là hệ thống nội bộ, dùng một không gian làm việc và
 Trang **Đăng mạng xã hội** cho phép đăng nội dung lên một hoặc nhiều kênh đã kết nối.
 
 - Chọn loại nội dung: bài viết, hình ảnh hoặc video.
+- **Nguồn bài viết** (tùy chọn): ghi tên nguồn hoặc URL bài gốc để biết nội dung lấy từ đâu. Trường này chỉ hiển thị nội bộ ở trang **Bài đăng mạng xã hội**, không gửi lên mạng xã hội.
+- **Link affiliate** (tùy chọn): mỗi dòng một link. Sau khi đăng lên Facebook, mỗi link được đăng thành **một comment riêng** dưới bài. Các nền tảng khác bỏ qua trường này. Nếu một comment lỗi, bài đăng vẫn giữ nguyên và hệ thống báo rõ link nào chưa đăng được.
 - Có thể nhập nhiều URL ảnh, mỗi dòng một ảnh.
 - Có thể bật/tắt xử lý ảnh trước khi đăng.
 - Khi bật xử lý ảnh, hệ thống tải ảnh về, mặc định cắt vuông 1:1 (có thể tắt để giữ tỷ lệ gốc), scale theo cấu hình, thêm khung trắng và logo.
+- Ảnh xử lý xong xuất JPEG chất lượng cao, kích thước tới 2048px nếu ảnh gốc đủ lớn (ảnh nhỏ giữ nguyên khung 1080px, không phóng to). Toàn bộ chỉnh sửa chỉ nén một lần duy nhất nên ảnh gần như giữ nguyên chất lượng gốc.
 - Nếu tắt xử lý ảnh, hệ thống dùng nguyên URL đã dán và không lưu ảnh về máy chủ.
 - Sau khi đăng, lịch sử được lưu tại **Bài đăng mạng xã hội**.
 
@@ -101,6 +104,14 @@ Hoặc dạng chuỗi:
 
 Hệ thống sẽ tự tìm kết nối active tương ứng với từng nền tảng. Nếu chưa có kết nối cho nền tảng nào, API sẽ trả lỗi để người dùng bổ sung kết nối trước.
 
+### Nguồn bài viết (tùy chọn)
+
+Trường \`articleSource\` (chuỗi, tối đa 300 ký tự) dùng để ghi nhận bài này lấy từ đâu — tên nguồn hoặc URL bài gốc. Giá trị chỉ hiển thị nội bộ ở trang **Bài đăng mạng xã hội** để người duyệt biết xuất xứ nội dung; hệ thống **không** gửi trường này lên mạng xã hội.
+
+\`"articleSource": "https://example.com/bai-goc"\`
+
+Link affiliate không nhận qua API ngoài — thêm trực tiếp trong app trước khi bấm đăng.
+
 ### Body mẫu cho bài hình ảnh
 
 Gửi JSON:
@@ -108,6 +119,7 @@ Gửi JSON:
 \`{
   "platforms": ["fb", "ig"],
   "title": "Tiêu đề bài đăng",
+  "articleSource": "https://example.com/bai-goc",
   "text": "Nội dung / chú thích cần đăng",
   "mediaType": "image",
   "mediaUrls": [

@@ -31,7 +31,9 @@ export async function saveGeneratedImage(
   hint?: string,
   // format: 'webp' (mặc định, ảnh nội dung — nhẹ) | 'jpeg' (ẢNH BÌA CHIA SẺ: Facebook/Zalo không
   // phải lúc nào cũng render WebP nên dùng JPEG cho chắc). maxWidth: giới hạn bề rộng (OG nên ~1200).
-  opts?: { format?: 'webp' | 'jpeg'; maxWidth?: number },
+  // reencode: false → bytes đã là bản cuối (đã nén đúng chất lượng mong muốn), CHỈ lưu nguyên xi.
+  // Dùng cho ảnh mạng xã hội: nén lại lần 2 sẽ mất chất lượng mà không giảm đáng kể dung lượng.
+  opts?: { format?: 'webp' | 'jpeg'; maxWidth?: number; reencode?: boolean },
 ): Promise<string> {
   const dir = generatedImageDir();
   await fs.mkdir(dir, { recursive: true });
@@ -42,17 +44,19 @@ export async function saveGeneratedImage(
   const name = `${slug}-${randomBytes(3).toString('hex')}.${ext}`;
 
   const input = Buffer.from(b64, 'base64');
-  let out: Buffer;
-  try {
-    // Giảm bề rộng tối đa + nén: JPEG (mozjpeg, progressive) cho ảnh bìa; WebP q72 cho ảnh nội dung.
-    const pipeline = sharp(input).resize({ width: maxWidth, withoutEnlargement: true });
-    out =
-      format === 'jpeg'
-        ? await pipeline.jpeg({ quality: 82, mozjpeg: true, progressive: true }).toBuffer()
-        : await pipeline.webp({ quality: 72 }).toBuffer();
-  } catch {
-    // Nếu sharp lỗi (định dạng lạ) → giữ nguyên bytes gốc.
-    out = input;
+  let out = input;
+  if (opts?.reencode !== false) {
+    try {
+      // Giảm bề rộng tối đa + nén: JPEG (mozjpeg, progressive) cho ảnh bìa; WebP q72 cho ảnh nội dung.
+      const pipeline = sharp(input).resize({ width: maxWidth, withoutEnlargement: true });
+      out =
+        format === 'jpeg'
+          ? await pipeline.jpeg({ quality: 82, mozjpeg: true, progressive: true }).toBuffer()
+          : await pipeline.webp({ quality: 72 }).toBuffer();
+    } catch {
+      // Nếu sharp lỗi (định dạng lạ) → giữ nguyên bytes gốc.
+      out = input;
+    }
   }
   await fs.writeFile(path.join(dir, name), out);
   await saveGeneratedImageBlob(name, format === 'jpeg' ? 'image/jpeg' : 'image/webp', out.toString('base64')).catch(() => {});

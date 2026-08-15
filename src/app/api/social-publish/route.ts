@@ -23,6 +23,8 @@ const Schema = z.object({
   mediaUrls: z.array(z.string().max(4000)).max(35).optional(),
   reviewPostIds: z.array(z.string().min(1).max(80)).max(35).optional(),
   linkUrl: z.string().max(4000).optional(),
+  articleSource: z.string().max(300).optional(),
+  affiliateLinks: z.array(z.string().max(2000)).max(20).optional(),
   privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
   imageProcessing: z.object({
     enabled: z.boolean().optional(),
@@ -71,12 +73,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error instanceof Error ? error.message : 'URL không hợp lệ' }, { status: 400 });
     }
   }
+  // Link affiliate chỉ được đăng thành comment Facebook (không tải về, không gửi tới nền tảng khác),
+  // nên chỉ cần bảo đảm mỗi dòng có một URL http(s) thật.
+  const affiliateLinks = (parsed.data.affiliateLinks ?? []).map((link) => link.trim()).filter(Boolean);
+  if (affiliateLinks.some((link) => !/https?:\/\/\S+/i.test(link))) {
+    return NextResponse.json({ error: 'Mỗi link affiliate phải chứa một URL http(s)' }, { status: 400 });
+  }
+  const articleSource = parsed.data.articleSource?.trim() || undefined;
   const originalMediaUrls = parsed.data.mediaType === 'image'
     ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
     : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
       ? [parsed.data.mediaUrl.trim()]
       : [];
-  const publishInput = { ...parsed.data };
+  const publishInput = { ...parsed.data, affiliateLinks };
   if (parsed.data.mediaType === 'image') {
     const rawImageUrls = originalMediaUrls;
     if (rawImageUrls.length === 0) {
@@ -173,6 +182,8 @@ export async function POST(req: Request) {
       mediaUrls: finalMediaUrls,
       originalMediaUrls,
       linkUrl: parsed.data.linkUrl,
+      articleSource,
+      affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
       providerPostId: item.ok ? item.result?.id : undefined,
       publishedUrl: item.ok ? item.result?.url : undefined,
       status: item.ok ? item.result?.status ?? 'published' : 'failed',

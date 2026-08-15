@@ -25,6 +25,11 @@ export interface SocialPostRecord {
   originalMediaUrls?: string[];
   imageProcessing?: SocialPostImageProcessing;
   linkUrl?: string;
+  // Nguồn bài viết (tùy chọn): bài này lấy từ đâu. Chỉ hiển thị trong trang quản trị nội bộ,
+  // KHÔNG gửi lên mạng xã hội.
+  articleSource?: string;
+  // Mỗi link affiliate sẽ thành MỘT comment riêng dưới bài Facebook đã đăng.
+  affiliateLinks?: string[];
   providerPostId?: string;
   publishedUrl?: string;
   status: 'pending_review' | 'published' | 'processing' | 'failed';
@@ -46,6 +51,8 @@ export interface SocialPostInput {
   originalMediaUrls?: string[];
   imageProcessing?: SocialPostImageProcessing;
   linkUrl?: string;
+  articleSource?: string;
+  affiliateLinks?: string[];
   providerPostId?: string;
   publishedUrl?: string;
   status: 'pending_review' | 'published' | 'processing' | 'failed';
@@ -67,6 +74,7 @@ function normalize(record: SocialPostRecord): SocialPostRecord {
     ...record,
     mediaUrls: Array.isArray(record.mediaUrls) ? record.mediaUrls : [],
     originalMediaUrls: Array.isArray(record.originalMediaUrls) ? record.originalMediaUrls : undefined,
+    affiliateLinks: Array.isArray(record.affiliateLinks) ? record.affiliateLinks : undefined,
   };
 }
 

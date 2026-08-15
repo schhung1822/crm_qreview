@@ -58,6 +58,11 @@ function parseMediaUrls(value: string): string[] {
   return Array.from(new Set(value.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean)));
 }
 
+// Mỗi DÒNG là một link affiliate = một comment (link affiliate hay có dấu phẩy trong tracking).
+function parseAffiliateLinks(value: string): string[] {
+  return Array.from(new Set(value.split(/\n+/).map((line) => line.trim()).filter(Boolean)));
+}
+
 export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
   const post = posts[0];
   const initialMediaUrls = post.originalMediaUrls?.length ? post.originalMediaUrls : post.mediaUrls;
@@ -68,6 +73,8 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
   const [text, setText] = useState(post.text || '');
   const [mediaUrl, setMediaUrl] = useState(initialMediaUrls.join('\n'));
   const [linkUrl, setLinkUrl] = useState(post.linkUrl || '');
+  const [articleSource, setArticleSource] = useState(post.articleSource || '');
+  const [affiliateLinksText, setAffiliateLinksText] = useState((post.affiliateLinks ?? []).join('\n'));
   const [privacy, setPrivacy] = useState('SELF_ONLY');
   const [imageProcessingEnabled, setImageProcessingEnabled] = useState(post.imageProcessing?.enabled !== false);
   const [imageCropSquare, setImageCropSquare] = useState(post.imageProcessing?.cropSquare !== false);
@@ -99,6 +106,11 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
     [connections, selectedConnectionIds],
   );
   const mediaUrls = useMemo(() => parseMediaUrls(mediaUrl), [mediaUrl]);
+  const affiliateLinks = useMemo(() => parseAffiliateLinks(affiliateLinksText), [affiliateLinksText]);
+  const invalidAffiliateLinks = useMemo(
+    () => affiliateLinks.filter((link) => !/https?:\/\/\S+/i.test(link)),
+    [affiliateLinks],
+  );
   const unsupportedConnections = useMemo(
     () => selectedConnections.filter((connection) => !CAPABILITIES[connection.provider].includes(mediaType)),
     [mediaType, selectedConnections],
@@ -111,8 +123,9 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
     if (mediaType === 'image' && (!mediaUrls.length || mediaUrls.some((url) => !/^https?:\/\//i.test(url)))) return false;
     if (mediaType === 'video' && !/^https?:\/\//i.test(mediaUrl.trim())) return false;
     if (mediaType === 'text' && linkUrl.trim() && !/^https?:\/\//i.test(linkUrl.trim())) return false;
+    if (invalidAffiliateLinks.length) return false;
     return true;
-  }, [busy, connections, linkUrl, mediaType, mediaUrl, mediaUrls, selectedConnections, text, unsupportedConnections]);
+  }, [busy, connections, invalidAffiliateLinks, linkUrl, mediaType, mediaUrl, mediaUrls, selectedConnections, text, unsupportedConnections]);
 
   function toggleConnection(id: string, checked: boolean) {
     setSelectedConnectionIds((current) =>
@@ -138,6 +151,8 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
           mediaUrl: mediaType === 'video' ? mediaUrl.trim() : mediaType === 'image' ? mediaUrls[0] : undefined,
           mediaUrls: mediaType === 'image' ? mediaUrls : undefined,
           linkUrl: mediaType === 'text' && linkUrl.trim() ? linkUrl.trim() : undefined,
+          articleSource: articleSource.trim() || undefined,
+          affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
           privacy: hasTikTok ? privacy : undefined,
           imageProcessing:
             mediaType === 'image'
@@ -202,6 +217,15 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
             <BlockStack gap="300">
               <TextField label="Tiêu đề" value={title} onChange={setTitle} autoComplete="off" />
               <TextField
+                label="Nguồn bài viết (tùy chọn)"
+                value={articleSource}
+                onChange={setArticleSource}
+                autoComplete="off"
+                maxLength={300}
+                placeholder="Tên nguồn hoặc URL bài gốc"
+                helpText="Chỉ ghi nhận nội bộ, không gửi lên mạng xã hội."
+              />
+              <TextField
                 label="Nội dung / chú thích"
                 value={text}
                 onChange={setText}
@@ -229,6 +253,17 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
                   autoComplete="off"
                 />
               )}
+
+              <TextField
+                label="Link affiliate (tùy chọn)"
+                value={affiliateLinksText}
+                onChange={setAffiliateLinksText}
+                multiline={4}
+                autoComplete="off"
+                placeholder={'https://shopee.vn/abc\nhttps://tiki.vn/xyz'}
+                error={invalidAffiliateLinks.length ? `Dòng không chứa URL http(s): ${invalidAffiliateLinks.join(', ')}` : undefined}
+                helpText="Mỗi dòng một link — mỗi link sẽ thành một comment riêng dưới bài Facebook. Các nền tảng khác bỏ qua."
+              />
 
               {mediaType === 'image' ? (
                 <BlockStack gap="300">

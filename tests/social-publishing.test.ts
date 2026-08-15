@@ -18,6 +18,10 @@ function response(data: unknown, status = 200, headers?: Record<string, string>)
   } as Response;
 }
 
+// publishFacebook/testSocialConnection luôn hỏi /me/accounts trước để lấy Page Access Token,
+// nên mọi kịch bản Facebook phải mock lần gọi này ở vị trí đầu tiên.
+const pageAccounts = response({ data: [{ id: 'page_1', access_token: 'page-secret' }] });
+
 beforeEach(() => {
   mockFetch.mockReset();
   mockBuffer.mockReset();
@@ -25,20 +29,25 @@ beforeEach(() => {
 
 describe('social connections', () => {
   it('kiểm tra Facebook Page bằng Page ID và access token', async () => {
-    mockFetch.mockResolvedValue(response({ id: 'page_1', name: 'Trang' }));
+    mockFetch
+      .mockResolvedValueOnce(pageAccounts)
+      .mockResolvedValueOnce(response({ id: 'page_1', name: 'Trang' }));
     await expect(testSocialConnection('facebook', { pageId: 'page_1', accessToken: 'secret' })).resolves.toEqual({ ok: true });
-    expect(mockFetch.mock.calls[0][0]).toContain('/page_1?fields=id,name&access_token=secret');
+    expect(mockFetch.mock.calls[0][0]).toContain('/me/accounts');
+    expect(mockFetch.mock.calls[1][0]).toContain('/page_1?fields=id,name&access_token=page-secret');
   });
 
   it('đăng ảnh Facebook qua endpoint photos', async () => {
-    mockFetch.mockResolvedValue(response({ post_id: 'page_1_99' }));
+    mockFetch
+      .mockResolvedValueOnce(pageAccounts)
+      .mockResolvedValueOnce(response({ post_id: 'page_1_99' }));
     const result = await publishSocial(
       'facebook',
       { pageId: 'page_1', accessToken: 'secret' },
       { mediaType: 'image', mediaUrl: 'https://cdn.example.com/a.jpg', text: 'Chú thích' },
     );
-    expect(mockFetch.mock.calls[0][0]).toContain('/page_1/photos');
-    expect(String(mockFetch.mock.calls[0][1].body)).toContain('url=https%3A%2F%2Fcdn.example.com%2Fa.jpg');
+    expect(mockFetch.mock.calls[1][0]).toContain('/page_1/photos');
+    expect(String(mockFetch.mock.calls[1][1].body)).toContain('url=https%3A%2F%2Fcdn.example.com%2Fa.jpg');
     expect(result.status).toBe('published');
   });
 
@@ -91,6 +100,7 @@ describe('social connections', () => {
 
   it('đăng nhiều ảnh Facebook bằng attached_media', async () => {
     mockFetch
+      .mockResolvedValueOnce(pageAccounts)
       .mockResolvedValueOnce(response({ id: 'photo_1' }))
       .mockResolvedValueOnce(response({ id: 'photo_2' }))
       .mockResolvedValueOnce(response({ id: 'page_1_99' }));
@@ -103,11 +113,61 @@ describe('social connections', () => {
         text: 'Album',
       },
     );
-    expect(mockFetch.mock.calls[0][0]).toContain('/page_1/photos');
-    expect(String(mockFetch.mock.calls[0][1].body)).toContain('published=false');
-    expect(mockFetch.mock.calls[2][0]).toContain('/page_1/feed');
-    expect(String(mockFetch.mock.calls[2][1].body)).toContain('attached_media%5B0%5D=');
+    expect(mockFetch.mock.calls[1][0]).toContain('/page_1/photos');
+    expect(String(mockFetch.mock.calls[1][1].body)).toContain('published=false');
+    expect(mockFetch.mock.calls[3][0]).toContain('/page_1/feed');
+    expect(String(mockFetch.mock.calls[3][1].body)).toContain('attached_media%5B0%5D=');
     expect(result.status).toBe('published');
+  });
+
+  it('đăng mỗi link affiliate thành một comment Facebook riêng', async () => {
+    mockFetch
+      .mockResolvedValueOnce(pageAccounts)
+      .mockResolvedValueOnce(response({ post_id: 'page_1_99' }))
+      .mockResolvedValueOnce(response({ id: 'comment_1' }))
+      .mockResolvedValueOnce(response({ id: 'comment_2' }));
+    const result = await publishSocial(
+      'facebook',
+      { pageId: 'page_1', accessToken: 'secret' },
+      {
+        mediaType: 'text',
+        text: 'Bài viết',
+        affiliateLinks: ['https://shopee.vn/a', 'https://tiki.vn/b'],
+      },
+    );
+    expect(mockFetch.mock.calls[2][0]).toContain('/page_1_99/comments');
+    expect(String(mockFetch.mock.calls[2][1].body)).toContain('message=https%3A%2F%2Fshopee.vn%2Fa');
+    expect(mockFetch.mock.calls[3][0]).toContain('/page_1_99/comments');
+    expect(String(mockFetch.mock.calls[3][1].body)).toContain('message=https%3A%2F%2Ftiki.vn%2Fb');
+    expect(result.affiliateComments).toEqual({ total: 2, posted: 2, errors: [] });
+  });
+
+  it('giữ bài đã đăng khi comment affiliate lỗi', async () => {
+    mockFetch
+      .mockResolvedValueOnce(pageAccounts)
+      .mockResolvedValueOnce(response({ post_id: 'page_1_99' }))
+      .mockResolvedValueOnce(response({ error: { message: 'Thiếu quyền pages_manage_engagement' } }, 403));
+    const result = await publishSocial(
+      'facebook',
+      { pageId: 'page_1', accessToken: 'secret' },
+      { mediaType: 'text', text: 'Bài viết', affiliateLinks: ['https://shopee.vn/a'] },
+    );
+    expect(result.status).toBe('published');
+    expect(result.affiliateComments).toMatchObject({ total: 1, posted: 0 });
+    expect(result.affiliateComments?.errors[0]).toContain('pages_manage_engagement');
+  });
+
+  it('không gọi comment khi không có link affiliate', async () => {
+    mockFetch
+      .mockResolvedValueOnce(pageAccounts)
+      .mockResolvedValueOnce(response({ post_id: 'page_1_99' }));
+    const result = await publishSocial(
+      'facebook',
+      { pageId: 'page_1', accessToken: 'secret' },
+      { mediaType: 'text', text: 'Bài viết' },
+    );
+    expect(mockFetch.mock.calls).toHaveLength(2);
+    expect(result.affiliateComments).toBeUndefined();
   });
 
   it('Instagram đăng carousel nhiều ảnh', async () => {

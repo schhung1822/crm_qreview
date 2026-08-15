@@ -44,6 +44,7 @@ interface PublishResultItem {
     url?: string;
     status: 'published' | 'processing';
     message?: string;
+    affiliateComments?: { total: number; posted: number; errors: string[] };
   };
   error?: string;
 }
@@ -76,6 +77,12 @@ function parseMediaUrls(value: string): string[] {
   return Array.from(new Set(value.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean)));
 }
 
+// Mỗi DÒNG là một link affiliate = một comment. Không tách theo dấu phẩy vì link affiliate
+// thường có dấu phẩy trong tham số tracking.
+function parseAffiliateLinks(value: string): string[] {
+  return Array.from(new Set(value.split(/\n+/).map((line) => line.trim()).filter(Boolean)));
+}
+
 function markdownToCaption(markdown: string): string {
   return markdown
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
@@ -105,6 +112,8 @@ export default function SocialPublishPage() {
   const [imageShowLogo, setImageShowLogo] = useState(true);
   const [imageLogoUrl, setImageLogoUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [articleSource, setArticleSource] = useState('');
+  const [affiliateLinksText, setAffiliateLinksText] = useState('');
   const [privacy, setPrivacy] = useState('SELF_ONLY');
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{ tone: 'success' | 'warning' | 'critical'; message: string; items: PublishResultItem[] } | null>(null);
@@ -141,6 +150,8 @@ export default function SocialPublishPage() {
         mediaType: SocialMediaType;
         mediaUrls?: string[];
         linkUrl?: string;
+        articleSource?: string;
+        affiliateLinks?: string[];
         imageProcessing?: {
           enabled?: boolean;
           cropSquare?: boolean;
@@ -160,6 +171,8 @@ export default function SocialPublishPage() {
         setMediaType(first.mediaType);
         setMediaUrl((first.mediaUrls ?? []).join('\n'));
         setLinkUrl(first.linkUrl || '');
+        setArticleSource(first.articleSource || '');
+        setAffiliateLinksText((first.affiliateLinks ?? []).join('\n'));
         setImageProcessingEnabled(first.imageProcessing?.enabled !== false);
         setImageCropSquare(first.imageProcessing?.cropSquare !== false);
         setImageScale(first.imageProcessing?.scale ?? 1.1);
@@ -194,6 +207,15 @@ export default function SocialPublishPage() {
     [mediaType, selectedConnections],
   );
   const imageUrls = useMemo(() => parseMediaUrls(mediaUrl), [mediaUrl]);
+  const affiliateLinks = useMemo(() => parseAffiliateLinks(affiliateLinksText), [affiliateLinksText]);
+  const invalidAffiliateLinks = useMemo(
+    () => affiliateLinks.filter((link) => !/https?:\/\/\S+/i.test(link)),
+    [affiliateLinks],
+  );
+  const hasFacebook = useMemo(
+    () => selectedConnections.some((connection) => connection.provider === 'facebook'),
+    [selectedConnections],
+  );
 
   useEffect(() => {
     if (mediaOptions.length && !mediaOptions.includes(mediaType)) setMediaType(mediaOptions[0]);
@@ -206,8 +228,9 @@ export default function SocialPublishPage() {
     if (mediaType === 'image' && (imageUrls.length === 0 || imageUrls.some((url) => !/^https?:\/\//i.test(url)))) return false;
     if (mediaType === 'video' && !/^https?:\/\//i.test(mediaUrl.trim())) return false;
     if (linkUrl && !/^https?:\/\//i.test(linkUrl.trim())) return false;
+    if (invalidAffiliateLinks.length > 0) return false;
     return true;
-  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, mediaUrl, linkUrl]);
+  }, [selectedConnections, text, publishing, unsupportedConnections, mediaType, imageUrls, mediaUrl, linkUrl, invalidAffiliateLinks]);
 
   function toggleConnection(id: string, checked: boolean) {
     setSelectedConnectionIds((current) => checked ? [...current, id] : current.filter((item) => item !== id));
@@ -259,6 +282,8 @@ export default function SocialPublishPage() {
             logoUrl: imageLogoUrl.trim() || undefined,
           } : undefined,
           linkUrl: mediaType === 'text' && linkUrl.trim() ? linkUrl.trim() : undefined,
+          articleSource: articleSource.trim() || undefined,
+          affiliateLinks: affiliateLinks.length ? affiliateLinks : undefined,
           privacy: selectedConnections.some((connection) => connection.provider === 'tiktok') ? privacy : undefined,
         }),
       });
@@ -309,17 +334,25 @@ export default function SocialPublishPage() {
             <BlockStack gap="200">
               <Text as="p">{result.message}</Text>
               {result.items.map((item) => (
-                <InlineStack key={item.connectionId} gap="200" blockAlign="center">
-                  <ProviderLogo id={item.provider} size={22} />
-                  <Text as="span" variant="bodySm">
-                    {item.label} · {item.ok ? item.result?.message || (item.result?.status === 'processing' ? 'Đang xử lý' : 'Đã đăng') : item.error}
-                  </Text>
-                  {item.result?.url ? (
-                    <a href={item.result.url} target="_blank" rel="noreferrer">
-                      Xem bài đăng
-                    </a>
+                <BlockStack key={item.connectionId} gap="050">
+                  <InlineStack gap="200" blockAlign="center">
+                    <ProviderLogo id={item.provider} size={22} />
+                    <Text as="span" variant="bodySm">
+                      {item.label} · {item.ok ? item.result?.message || (item.result?.status === 'processing' ? 'Đang xử lý' : 'Đã đăng') : item.error}
+                    </Text>
+                    {item.result?.url ? (
+                      <a href={item.result.url} target="_blank" rel="noreferrer">
+                        Xem bài đăng
+                      </a>
+                    ) : null}
+                  </InlineStack>
+                  {item.result?.affiliateComments ? (
+                    <Text as="span" variant="bodySm" tone={item.result.affiliateComments.errors.length ? 'critical' : 'subdued'}>
+                      {`Comment affiliate: ${item.result.affiliateComments.posted}/${item.result.affiliateComments.total}`}
+                      {item.result.affiliateComments.errors.length ? ` · ${item.result.affiliateComments.errors.join(' · ')}` : ''}
+                    </Text>
                   ) : null}
-                </InlineStack>
+                </BlockStack>
               ))}
             </BlockStack>
           </Banner>
@@ -336,7 +369,30 @@ export default function SocialPublishPage() {
                 onChange={(value) => void loadDraft(value)}
               />
               <TextField label="Tiêu đề" value={title} onChange={setTitle} autoComplete="off" helpText="Bắt buộc đối với YouTube; tùy chọn ở nền tảng khác." />
+              <TextField
+                label="Nguồn bài viết (tùy chọn)"
+                value={articleSource}
+                onChange={setArticleSource}
+                autoComplete="off"
+                maxLength={300}
+                placeholder="Tên nguồn hoặc URL bài gốc"
+                helpText="Chỉ dùng để ghi nhận nội bộ trong trang Bài đăng mạng xã hội. Không gửi lên mạng xã hội."
+              />
               <TextField label="Nội dung / chú thích" value={text} onChange={setText} multiline={10} autoComplete="off" showCharacterCount maxLength={10_000} />
+              <TextField
+                label="Link affiliate (tùy chọn)"
+                value={affiliateLinksText}
+                onChange={setAffiliateLinksText}
+                multiline={4}
+                autoComplete="off"
+                placeholder={'https://shopee.vn/abc\nhttps://tiki.vn/xyz'}
+                error={invalidAffiliateLinks.length ? `Dòng không chứa URL http(s): ${invalidAffiliateLinks.join(', ')}` : undefined}
+                helpText={
+                  affiliateLinks.length && !hasFacebook
+                    ? 'Chưa chọn kênh Facebook nào nên các link này sẽ không được đăng. Mỗi dòng một link — mỗi link thành một comment riêng dưới bài Facebook.'
+                    : 'Mỗi dòng một link — mỗi link sẽ được đăng thành một comment riêng dưới bài Facebook. Các nền tảng khác bỏ qua.'
+                }
+              />
               {mediaType !== 'text' ? (
                 <TextField
                   label={`URL ${mediaType === 'image' ? 'hình ảnh' : 'short clip / video'} công khai`}
