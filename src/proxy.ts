@@ -9,6 +9,10 @@ const intlMiddleware = createMiddleware({
   localePrefix: 'never',
 });
 
+// Các trang đứng ngoài cây [locale] và không yêu cầu phiên đăng nhập. Giữ danh sách chính xác để
+// không vô tình mở công khai một nhánh route mới chỉ vì trùng tiền tố.
+const PUBLIC_STANDALONE_PATHS = new Set(['/', '/term', '/privacy']);
+
 // Bot đọc thẻ OG của mạng xã hội / trình nhắn tin. Các bot này KHÔNG chạy JS và dễ bỏ cuộc với trang
 // SPA nặng → phục vụ chúng trang OG tối giản riêng (/api/og/share/<token>).
 const OG_BOT_RE =
@@ -38,9 +42,10 @@ export default function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Trang chủ marketing "/" là trang CÔNG KHAI (SEO), KHÔNG ép locale-prefix và KHÔNG qua next-intl
-  // redirect → để src/app/page.tsx phục vụ. Mọi route app khác vẫn qua next-intl như cũ.
-  if (pathname === '/') return NextResponse.next();
+  // Trang công khai không ép locale-prefix và không qua next-intl; nếu không middleware sẽ rewrite
+  // sang cây [locale], nơi layout yêu cầu đăng nhập. Chuẩn hóa dấu "/" cuối để /term/ cũng an toàn.
+  const standalonePath = pathname.replace(/\/+$/, '') || '/';
+  if (PUBLIC_STANDALONE_PATHS.has(standalonePath)) return NextResponse.next();
   return intlMiddleware(req);
 }
 

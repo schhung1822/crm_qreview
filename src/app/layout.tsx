@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { TrackingPixels } from '@/components/TrackingPixels';
 import { buildBrandThemeCss } from '@/lib/branding/theme';
+import { siteOrigin } from '@/lib/site-url';
 import { getBrandingSafe } from '@/lib/store/branding';
 
 // Root layout: nơi DUY NHẤT render <html>/<body> (Next 14 bắt buộc, kể cả trang lỗi).
@@ -26,11 +27,12 @@ export const dynamic = 'force-dynamic';
 // Tiêu đề / mô tả / favicon lấy TỪ cấu hình "Thông tin hệ thống" (Quản trị nền tảng). Chưa cấu hình
 // → mặc định (giữ nguyên diện mạo cũ).
 export async function generateMetadata(): Promise<Metadata> {
-  const b = await getBrandingSafe('metadata');
+  const [b, origin] = await Promise.all([getBrandingSafe('metadata'), siteOrigin()]);
   // Ảnh bìa chia sẻ MXH: ưu tiên ogImage (superadmin đặt), fallback logo. Áp cho MỌI trang app
   // (trang chưa tự khai openGraph riêng sẽ dùng mặc định này).
   const ogImg = b.ogImage || b.logoDuongBan;
   return {
+    metadataBase: new URL(origin),
     title: b.title,
     description: b.description,
     icons: { icon: b.favicon, shortcut: b.favicon, apple: b.favicon },

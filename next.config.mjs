@@ -33,6 +33,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Hai route pháp lý đọc nội dung từ file gốc ở project root. Khai báo rõ để Next đóng gói chúng
+  // vào output standalone (Docker/VPS), tránh chỉ hoạt động ở môi trường phát triển.
+  outputFileTracingIncludes: {
+    '/term': ['./term.md'],
+    '/privacy': ['./privacy.md'],
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
