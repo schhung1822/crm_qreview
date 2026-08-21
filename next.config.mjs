@@ -42,6 +42,25 @@ const nextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  /**
+   * Anh cua WEBSITE Qreview duoc luu trong CSDL duoi dang duong dan tuong doi
+   * (`/images/products/abc.webp`). Khu quan tri /qreview gio chay trong CRM nen
+   * nhung duong dan do se tro nham vao ten mien CRM va anh hien ra vo het.
+   *
+   * Rewrite nay chuyen tiep chung ve website. Chi khop duong dan co IT NHAT hai
+   * doan (`/images/<thu-muc>/<tep>`) — anh cua chinh CRM nam phang ngay duoi
+   * `/images/` (logo_amban.webp...) nen khong bi dinh. Ngoai ra day la rewrite
+   * mac dinh (afterFiles): tep that trong public/ luon duoc uu tien truoc.
+   */
+  async rewrites() {
+    const base = (process.env.NEXT_PUBLIC_QREVIEW_SITE_URL ?? '')
+      .trim()
+      .replace(/\/+$/, '');
+
+    if (!base) return [];
+
+    return [{ source: '/images/:folder/:path*', destination: `${base}/images/:folder/:path*` }];
+  },
 };
 
 export default withNextIntl(nextConfig);

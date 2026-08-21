@@ -38,4 +38,14 @@ export {
   ClipboardIcon,
   PlayCircleIcon,
   QuestionCircleIcon as HelpIcon,
+  // Khu quan tri website Qreview.
+  ProductIcon,
+  BlogIcon,
+  ChatIcon,
+  CollectionIcon,
+  HashtagIcon,
+  AdjustIcon,
+  StoreManagedIcon,
+  StoreOnlineIcon,
+  ThemeIcon,
 } from '@shopify/polaris-icons';

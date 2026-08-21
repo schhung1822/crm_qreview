@@ -22,10 +22,19 @@ import {
   PageIcon,
   PersonIcon,
   PlayCircleIcon,
+  ProductIcon,
   SearchIcon,
   SettingsIcon,
   TargetIcon,
   UploadIcon,
+  AdjustIcon,
+  BlogIcon,
+  ChatIcon,
+  CollectionIcon,
+  HashtagIcon,
+  StoreManagedIcon,
+  StoreOnlineIcon,
+  ThemeIcon,
 } from './icons';
 
 interface FrameUser {
@@ -74,6 +83,14 @@ export function AppFrame({
     icon,
     selected: isActive(slug),
   });
+  // Khớp CHÍNH XÁC: mục tổng quan của một nhóm không được sáng đèn khi người
+  // dùng đang ở trang con của nhóm đó.
+  const exactItem = (slug: string, label: string, icon: typeof HomeIcon) => ({
+    url: href(slug),
+    label,
+    icon,
+    selected: pathname === href(slug),
+  });
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -115,6 +132,25 @@ export function AppFrame({
     canWith(user.permissions, 'content:write') ? item('script-analysis', t('nav.scriptAnalysis'), PlayCircleIcon) : null,
   ].filter(Boolean) as ReturnType<typeof item>[];
 
+  // Khu quản trị website Qreview. Chỉ chủ nền tảng thấy được — cùng một chốt
+  // chặn với layout `/qreview` (xem src/lib/qreview/guard.ts), ở đây chỉ là
+  // dọn menu cho gọn chứ không phải lớp bảo vệ.
+  const qreviewItems = user.isSuperadmin
+    ? [
+        exactItem('qreview', t('nav.qreviewOverview'), StoreOnlineIcon),
+        item('qreview/homepage', t('nav.qreviewHomepage'), ThemeIcon),
+        item('qreview/products', t('nav.qreviewProducts'), ProductIcon),
+        item('qreview/posts', t('nav.qreviewPosts'), BlogIcon),
+        item('qreview/reviews', t('nav.qreviewReviews'), ChatIcon),
+        item('qreview/categories', t('nav.qreviewCategories'), CollectionIcon),
+        item('qreview/brands', t('nav.qreviewBrands'), HashtagIcon),
+        item('qreview/specs', t('nav.qreviewSpecs'), AdjustIcon),
+        item('qreview/networks', t('nav.qreviewNetworks'), StoreManagedIcon),
+        item('qreview/affiliate-links', t('nav.qreviewAffiliateLinks'), LinkIcon),
+        item('qreview/users', t('nav.qreviewUsers'), PersonIcon),
+      ]
+    : [];
+
   const systemItems = [
     canWith(user.permissions, 'users:manage') ? item('settings', t('nav.settings'), SettingsIcon) : null,
     item('account', t('nav.account'), PersonIcon),
@@ -127,6 +163,9 @@ export function AppFrame({
       {taskItems.length ? <Navigation.Section title={t('nav.sectionTasks')} items={taskItems} /> : null}
       {publishItems.length ? <Navigation.Section title={t('nav.sectionPublish')} items={publishItems} /> : null}
       <Navigation.Section title={t('nav.sectionAnalytics')} items={analyticsItems} />
+      {qreviewItems.length ? (
+        <Navigation.Section title={t('nav.sectionQreview')} items={qreviewItems} />
+      ) : null}
       {systemItems.length ? <Navigation.Section title={t('nav.sectionSystem')} items={systemItems} /> : null}
       <Navigation.Section title={t('nav.sectionGuide')} items={[item('guide', t('nav.guide'), HelpIcon)]} />
       {user.isSuperadmin ? (

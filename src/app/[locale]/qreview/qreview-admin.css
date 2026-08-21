@@ -1,0 +1,1767 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Bảng token của khu quản trị website Qreview bên trong CRM.
+ *
+ * MỌI màu đều bắc cầu qua token của Shopify Polaris (`--p-color-*`) — hệ màu
+ * mà toàn bộ CRM đang dùng. Hai lợi ích:
+ *   1. Khu quản trị này trông cùng một bộ với các màn hình còn lại của CRM.
+ *   2. Superadmin đổi màu thương hiệu ở "Thông tin hệ thống" thì khu này đổi
+ *      theo, không phải sửa CSS (xem `src/lib/branding/theme.ts`).
+ *
+ * Giá trị đứng sau dấu phẩy là màu dự phòng, đúng bằng mặc định của Polaris —
+ * dùng khi vì lý do nào đó biểu định kiểu Polaris chưa kịp nạp.
+ *
+ * Các tên biến `--admin-*` được GIỮ NGUYÊN từ dự án Qreview: hơn 130 chỗ trong
+ * file này tham chiếu tới chúng, đổi tên chỉ tạo ra khác biệt không cần thiết.
+ */
+
+.qreview-admin {
+  --admin-bg: var(--p-color-bg, #f1f1f1);
+  --admin-surface: var(--p-color-bg-surface, #ffffff);
+  --admin-surface-sub: var(--p-color-bg-surface-secondary, #f7f7f7);
+  --admin-border: var(--p-color-border, #e3e3e3);
+  --admin-border-strong: var(--p-color-border-hover, #cdcdcd);
+
+  --admin-text: var(--p-color-text, #303030);
+  --admin-muted: var(--p-color-text-secondary, #616161);
+  --admin-faint: var(--p-color-text-disabled, #b5b5b5);
+
+  /* Nút chính dùng đúng màu "brand fill" của Polaris (mặc định gần đen). */
+  --admin-primary: var(--p-color-bg-fill-brand, #303030);
+  --admin-primary-hover: var(--p-color-bg-fill-brand-hover, #1a1a1a);
+  --admin-on-primary: var(--p-color-text-brand-on-bg-fill, #ffffff);
+
+  /* Liên kết giữ màu xanh của Polaris để phân biệt rõ với nút. */
+  --admin-link: var(--p-color-text-emphasis, #005bd3);
+
+  --admin-danger: var(--p-color-text-critical, #8e0b21);
+  --admin-danger-border: var(--p-color-border-critical, #fec1c7);
+  --admin-danger-bg: var(--p-color-bg-surface-critical, #fff0f1);
+
+  --admin-success: var(--p-color-text-success, #014b40);
+  --admin-success-border: var(--p-color-border-success, #92fcac);
+  --admin-success-bg: var(--p-color-bg-surface-success, #f0fdf4);
+
+  --admin-warning: var(--p-color-text-warning, #5e4200);
+  --admin-warning-border: var(--p-color-border-warning, #ffd6a4);
+  --admin-warning-bg: var(--p-color-bg-surface-warning, #fff5ea);
+
+  --admin-info-bg: var(--p-color-bg-fill-info-secondary, #d5ebff);
+
+  /*
+   * Chiều cao thanh trên của Frame (Polaris) — vài khối "dính" khi cuộn lấy
+   * mốc từ đây để không nằm dưới thanh đó.
+   */
+  --admin-topbar-height: 56px;
+}
+
+/* Trinh soan thao bai viet: noi dung duoc luu duoi dang HTML semantic. */
+.admin-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--admin-faint);
+  pointer-events: none;
+}
+
+.admin-rich-editor h2,
+.admin-rich-editor h3,
+.admin-rich-editor h4 {
+  margin: 1.25em 0 0.5em;
+  color: var(--admin-text);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-rich-editor h2 { font-size: 1.55rem; }
+.admin-rich-editor h3 { font-size: 1.3rem; }
+.admin-rich-editor h4 { font-size: 1.1rem; }
+.admin-rich-editor p { margin: 0.75em 0; }
+.admin-rich-editor ul,
+.admin-rich-editor ol { margin: 0.8em 0; padding-left: 1.6rem; }
+.admin-rich-editor ul { list-style: disc; }
+.admin-rich-editor ol { list-style: decimal; }
+.admin-rich-editor blockquote {
+  margin: 1rem 0;
+  border-left: 4px solid var(--admin-primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--admin-surface-sub);
+  padding: 0.8rem 1rem;
+}
+.admin-rich-editor a { color: var(--admin-primary); text-decoration: underline; }
+.admin-rich-editor figure { margin: 1.25rem 0; text-align: center; }
+.admin-rich-editor img { max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
+.admin-rich-editor figcaption { margin-top: 0.5rem; color: var(--admin-muted); font-size: 0.82rem; font-style: italic; }
+.admin-rich-editor table { width: 100%; margin: 1rem 0; border-collapse: collapse; }
+.admin-rich-editor th,
+.admin-rich-editor td { border: 1px solid var(--admin-border); padding: 0.55rem 0.7rem; }
+.admin-rich-editor th { background: var(--admin-surface-sub); font-weight: 600; }
+
+/*
+ * Vùng bọc của khu quản trị. Không đặt nền trang: Polaris Frame đã sơn nền,
+ * đặt lại ở đây sẽ tạo ra một mảng màu lệch bên trong khung.
+ *
+ * Font kế thừa từ CRM (Inter) thay vì khai báo lại — chữ trong khu quản trị và
+ * chữ ngoài khung phải cùng một dáng.
+ */
+.qreview-admin {
+  color: var(--admin-text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* --- The --------------------------------------------------------------*/
+
+  .admin-card {
+    @apply rounded-lg border;
+    background-color: var(--admin-surface);
+    border-color: var(--admin-border);
+    box-shadow: var(--p-shadow-100, 0 1px 0 0 rgb(26 26 26 / 0.07));
+  }
+
+  .admin-section-title {
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1.25rem;
+    letter-spacing: normal;
+    color: var(--admin-text);
+  }
+
+  /*
+   * Thẻ trong form dài: đầu thẻ là một dải có viền dưới chứa tiêu đề + nút của
+   * riêng phần đó. Nhờ vậy cuộn qua form 7 phần vẫn biết đang ở đâu, và mọi
+   * phần trông giống hệt nhau thay vì mỗi chỗ một kiểu.
+   *
+   * Nền để trong suốt: thẻ của Polaris không tô nền cho phần đầu mà phân cách
+   * bằng đường kẻ và độ đậm của chữ. Tô nền xám làm giao diện trông như bảng
+   * tính chứ không như phần còn lại của CRM.
+   */
+  .admin-form-section-head {
+    @apply flex flex-wrap items-start justify-between gap-3;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--p-color-border-secondary, #ebebeb);
+    background-color: transparent;
+  }
+
+  .admin-form-section-body {
+    padding: 1rem;
+  }
+
+  /*
+   * Cot phai (trang thai, phan loai, gia) dinh theo man hinh khi cuon — day la
+   * nhung o hay phai xem lai nhat trong luc nhap phan noi dung ben trai.
+   */
+  @media (min-width: 1280px) {
+    .admin-form-aside {
+      position: sticky;
+      top: calc(var(--admin-topbar-height) + 24px);
+    }
+  }
+
+  /* Cac nhom o trong cot phai, ngan cach bang duong ke manh thay vi tach the. */
+  .admin-form-aside-group {
+    @apply space-y-4 px-5 py-4;
+  }
+
+  .admin-form-aside-group + .admin-form-aside-group {
+    border-top: 1px solid var(--admin-border);
+  }
+
+  /* --- Luoi anh san pham ----------------------------------------------- */
+
+  .admin-image-card {
+    @apply relative overflow-hidden rounded-lg border transition;
+    background-color: var(--admin-surface);
+    border-color: var(--admin-border);
+  }
+
+  .admin-image-card:hover {
+    border-color: var(--admin-border-strong);
+  }
+
+  /* Anh dai dien: vien mau chinh de nhin luot la thay ngay anh nao dang dung. */
+  .admin-image-card-main {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+  }
+
+  .admin-image-card-drop {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 2px var(--admin-primary) inset;
+  }
+
+  .admin-image-frame {
+    @apply relative flex aspect-[4/3] items-center justify-center overflow-hidden;
+    background-color: var(--admin-surface-sub);
+  }
+
+  .admin-image-media {
+    @apply h-full w-full object-contain p-2;
+  }
+
+  /* Nhan vi tri / anh dai dien dat de len goc anh. */
+  .admin-image-badge {
+    @apply absolute left-2 top-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold;
+    background-color: rgb(255 255 255 / 0.92);
+    color: var(--admin-text);
+    box-shadow: 0 1px 3px rgb(26 26 26 / 0.14);
+  }
+
+  .admin-image-badge-main {
+    background-color: var(--admin-primary);
+    color: var(--admin-on-primary);
+  }
+
+  .admin-image-grip {
+    @apply absolute right-2 top-2 flex h-7 w-7 cursor-grab items-center justify-center rounded-md transition active:cursor-grabbing;
+    background-color: rgb(255 255 255 / 0.92);
+    color: var(--admin-muted);
+    box-shadow: 0 1px 3px rgb(26 26 26 / 0.14);
+    opacity: 0.55;
+  }
+
+  .admin-image-card:hover .admin-image-grip,
+  .admin-image-grip:focus-visible {
+    opacity: 1;
+    color: var(--admin-text);
+  }
+
+  /* Khung keo tha tep. */
+  .admin-dropzone {
+    @apply flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-8 text-center transition;
+    border-color: var(--admin-border-strong);
+    background-color: var(--admin-surface);
+  }
+
+  .admin-dropzone:hover {
+    border-color: var(--p-color-input-border-hover, #616161);
+    background-color: var(--admin-surface-sub);
+  }
+
+  .admin-dropzone-over {
+    border-color: var(--admin-primary);
+    background-color: var(--admin-surface-sub);
+    box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+  }
+
+  /* --- The link mua hang ------------------------------------------------ */
+
+  .admin-link-card {
+    @apply overflow-hidden rounded-lg border transition;
+    border-color: var(--admin-border);
+  }
+
+  .admin-link-card-best {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+  }
+
+  .admin-link-card-head {
+    @apply flex items-center gap-2.5 px-3 py-2.5;
+    border-bottom: 1px solid var(--admin-border);
+    background-color: var(--admin-surface-sub);
+  }
+
+  .admin-link-card-best .admin-link-card-head {
+    background-color: var(--admin-surface-sub);
+    border-bottom-color: rgb(26 26 26 / 0.16);
+  }
+
+  .admin-link-card-index {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold;
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-muted);
+  }
+
+  .admin-link-card-best .admin-link-card-index {
+    background-color: var(--admin-primary);
+    color: var(--admin-on-primary);
+  }
+
+  /* Thanh tien do mong, dung cho so o thong so da dien. */
+  .admin-progress {
+    @apply h-1 w-full overflow-hidden rounded-full;
+    background-color: var(--admin-border);
+  }
+
+  .admin-progress > span {
+    @apply block h-full rounded-full;
+    background-color: var(--admin-primary);
+    transition: width 300ms ease;
+  }
+
+  /* Thanh luu noi day man hinh: khong phai cuon het form moi luu duoc. */
+  .admin-sticky-actions {
+    @apply sticky bottom-4 z-20 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3;
+    border-color: var(--admin-border);
+    background-color: rgb(255 255 255 / 0.95);
+    box-shadow: var(--p-shadow-200, 0 2px 4px rgb(26 26 26 / 0.08));
+    backdrop-filter: blur(12px);
+  }
+
+  .admin-stat-card {
+    transition: background-color 120ms ease;
+  }
+
+  /*
+   * Polaris khong nhac the len khi ro chuot — the la mat phang chua noi dung,
+   * khong phai nut. Chi doi nen mot bac cho biet the co the bam duoc.
+   */
+  .admin-stat-card:hover {
+    background-color: var(--p-color-bg-surface-hover, #f7f7f7);
+  }
+
+  .admin-stat-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg;
+    color: var(--p-color-icon, #4a4a4a);
+    background-color: var(--p-color-bg-surface-secondary, #f7f7f7);
+  }
+
+  .admin-muted {
+    color: var(--admin-muted);
+  }
+
+  /* --- Form ------------------------------------------------------------ */
+
+  /*
+   * Vien o nhap dung token RIENG (`--p-color-input-border` ≈ #8a8a8a), dam hon
+   * han vien cua the (#e3e3e3). Do la chu y cua Polaris: o nhap phai tu bao la
+   * cho go duoc chu. Dung chung mot mau vien voi the la loi de mac nhat.
+   */
+  .admin-input,
+  .admin-select,
+  .admin-textarea {
+    @apply w-full outline-none;
+    box-sizing: border-box;
+    min-height: 2rem;
+    padding: 0.3125rem 0.75rem;
+    border: 1px solid var(--p-color-input-border, #8a8a8a);
+    border-radius: var(--p-border-radius-200, 0.5rem);
+    background-color: var(--p-color-input-bg-surface, #fdfdfd);
+    color: var(--admin-text);
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-family: inherit;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  .admin-input:hover:not(:disabled),
+  .admin-select:hover:not(:disabled),
+  .admin-textarea:hover:not(:disabled) {
+    border-color: var(--p-color-input-border-hover, #616161);
+  }
+
+  .admin-input::placeholder,
+  .admin-textarea::placeholder {
+    color: var(--admin-faint);
+  }
+
+  /*
+   * Polaris danh dau o dang go bang `outline` tach roi vien, khong phai bang
+   * box-shadow — nho vay vien khong bi day ra va bo cuc khong nhay 1px.
+   */
+  .admin-input:focus,
+  .admin-select:focus,
+  .admin-textarea:focus {
+    outline: 2px solid var(--p-color-border-focus, #005bd3);
+    outline-offset: 1px;
+  }
+
+  .admin-input:disabled,
+  .admin-select:disabled,
+  .admin-textarea:disabled {
+    @apply cursor-not-allowed;
+    border-color: var(--admin-border);
+    background-color: var(--p-color-bg-surface-disabled, #f7f7f7);
+    color: var(--p-color-text-disabled, #b5b5b5);
+  }
+
+  .admin-select {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-8;
+    /* Mui ten tu ve bang SVG inline de khong phai tai them tep. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%234a4a4a' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M5 6.5 8 3.5l3 3M5 9.5l3 3 3-3'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-size: 14px;
+  }
+
+  .admin-textarea {
+    @apply min-h-[100px] resize-y;
+  }
+
+  /* --- Nut ------------------------------------------------------------- */
+
+  /*
+   * Do dang lay tu `.Polaris-Button--sizeMedium`: cao toi thieu 32px, dem
+   * 6px/12px, bo goc 8px, chu 12px nang 550. Doi bat ky so nao o day la nut
+   * trong khu quan tri lech khoi nut o phan con lai cua CRM.
+   */
+  .admin-btn {
+    @apply inline-flex items-center justify-center whitespace-nowrap
+           disabled:cursor-not-allowed;
+    gap: 0.125rem;
+    min-height: 2rem;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: var(--p-border-radius-200, 0.5rem);
+    font-size: 0.75rem;
+    font-weight: 550;
+    line-height: 1rem;
+    transition: background-color 120ms ease;
+  }
+
+  /*
+   * Dùng shorthand `background` chứ không phải `background-color`: nút chính có
+   * một lớp gradient chồng lên nền, mà `background-color` chỉ thay lớp màu bên
+   * dưới — gradient sẽ còn lại trên nền xám của trạng thái vô hiệu hoá.
+   */
+  .admin-btn:disabled {
+    background: var(--p-color-bg-fill-disabled, #ebebeb);
+    color: var(--p-color-text-disabled, #b5b5b5);
+    box-shadow: none;
+  }
+
+  /*
+   * Nut chinh cua Polaris khong phai mot mang mau phang: no chong mot dai
+   * gradient rat nhat len nen thuong hieu roi vien bang box-shadow inset. Bo
+   * gradient di la nhin ra ngay su khac biet khi dat canh nut that.
+   */
+  .admin-btn-primary {
+    @apply admin-btn;
+    color: var(--admin-on-primary);
+    background:
+      var(--p-color-button-gradient-bg-fill,
+        linear-gradient(180deg, rgb(48 48 48 / 0) 63.53%, rgb(255 255 255 / 0.15) 100%)),
+      var(--admin-primary);
+    box-shadow: var(--p-shadow-button-primary, 0 -1px 0 1px rgb(0 0 0 / 0.8) inset);
+  }
+
+  .admin-btn-primary:hover:not(:disabled) {
+    background:
+      var(--p-color-button-gradient-bg-fill,
+        linear-gradient(180deg, rgb(48 48 48 / 0) 63.53%, rgb(255 255 255 / 0.15) 100%)),
+      var(--admin-primary-hover);
+  }
+
+  .admin-btn-secondary {
+    @apply admin-btn;
+    background-color: var(--p-color-bg-fill, #ffffff);
+    color: var(--admin-text);
+    box-shadow: var(--p-shadow-button, 0 0 0 1px var(--admin-border-strong) inset);
+  }
+
+  .admin-btn-secondary:hover:not(:disabled) {
+    background-color: var(--p-color-bg-fill-hover, #fafafa);
+    color: var(--admin-text);
+  }
+
+  /*
+   * Polaris ve thao tac nguy hiem bang chu do tren nen trang (variant
+   * secondary + tone critical), khong phai nut do dac — nut do dac danh cho
+   * hanh dong chinh, ma xoa thi khong bao gio la hanh dong chinh.
+   */
+  .admin-btn-danger {
+    @apply admin-btn;
+    background-color: var(--p-color-bg-fill, #ffffff);
+    color: var(--p-color-text-critical, #8e0b21);
+    box-shadow: var(--p-shadow-button, 0 0 0 1px var(--admin-border-strong) inset);
+  }
+
+  .admin-btn-danger:hover:not(:disabled) {
+    background-color: var(--p-color-bg-surface-critical, #fee8eb);
+  }
+
+  /* Tuong duong `size="slim"` cua Polaris: cao 28px, dem 8px ngang. */
+  .admin-btn-sm {
+    min-height: 1.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  /**
+   * Thao tac trong bang: kieu lien ket chu thay vi nut day.
+   * Mot hang co 3-4 thao tac ma dung nut day thi bang trong roi mat.
+   */
+  .admin-action {
+    @apply rounded px-1.5 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40;
+    color: var(--admin-link);
+  }
+
+  .admin-action:hover:not(:disabled) {
+    background-color: var(--p-color-bg-surface-hover, #f7f7f7);
+  }
+
+  .admin-action-danger {
+    @apply admin-action;
+    color: var(--admin-danger);
+  }
+
+  .admin-action-danger:hover:not(:disabled) {
+    background-color: var(--admin-danger-bg);
+  }
+
+  .admin-action-muted {
+    @apply admin-action;
+    color: var(--admin-muted);
+  }
+
+  .admin-action-muted:hover:not(:disabled) {
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-text);
+  }
+
+  /*
+   * Nut chi co bieu tuong, dung cho thao tac lap lai tren tung dong bang.
+   * Chu "Sua"/"Xoa" nhan len 20 dong lam bang trong nhieu chu; bieu tuong mo
+   * nhat, chi ro net khi ro chuot vao dong, giup mat tap trung vao du lieu.
+   */
+  .admin-icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent
+           transition disabled:cursor-not-allowed disabled:opacity-40;
+    color: var(--p-color-icon, #4a4a4a);
+  }
+
+  .admin-icon-btn:hover:not(:disabled) {
+    background-color: var(--p-color-bg-surface-hover, #f7f7f7);
+    color: var(--admin-text);
+  }
+
+  .admin-icon-btn-danger:hover:not(:disabled) {
+    border-color: var(--admin-danger-border);
+    background-color: var(--admin-danger-bg);
+    color: var(--admin-danger);
+  }
+
+  /* Trang thai bat, vi du ngoi sao "dang la anh dai dien". */
+  .admin-icon-btn-active,
+  .admin-icon-btn-active:disabled {
+    border-color: var(--admin-border);
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-primary);
+    opacity: 1;
+  }
+
+  /* --- Thanh cong cu tren bang ----------------------------------------- */
+
+  .admin-toolbar {
+    @apply flex flex-wrap items-center gap-2;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--p-color-border-secondary, #ebebeb);
+  }
+
+  /* O tim kiem co bieu tuong nam trong khung. */
+  .admin-search {
+    @apply flex min-w-[200px] flex-1 items-center gap-2;
+    box-sizing: border-box;
+    height: 2rem;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--p-color-input-border, #8a8a8a);
+    border-radius: var(--p-border-radius-200, 0.5rem);
+    background-color: var(--p-color-input-bg-surface, #fdfdfd);
+    color: var(--admin-muted);
+  }
+
+  .admin-search:hover {
+    border-color: var(--p-color-input-border-hover, #616161);
+  }
+
+  .admin-search:focus-within {
+    outline: 2px solid var(--p-color-border-focus, #005bd3);
+    outline-offset: 1px;
+  }
+
+  .admin-search input {
+    @apply min-w-0 flex-1 bg-transparent outline-none;
+    color: var(--admin-text);
+    font-size: 0.8125rem;
+    font-family: inherit;
+  }
+
+  .admin-search input::placeholder {
+    color: var(--admin-faint);
+  }
+
+  /* Bien the thap cua o nhap / o chon, vua chieu cao thanh cong cu. */
+  .admin-input-sm {
+    min-height: 2rem;
+    height: 2rem;
+    padding-block: 0;
+  }
+
+  /* Giu nguyen le phai rong cua .admin-select de khong de len mui ten. */
+  .admin-select-sm {
+    min-height: 2rem;
+    height: 2rem;
+    padding-block: 0;
+  }
+
+  /* O chon nho, nen chim — dung ben trong the anh cho do nang mat. */
+  .admin-select-bare {
+    @apply h-8 rounded-lg py-0 pl-2 text-xs;
+    background-color: var(--admin-surface-sub);
+    border-color: var(--admin-border);
+  }
+
+  /* --- Trang thai cho ---------------------------------------------------*/
+
+  /*
+   * Khung xuong cho luc dang tai. Dung dung hinh dang cua dong that nen bang
+   * khong nhay khi du lieu ve, va nguoi dung thay ngay trang co bao nhieu cot.
+   */
+  .admin-skeleton {
+    @apply block rounded-md;
+    background: linear-gradient(90deg, var(--admin-border) 25%, var(--admin-surface) 50%, var(--admin-border) 75%);
+    background-size: 200% 100%;
+    animation: admin-shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Vong tron chua bieu tuong cho o trong. */
+  .admin-empty-icon {
+    @apply mx-auto flex h-11 w-11 items-center justify-center rounded-full;
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-faint);
+  }
+
+  /* --- Bang ------------------------------------------------------------ */
+
+  .admin-table {
+    @apply w-full border-collapse text-left text-[13px];
+  }
+
+  /*
+   * Tieu de cot cua Polaris la chu thuong 12px nang 550 — KHONG viet hoa,
+   * KHONG gian chu. Kieu "chu hoa nho gian rong" cua ban cu la thu de nhan ra
+   * nhat rang bang nay khong thuoc ve he thong.
+   */
+  .admin-table thead th {
+    @apply whitespace-nowrap;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 550;
+    line-height: 1rem;
+    color: var(--p-color-text-secondary, #616161);
+    background-color: var(--p-color-bg-surface-secondary, #f7f7f7);
+    border: 0;
+  }
+
+  /*
+   * Polaris ke duong o CANH TREN cua hang (bang mau vien phu, nhat hon vien
+   * the) thay vi canh duoi — nho vay hang cuoi khong bao gio thua mot duong ke
+   * sat me the, khong can luat rieng cho no.
+   */
+  .admin-table tbody td {
+    @apply align-top;
+    padding: 0.625rem 0.75rem;
+    border-top: 1px solid var(--p-color-border-secondary, #ebebeb);
+  }
+
+  .admin-table tbody tr {
+    transition: background-color 140ms ease;
+  }
+
+  .admin-table tbody tr:hover {
+    background-color: var(--p-color-bg-surface-hover, #f7f7f7);
+  }
+
+  /* Ten muc trong bang: mau lien ket, giong danh sach bai viet o anh mau. */
+  /*
+   * Polaris in ten ban ghi bang chu DAM mau chu thuong, khong phai mau lien
+   * ket xanh — ca cot toan lien ket xanh doc rat met.
+   */
+  .admin-table-title {
+    color: var(--admin-text);
+    font-weight: 650;
+  }
+
+  /* Anh dai dien dau moi dong bang. */
+  .admin-row-thumb {
+    @apply h-11 w-11 shrink-0 rounded-lg border object-contain transition;
+    background-color: var(--admin-surface-sub);
+    border-color: var(--admin-border);
+  }
+
+  tr:hover > td .admin-row-thumb {
+    border-color: var(--admin-border-strong);
+  }
+
+  .admin-row-thumb-empty {
+    @apply flex items-center justify-center;
+    color: var(--admin-faint);
+  }
+
+  /* --- Hop thong bao / canh bao ---------------------------------------- */
+  /*
+   * LUU Y: tailwind.config.ts cua du an THAY THE toan bo bang mau mac dinh
+   * (chi con gray-1..7, blue, red, green, yellow...). Cac lop nhu `bg-red-50`,
+   * `text-zinc-900`, `bg-black/40` KHONG ton tai va se lang le khong sinh ra
+   * CSS nao. Vi vay khu quan tri dinh nghia mau bang CSS thuan o day.
+   */
+
+  .admin-alert {
+    @apply rounded-lg border px-3.5 py-2.5 text-[13px];
+  }
+
+  .admin-alert-danger {
+    @apply admin-alert;
+    background-color: var(--admin-danger-bg);
+    border-color: var(--admin-danger-border);
+    color: var(--admin-danger);
+  }
+
+  .admin-alert-warning {
+    @apply admin-alert;
+    background-color: var(--admin-warning-bg);
+    border-color: var(--admin-warning-border);
+    color: var(--admin-warning);
+  }
+
+  /* Lop phu phia sau hop thoai va sidebar tren man hinh hep. */
+  /* Chu mau lien ket, dung cho ten muc va lien ket trong bang. */
+  .admin-link {
+    color: var(--admin-link);
+  }
+
+  /* Nen nhat cho o anh xem truoc. */
+  .admin-thumb {
+    background-color: var(--admin-surface-sub);
+  }
+
+  /* --- Nhan trang thai ------------------------------------------------- */
+
+  /* Do dang lay tu `.Polaris-Badge`: dem 2px/8px, bo goc 8px, chu 12px/550. */
+  .admin-badge {
+    @apply inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium;
+  }
+
+  .admin-badge-neutral {
+    @apply admin-badge;
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-muted);
+  }
+
+  .admin-badge-warning {
+    @apply admin-badge;
+    background-color: var(--admin-warning-bg);
+    color: var(--admin-warning);
+  }
+
+  .admin-badge-danger {
+    @apply admin-badge;
+    background-color: var(--admin-danger-border);
+    color: var(--admin-danger);
+  }
+
+  .admin-badge-info {
+    @apply admin-badge;
+    background-color: var(--admin-surface-sub);
+    color: var(--admin-warning);
+  }
+}
+
+/* Bang rong tran ngang trong the thay vi lam vo bo cuc trang. */
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+/*
+ * Khai bao ngoai @layer components: Tailwind chi giu lai rule trong layer khi
+ * ten lop xuat hien trong ma nguon, ma @keyframes thi khong co ten lop nao.
+ */
+@keyframes admin-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-skeleton {
+    animation: none;
+  }
+}
+
+/* --- Trinh bien tap trang chu ------------------------------------------ */
+
+.homepage-commandbar {
+  position: sticky;
+  top: calc(var(--admin-topbar-height) + 12px);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: var(--p-shadow-200, 0 2px 4px rgb(26 26 26 / 0.08));
+  backdrop-filter: blur(14px);
+}
+
+.homepage-section-tabs {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.homepage-section-tabs > button {
+  display: flex;
+  min-width: 168px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--admin-muted);
+  text-align: left;
+  transition: 160ms ease;
+}
+
+.homepage-section-tabs > button:hover {
+  background: var(--admin-surface-sub);
+  color: var(--admin-text);
+}
+
+.homepage-section-tabs > button.is-active {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-sub);
+  color: var(--admin-primary);
+  box-shadow: var(--p-shadow-100, 0 1px 0 0 rgb(26 26 26 / 0.07));
+}
+
+.homepage-section-tabs strong,
+.homepage-section-tabs small {
+  display: block;
+  white-space: nowrap;
+}
+
+.homepage-section-tabs strong {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.homepage-section-tabs small {
+  margin-top: 2px;
+  color: var(--admin-faint);
+  font-size: 10px;
+}
+
+.homepage-save-state {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.homepage-save-state > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.homepage-save-state .is-saved {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+
+.homepage-save-state .is-dirty {
+  background: var(--admin-surface-sub);
+  color: var(--admin-primary);
+}
+
+.homepage-section-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.homepage-section-card {
+  padding: 22px;
+}
+
+.homepage-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.homepage-section-heading h2 {
+  display: inline;
+  color: var(--admin-text);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.homepage-section-heading h2 + span {
+  border-radius: 999px;
+  background: var(--admin-surface-sub);
+  padding: 3px 7px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.homepage-section-heading p {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.homepage-section-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--admin-surface-sub);
+  color: var(--admin-primary);
+}
+
+.homepage-item-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.homepage-item-rail > button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  text-align: left;
+  transition: 160ms ease;
+}
+
+.homepage-item-rail > button:hover {
+  border-color: var(--admin-border-strong);
+  transform: translateY(-1px);
+}
+
+.homepage-item-rail > button.is-active {
+  border-color: var(--admin-primary);
+  background: var(--admin-surface-sub);
+  box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+}
+
+.homepage-item-rail strong,
+.homepage-item-rail small {
+  display: block;
+}
+
+.homepage-item-rail strong {
+  color: var(--admin-text);
+  font-size: 11px;
+}
+
+.homepage-item-rail small {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homepage-item-thumb {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--admin-surface-sub);
+}
+
+.homepage-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.homepage-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(420px, 1.18fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.homepage-preview-panel,
+.homepage-form-panel {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.homepage-preview-panel {
+  position: sticky;
+  top: calc(var(--admin-topbar-height) + 112px);
+  padding: 14px;
+  background:
+    radial-gradient(circle at 85% 10%, rgb(26 26 26 / 0.08), transparent 30%),
+    var(--admin-surface-sub);
+}
+
+.homepage-preview-panel > p {
+  margin: 10px 2px 0;
+  color: var(--admin-faint);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.homepage-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.homepage-form-panel {
+  padding: 18px;
+  background: #fff;
+}
+
+.homepage-form-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.homepage-form-panel-header span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--admin-primary);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.homepage-form-panel-header h3 {
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.homepage-inline-settings {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) repeat(3, minmax(140px, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-top: 18px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--admin-surface);
+}
+
+.homepage-inline-settings > div:first-child {
+  align-self: center;
+}
+
+.homepage-inline-settings > div:first-child strong {
+  font-size: 12px;
+}
+
+.homepage-inline-settings > div:first-child p {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.homepage-product-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--admin-surface-sub);
+}
+
+.homepage-product-selected > img,
+.homepage-product-results img,
+.homepage-product-placeholder {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--admin-surface-sub);
+  object-fit: contain;
+}
+
+.homepage-product-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--admin-faint);
+  font-size: 10px;
+}
+
+.homepage-product-search {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 8px;
+  padding: 0 11px;
+  background: #fff;
+  color: var(--admin-faint);
+}
+
+.homepage-product-search:focus-within {
+  border-color: var(--p-color-border-focus, #005bd3);
+  box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+}
+
+.homepage-product-search input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 12px;
+  outline: none;
+}
+
+.homepage-product-results {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 5px;
+  background: #fff;
+  box-shadow: var(--p-shadow-200, 0 2px 4px rgb(26 26 26 / 0.08));
+}
+
+.homepage-product-results > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  border-radius: 8px;
+  padding: 7px;
+  text-align: left;
+}
+
+.homepage-product-results > button:hover,
+.homepage-product-results > button.is-selected {
+  background: var(--admin-surface-sub);
+}
+
+.homepage-product-results strong,
+.homepage-product-results small {
+  display: block;
+}
+
+.homepage-product-results strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homepage-product-results small {
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 9px;
+}
+
+.homepage-product-results > p {
+  padding: 18px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.homepage-image-field {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--admin-surface);
+}
+
+.homepage-image-field:hover {
+  border-color: var(--p-color-input-border-hover, #616161);
+}
+
+.homepage-image-preview {
+  display: flex;
+  width: 112px;
+  height: 86px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--admin-border);
+  color: var(--admin-faint);
+}
+
+.homepage-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.homepage-hero-preview,
+.homepage-spotlight-preview,
+.homepage-promo-preview,
+.homepage-countdown-preview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(26 26 26 / 0.12);
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--admin-surface-sub), var(--admin-surface-sub));
+  box-shadow: var(--p-shadow-200, 0 2px 4px rgb(26 26 26 / 0.08));
+}
+
+.homepage-hero-preview {
+  display: grid;
+  min-height: 310px;
+  grid-template-columns: 1.12fr 0.88fr;
+  align-items: center;
+  padding: 24px;
+}
+
+.homepage-preview-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.homepage-preview-pill {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.78);
+  padding: 5px 8px;
+  color: var(--admin-link);
+  font-size: 8px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homepage-preview-copy > small {
+  display: block;
+  margin-top: 15px;
+  color: var(--admin-danger);
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.homepage-preview-copy h3 {
+  margin-top: 5px;
+  color: var(--admin-text);
+  font-size: clamp(19px, 2.3vw, 28px);
+  font-weight: 750;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.homepage-preview-copy p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 10px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.homepage-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 9px;
+}
+
+.homepage-preview-actions span,
+.homepage-promo-preview small,
+.homepage-countdown-preview strong {
+  border-radius: 6px;
+  background: var(--admin-primary);
+  padding: 7px 10px;
+  color: #fff;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.homepage-preview-actions em {
+  color: var(--admin-text);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.homepage-preview-product-image {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 100px;
+  align-items: center;
+  justify-content: center;
+}
+
+.homepage-preview-product-image img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 16px rgb(26 26 26 / 0.18));
+}
+
+.homepage-preview-empty {
+  color: var(--admin-faint);
+  font-size: 10px;
+}
+
+.homepage-spotlight-preview {
+  display: grid;
+  min-height: 260px;
+  grid-template-columns: 1fr 0.9fr;
+  align-items: center;
+  padding: 22px;
+}
+
+.homepage-spotlight-preview span,
+.homepage-promo-preview span,
+.homepage-countdown-preview > div:first-child > span {
+  display: block;
+  color: var(--admin-link);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.homepage-spotlight-preview h3,
+.homepage-promo-preview h3,
+.homepage-countdown-preview h3 {
+  margin-top: 7px;
+  color: var(--admin-text);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.homepage-spotlight-preview strong,
+.homepage-spotlight-preview del,
+.homepage-spotlight-preview small {
+  display: block;
+}
+
+.homepage-spotlight-preview strong {
+  margin-top: 22px;
+  color: var(--admin-danger);
+  font-size: 15px;
+}
+
+.homepage-spotlight-preview del {
+  margin-top: 2px;
+  color: var(--admin-faint);
+  font-size: 10px;
+}
+
+.homepage-spotlight-preview small {
+  margin-top: 12px;
+  color: var(--admin-text);
+  font-weight: 650;
+}
+
+.homepage-promo-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.homepage-promo-board > button {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 5px;
+  background: var(--admin-surface-sub);
+  text-align: left;
+  transition: 160ms ease;
+}
+
+.homepage-promo-board > button.is-large {
+  grid-column: 1 / -1;
+}
+
+.homepage-promo-board > button:hover {
+  border-color: var(--admin-border-strong);
+}
+
+.homepage-promo-board > button.is-active {
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 2px var(--p-color-border-focus, #005bd3);
+}
+
+.homepage-card-order {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  padding: 4px 7px;
+  color: var(--admin-primary);
+  font-size: 9px;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgb(26 26 26 / 0.08);
+}
+
+.homepage-promo-preview {
+  display: grid;
+  min-height: 180px;
+  grid-template-columns: 1.1fr 0.9fr;
+  align-items: center;
+  padding: 24px;
+}
+
+.homepage-promo-preview.is-large {
+  min-height: 230px;
+  grid-template-columns: 1.4fr 0.6fr;
+  padding: 30px;
+}
+
+.homepage-promo-preview p,
+.homepage-countdown-preview p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-size: 9px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.homepage-promo-preview small {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 9px;
+}
+
+.homepage-countdown-preview {
+  display: grid;
+  min-height: 330px;
+  grid-template-columns: 1.25fr 0.75fr;
+  align-items: center;
+  padding: 26px;
+}
+
+.homepage-timer-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 16px;
+}
+
+.homepage-timer-preview small {
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.8);
+  padding: 7px;
+  color: var(--admin-text);
+  font-size: 9px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.homepage-countdown-preview em {
+  display: block;
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.homepage-countdown-preview strong {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 9px;
+}
+
+.homepage-floating-save {
+  position: sticky;
+  bottom: 14px;
+  z-index: 14;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px auto 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: var(--p-shadow-200, 0 2px 4px rgb(26 26 26 / 0.08));
+  backdrop-filter: blur(14px);
+}
+
+.homepage-floating-save > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  color: var(--admin-primary);
+}
+
+.homepage-floating-save strong,
+.homepage-floating-save small {
+  display: block;
+}
+
+.homepage-floating-save strong {
+  font-size: 11px;
+}
+
+.homepage-floating-save small {
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 9px;
+}
+
+@media (max-width: 1180px) {
+  .homepage-commandbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .homepage-section-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .homepage-save-state {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .homepage-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .homepage-preview-panel {
+    position: static;
+  }
+
+  .homepage-inline-settings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .homepage-inline-settings > div:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .homepage-commandbar {
+    top: calc(var(--admin-topbar-height) + 6px);
+    margin-inline: -4px;
+  }
+
+  .homepage-section-tabs > button {
+    min-width: 145px;
+  }
+
+  .homepage-save-state > span {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .homepage-section-card {
+    padding: 15px;
+  }
+
+  .homepage-section-heading {
+    flex-wrap: wrap;
+  }
+
+  .homepage-section-heading > div:last-child {
+    width: 100%;
+  }
+
+  .homepage-section-heading > div:last-child > button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .homepage-item-rail {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .homepage-item-rail > button {
+    min-width: 175px;
+  }
+
+  .homepage-hero-preview,
+  .homepage-spotlight-preview,
+  .homepage-promo-preview,
+  .homepage-promo-preview.is-large,
+  .homepage-countdown-preview {
+    min-height: 280px;
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+
+  .homepage-preview-product-image {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    width: 42%;
+    opacity: 0.7;
+  }
+
+  .homepage-preview-copy,
+  .homepage-spotlight-preview > div:first-child,
+  .homepage-promo-preview > div:first-child,
+  .homepage-countdown-preview > div:first-child {
+    position: relative;
+    z-index: 2;
+    max-width: 72%;
+  }
+
+  .homepage-inline-settings,
+  .homepage-promo-board {
+    grid-template-columns: 1fr;
+  }
+
+  .homepage-promo-board > button.is-large,
+  .homepage-inline-settings > div:first-child {
+    grid-column: auto;
+  }
+
+  .homepage-image-field {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .homepage-image-preview {
+    width: 100%;
+    height: 130px;
+  }
+
+  .homepage-floating-save {
+    flex-wrap: wrap;
+  }
+
+  .homepage-floating-save > div:first-child {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .homepage-floating-save > button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Tren man hinh rong, noi dung tranh de sidebar. */
+
+@media (max-width: 639px) {
+  .admin-page-header {
+    align-items: flex-start;
+  }
+
+}
+
+/* ─── Bề ngang nội dung ───────────────────────────────────────────────────
+ *
+ * `Page fullWidth` của Polaris trải hết bề ngang khung. Form dài mà kéo ngang
+ * cả màn hình siêu rộng thì mắt phải quét rất xa giữa nhãn và ô nhập, nên siết
+ * lại ở đây. Trang danh sách tự xin thêm chỗ bằng lớp `.admin-page-wide`:
+ * bảng nhiều cột bị ép trong khung hẹp sẽ phải tràn ngang.
+ */
+.qreview-admin > .Polaris-Page > .Polaris-Page__Content {
+  margin-inline: auto;
+  max-width: 1280px;
+}
+
+.qreview-admin > .Polaris-Page > .Polaris-Page__Content:has(.admin-page-wide) {
+  max-width: 1600px;
+}
+
+/* ─── Trang báo thiếu quyền ─────────────────────────────────────────────── */
+
+.qreview-denied {
+  margin: 3rem auto;
+  max-width: 32rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background-color: var(--admin-surface);
+  box-shadow: var(--p-shadow-100, 0 1px 0 0 rgb(26 26 26 / 0.07));
+  padding: 2rem;
+  text-align: center;
+}
+
+.qreview-denied h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 650;
+  color: var(--admin-text);
+}
+
+.qreview-denied p {
+  margin: 0 0 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--admin-muted);
+}
+
+.qreview-denied-action {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  background-color: var(--admin-primary);
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--admin-on-primary);
+  text-decoration: none;
+}

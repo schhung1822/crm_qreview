@@ -39,7 +39,19 @@
     "sectionGuide": "Hỗ trợ",
     "guide": "Hướng dẫn sử dụng",
     "backlink": "Backlink",
-    "scriptAnalysis": "Phân tích kịch bản"
+    "scriptAnalysis": "Phân tích kịch bản",
+    "sectionQreview": "Website Qreview",
+    "qreviewOverview": "Tổng quan website",
+    "qreviewHomepage": "Trang chủ",
+    "qreviewProducts": "Sản phẩm",
+    "qreviewPosts": "Tin tức & bài viết",
+    "qreviewReviews": "Đánh giá & bình luận",
+    "qreviewCategories": "Danh mục",
+    "qreviewBrands": "Thương hiệu",
+    "qreviewSpecs": "Thông số kỹ thuật",
+    "qreviewNetworks": "Sàn TMĐT",
+    "qreviewAffiliateLinks": "Link mua hàng",
+    "qreviewUsers": "Người dùng website"
   },
   "common": {
     "save": "Lưu",
