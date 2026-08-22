@@ -25,15 +25,28 @@ const Schema = z.object({
   articleSource: z.string().max(300).optional(),
   // Link bài viết nguồn tham khảo (tùy chọn). Chỉ lưu để tra cứu nội bộ.
   urlSource: z.string().max(4000).optional(),
-  privacy: z.enum(['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY']).optional(),
-  imageProcessing: z.object({
-    enabled: z.boolean().optional(),
-    cropSquare: z.boolean().optional(),
-    scale: z.number().min(1).max(1.5).optional(),
-    barHeight: z.number().min(0).max(80).optional(),
-    showLogo: z.boolean().optional(),
-    logoUrl: z.string().max(4000).optional(),
-  }).optional(),
+  privacy: z
+    .enum([
+      'PUBLIC_TO_EVERYONE',
+      'MUTUAL_FOLLOW_FRIENDS',
+      'FOLLOWER_OF_CREATOR',
+      'SELF_ONLY',
+    ])
+    .optional(),
+  imageProcessing: z
+    .object({
+      enabled: z.boolean().optional(),
+      cropSquare: z.boolean().optional(),
+      scale: z.number().min(1).max(1.5).optional(),
+      barHeight: z
+        .number()
+        .min(0)
+        .max(80, 'Do day khung phai tu 0 den 80px')
+        .optional(),
+      showLogo: z.boolean().optional(),
+      logoUrl: z.string().max(4000).optional(),
+    })
+    .optional(),
 });
 
 const PLATFORM_ALIASES: Record<string, SocialProvider> = {
@@ -67,7 +80,9 @@ function normalizeOrigin(value: string | null): string {
 }
 
 function requestOrigin(req: Request): string | null {
-  const explicit = normalizeOrigin(req.headers.get('x-qreview-origin') || req.headers.get('x-source-origin'));
+  const explicit = normalizeOrigin(
+    req.headers.get('x-qreview-origin') || req.headers.get('x-source-origin'),
+  );
   if (explicit) return explicit;
   const origin = normalizeOrigin(req.headers.get('origin'));
   if (origin) return origin;
@@ -84,12 +99,15 @@ function corsHeaders(origin: string | null): HeadersInit {
   return {
     'Access-Control-Allow-Origin': origin || 'null',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-QReview-Origin, X-Source-Origin',
-    'Vary': 'Origin',
+    'Access-Control-Allow-Headers':
+      'Authorization, Content-Type, X-QReview-Origin, X-Source-Origin',
+    Vary: 'Origin',
   };
 }
 
-function domainAllowed(req: Request): { ok: true; origin: string } | { ok: false; response: NextResponse } {
+function domainAllowed(
+  req: Request,
+): { ok: true; origin: string } | { ok: false; response: NextResponse } {
   const origin = requestOrigin(req);
   const allowed = allowedOrigins();
   if (!origin || !allowed.includes(origin)) {
@@ -115,7 +133,14 @@ function json(data: unknown, status: number, origin: string) {
 }
 
 function uniqueUrls(urls: Array<string | undefined>): string[] {
-  return Array.from(new Set(urls.filter(Boolean).map((url) => url!.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      urls
+        .filter(Boolean)
+        .map((url) => url!.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function splitPlatforms(value: string | string[] | undefined): string[] {
@@ -125,7 +150,11 @@ function splitPlatforms(value: string | string[] | undefined): string[] {
 
 function requestedProviders(input: z.infer<typeof Schema>): SocialProvider[] {
   const raw = [...splitPlatforms(input.platforms), ...splitPlatforms(input.platform)];
-  return Array.from(new Set(raw.map((item) => PLATFORM_ALIASES[item.trim().toLowerCase()]).filter(Boolean)));
+  return Array.from(
+    new Set(
+      raw.map((item) => PLATFORM_ALIASES[item.trim().toLowerCase()]).filter(Boolean),
+    ),
+  );
 }
 
 export async function OPTIONS(req: Request) {
@@ -142,29 +171,66 @@ export async function POST(req: Request) {
 
   const a = await bearerAuth(req);
   if ('response' in a) {
-    return json(await a.response.json().catch(() => ({ error: 'Unauthorized' })), a.response.status, d.origin);
+    return json(
+      await a.response.json().catch(() => ({ error: 'Unauthorized' })),
+      a.response.status,
+      d.origin,
+    );
   }
   const rl = rateLimit(`apiv1-social:${a.token.id}:${clientIp(req)}`, 20, 60_000);
-  if (!rl.ok) return json({ error: `Qua nhieu yeu cau. Thu lai sau ${rl.retryAfter}s.` }, 429, d.origin);
+  if (!rl.ok)
+    return json(
+      { error: `Qua nhieu yeu cau. Thu lai sau ${rl.retryAfter}s.` },
+      429,
+      d.origin,
+    );
 
   const parsed = Schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return json({ error: 'Tham so khong hop le', issues: parsed.error.flatten() }, 400, d.origin);
+  if (!parsed.success)
+    return json(
+      { error: 'Tham so khong hop le', issues: parsed.error.flatten() },
+      400,
+      d.origin,
+    );
 
   const providers = requestedProviders(parsed.data);
   if (!providers.length) {
-    return json({
-      error: 'Vui long truyen platforms bang ten viet tat: fb, ig, th, tk, yt',
-      aliases: { facebook: 'fb', instagram: 'ig', threads: 'th', tiktok: 'tk', youtube: 'yt' },
-    }, 400, d.origin);
+    return json(
+      {
+        error: 'Vui long truyen platforms bang ten viet tat: fb, ig, th, tk, yt',
+        aliases: {
+          facebook: 'fb',
+          instagram: 'ig',
+          threads: 'th',
+          tiktok: 'tk',
+          youtube: 'yt',
+        },
+      },
+      400,
+      d.origin,
+    );
   }
 
-  for (const url of [parsed.data.mediaUrl, ...(parsed.data.mediaUrls ?? []), parsed.data.linkUrl]) {
+  for (const url of [
+    parsed.data.mediaUrl,
+    ...(parsed.data.mediaUrls ?? []),
+    parsed.data.linkUrl,
+  ]) {
     if (!url) continue;
-    if (!/^https?:\/\//i.test(url)) return json({ error: 'Anh, video va lien ket phai la URL http(s) cong khai' }, 400, d.origin);
+    if (!/^https?:\/\//i.test(url))
+      return json(
+        { error: 'Anh, video va lien ket phai la URL http(s) cong khai' },
+        400,
+        d.origin,
+      );
     try {
       assertPublicUrl(url);
     } catch (error) {
-      return json({ error: error instanceof Error ? error.message : 'URL khong hop le' }, 400, d.origin);
+      return json(
+        { error: error instanceof Error ? error.message : 'URL khong hop le' },
+        400,
+        d.origin,
+      );
     }
   }
 
@@ -175,54 +241,77 @@ export async function POST(req: Request) {
     return json({ error: 'urlSource phai la URL http(s)' }, 400, d.origin);
   }
 
-  const mediaUrls = parsed.data.mediaType === 'image'
-    ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
-    : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
-      ? [parsed.data.mediaUrl.trim()]
-      : [];
-  if (parsed.data.mediaType === 'image' && !mediaUrls.length) return json({ error: 'Vui long truyen it nhat mot URL anh' }, 400, d.origin);
-  if (parsed.data.mediaType === 'video' && !mediaUrls.length) return json({ error: 'Vui long truyen URL video' }, 400, d.origin);
-
-  const connections = await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () => listConnections());
-  const selectedConnections = providers.map((provider) => connections.find((item) => item.kind === 'social' && item.provider === provider)).filter(Boolean);
-  const missingProviders = providers.filter((provider) => !selectedConnections.some((item) => item?.provider === provider));
+  const mediaUrls =
+    parsed.data.mediaType === 'image'
+      ? uniqueUrls([...(parsed.data.mediaUrls ?? []), parsed.data.mediaUrl])
+      : parsed.data.mediaType === 'video' && parsed.data.mediaUrl
+        ? [parsed.data.mediaUrl.trim()]
+        : [];
+  if (parsed.data.mediaType === 'image' && !mediaUrls.length)
+    return json({ error: 'Vui long truyen it nhat mot URL anh' }, 400, d.origin);
+  if (parsed.data.mediaType === 'video' && !mediaUrls.length)
+    return json({ error: 'Vui long truyen URL video' }, 400, d.origin);
+  const connections = await runWithBiz(
+    { userId: a.token.createdBy, bizId: 'global' },
+    () => listConnections(),
+  );
+  const selectedConnections = providers
+    .map((provider) =>
+      connections.find((item) => item.kind === 'social' && item.provider === provider),
+    )
+    .filter(Boolean);
+  const missingProviders = providers.filter(
+    (provider) => !selectedConnections.some((item) => item?.provider === provider),
+  );
   if (missingProviders.length) {
-    return json({ error: `Chua co ket noi cho nen tang: ${missingProviders.join(', ')}` }, 404, d.origin);
+    return json(
+      { error: `Chua co ket noi cho nen tang: ${missingProviders.join(', ')}` },
+      404,
+      d.origin,
+    );
   }
 
   const batchId = genSocialPostBatchId();
   const posts = await runWithBiz({ userId: a.token.createdBy, bizId: 'global' }, () =>
-    addSocialPosts(selectedConnections.map((item) => ({
-      batchId,
-      connectionId: item!.id,
-      provider: item!.provider as SocialProvider,
-      connectionLabel: item!.label,
-      title: parsed.data.title,
-      text: parsed.data.text,
-      mediaType: parsed.data.mediaType,
-      mediaUrls,
-      originalMediaUrls: parsed.data.mediaType === 'image' ? mediaUrls : undefined,
-      imageProcessing: parsed.data.mediaType === 'image' ? parsed.data.imageProcessing : undefined,
-      linkUrl: parsed.data.linkUrl,
-      articleSource: parsed.data.articleSource?.trim() || undefined,
-      urlSource: urlSource,
-      status: 'pending_review',
-      createdBy: a.token.createdBy,
-      source: 'external_api',
-    }))),
+    addSocialPosts(
+      selectedConnections.map((item) => ({
+        batchId,
+        connectionId: item!.id,
+        provider: item!.provider as SocialProvider,
+        connectionLabel: item!.label,
+        title: parsed.data.title,
+        text: parsed.data.text,
+        mediaType: parsed.data.mediaType,
+        mediaUrls,
+        originalMediaUrls: parsed.data.mediaType === 'image' ? mediaUrls : undefined,
+        imageProcessing:
+          parsed.data.mediaType === 'image' ? parsed.data.imageProcessing : undefined,
+        linkUrl: parsed.data.linkUrl,
+        articleSource: parsed.data.articleSource?.trim() || undefined,
+        urlSource: urlSource,
+        status: 'pending_review',
+        createdBy: a.token.createdBy,
+        source: 'external_api',
+      })),
+    ),
   );
 
-  return json({
-    status: 'pending_review',
-    message: 'Da tao bai cho duyet. Nguoi dung can vao app de chinh sua/duyet truoc khi dang.',
-    batchId,
-    reviewUrl: `/social-publish?review=${encodeURIComponent(posts[0]?.id ?? '')}`,
-    posts: posts.map((post) => ({
-      id: post.id,
-      connectionId: post.connectionId,
-      platform: post.provider,
-      label: post.connectionLabel,
-      status: post.status,
-    })),
-  }, 202, d.origin);
+  return json(
+    {
+      status: 'pending_review',
+      message:
+        'Da tao bai cho duyet. Nguoi dung can vao app de chinh sua/duyet truoc khi dang.',
+      batchId,
+      reviewUrl: `/social-publish?review=${encodeURIComponent(posts[0]?.id ?? '')}`,
+      posts: posts.map((post) => ({
+        id: post.id,
+        connectionId: post.connectionId,
+        platform: post.provider,
+        label: post.connectionLabel,
+        status: post.status,
+      })),
+    },
+    202,
+    d.origin,
+  );
 }

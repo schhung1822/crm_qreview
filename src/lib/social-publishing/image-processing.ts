@@ -27,14 +27,18 @@ const MAX_OUTPUT_BYTES = 3.8 * 1024 * 1024;
 
 export interface SocialImageProcessingOptions {
   scale?: number;
-  barColor?: string;
   barHeight?: number;
   cropSquare?: boolean;
   showLogo?: boolean;
   logoUrl?: string;
 }
 
-function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+function clampNumber(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Number(value)));
 }
@@ -86,12 +90,15 @@ async function logoOverlay(
   if (maxLogoWidth < 8 || maxLogoHeight < 8) return null;
 
   // PNG = lossless, logo giữ nguyên viền/alpha khi ghép lên canvas.
-  const renderedLogo = await sharp(logo, { failOn: 'none' }).resize({
-    width: maxLogoWidth,
-    height: maxLogoHeight,
-    fit: 'inside',
-    withoutEnlargement: true,
-  }).png({ compressionLevel: 9 }).toBuffer({ resolveWithObject: true });
+  const renderedLogo = await sharp(logo, { failOn: 'none' })
+    .resize({
+      width: maxLogoWidth,
+      height: maxLogoHeight,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .png({ compressionLevel: 9 })
+    .toBuffer({ resolveWithObject: true });
   const logoWidth = renderedLogo.info.width;
   const logoHeight = renderedLogo.info.height;
 
@@ -162,16 +169,41 @@ function getOrientedSourceDimensions(metadata: {
   const height = metadata.height ?? 1;
   const swapsDimensions = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
 
-  return swapsDimensions
-    ? { width: height, height: width }
-    : { width, height };
+  return swapsDimensions ? { width: height, height: width } : { width, height };
 }
 
-export async function processSocialImageUrl(url: string, req: Request, hint?: string, opts: SocialImageProcessingOptions = {}): Promise<string> {
+async function saveSocialImage(
+  canvas: Sharp,
+  baseUrl: string,
+  hint?: string,
+): Promise<string> {
+  const processed = await encodeWithinBudget(canvas);
+  const rel = await saveGeneratedImage(
+    processed.toString('base64'),
+    hint || 'social-image',
+    {
+      format: 'jpeg',
+      reencode: false,
+    },
+  );
+  return `${baseUrl}${rel}`;
+}
+
+export async function processSocialImageUrl(
+  url: string,
+  req: Request,
+  hint?: string,
+  opts: SocialImageProcessingOptions = {},
+): Promise<string> {
   const baseUrl = requestBaseUrl(req).replace(/\/+$/, '');
   const publicBase = new URL(baseUrl);
-  if (publicBase.protocol !== 'https:' || ['localhost', '127.0.0.1', '0.0.0.0'].includes(publicBase.hostname)) {
-    throw new Error('Để đăng ảnh đã xử lý, APP_URL phải là URL HTTPS công khai để mạng xã hội tải được ảnh từ /generated.');
+  if (
+    publicBase.protocol !== 'https:' ||
+    ['localhost', '127.0.0.1', '0.0.0.0'].includes(publicBase.hostname)
+  ) {
+    throw new Error(
+      'Để đăng ảnh đã xử lý, APP_URL phải là URL HTTPS công khai để mạng xã hội tải được ảnh từ /generated.',
+    );
   }
   const original = await safeFetchBuffer(url, { timeoutMs: 60_000 }, 25 * 1024 * 1024);
   const scale = clampNumber(opts.scale, 1, 1.5, ZOOM);
@@ -180,6 +212,7 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
   const showLogo = opts.showLogo !== false;
   const metadata = await sharp(original.buffer, { failOn: 'none' }).metadata();
   const sourceDimensions = getOrientedSourceDimensions(metadata);
+
   const design = getSocialImageOutputDimensions(
     sourceDimensions.width,
     sourceDimensions.height,
@@ -192,7 +225,8 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
     design.innerWidth * scale,
     design.innerHeight * scale,
   );
-  const frame = frameThickness > 0 ? Math.max(1, Math.round(frameThickness * renderScale)) : 0;
+  const frame =
+    frameThickness > 0 ? Math.max(1, Math.round(frameThickness * renderScale)) : 0;
   const innerWidth = Math.max(1, Math.round(design.innerWidth * renderScale));
   const innerHeight = Math.max(1, Math.round(design.innerHeight * renderScale));
   const outputWidth = innerWidth + frame * 2;
@@ -222,16 +256,18 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
   // Raw = pixel thô, KHÔNG mã hoá trung gian. Trước đây bước này encode lại theo định dạng gốc
   // (ảnh JPEG bị nén lần 2 ở q80) rồi mới ghép — mất chất lượng mà không ai thấy.
   const baseRaw = await base.raw().toBuffer({ resolveWithObject: true });
-  const overlays: OverlayOptions[] = [{
-    input: baseRaw.data,
-    raw: {
-      width: baseRaw.info.width,
-      height: baseRaw.info.height,
-      channels: baseRaw.info.channels,
+  const overlays: OverlayOptions[] = [
+    {
+      input: baseRaw.data,
+      raw: {
+        width: baseRaw.info.width,
+        height: baseRaw.info.height,
+        channels: baseRaw.info.channels,
+      },
+      left: frame,
+      top: frame,
     },
-    left: frame,
-    top: frame,
-  }];
+  ];
   const logo = showLogo
     ? await logoOverlay(frame, outputWidth, outputHeight, renderScale, opts.logoUrl)
     : null;
@@ -248,14 +284,7 @@ export async function processSocialImageUrl(url: string, req: Request, hint?: st
     .composite(overlays)
     .withIccProfile('srgb');
 
-  const processed = await encodeWithinBudget(canvas);
-  // reencode: false — bytes đã là bản cuối. Nén lại ở image-store (WebP q72) chính là chỗ làm
-  // ảnh xuống cấp rõ nhất trước đây.
-  const rel = await saveGeneratedImage(processed.toString('base64'), hint || 'social-image', {
-    format: 'jpeg',
-    reencode: false,
-  });
-  return `${baseUrl}${rel}`;
+  return saveSocialImage(canvas, baseUrl, hint);
 }
 
 // Nén JPEG một lần ở chất lượng cao nhất còn nằm trong ngân sách dung lượng của mạng xã hội.
@@ -278,10 +307,22 @@ async function encodeWithinBudget(canvas: Sharp): Promise<Buffer> {
   return last!;
 }
 
-export async function processSocialImageUrls(urls: string[], req: Request, hint?: string, opts: SocialImageProcessingOptions = {}): Promise<string[]> {
+export async function processSocialImageUrls(
+  urls: string[],
+  req: Request,
+  hint?: string,
+  opts: SocialImageProcessingOptions = {},
+): Promise<string[]> {
   const out: string[] = [];
   for (let i = 0; i < urls.length; i++) {
-    out.push(await processSocialImageUrl(urls[i], req, `${hint || 'social-image'}-${i + 1}`, opts));
+    out.push(
+      await processSocialImageUrl(
+        urls[i],
+        req,
+        `${hint || 'social-image'}-${i + 1}`,
+        opts,
+      ),
+    );
   }
   return out;
 }

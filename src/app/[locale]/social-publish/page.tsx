@@ -9,7 +9,6 @@ import {
   InlineGrid,
   InlineStack,
   Page,
-  RangeSlider,
   Select,
   Text,
   TextField,
@@ -17,6 +16,7 @@ import {
 import { useLocale } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { ProviderLogo } from '@/components/provider-logos';
+import { SocialImageProcessingFields } from '@/components/SocialImageProcessingFields';
 import type { SocialProvider } from '@/lib/connection-providers';
 import type { SocialMediaType } from '@/lib/social-publishing';
 import { useSearchParams } from 'next/navigation';
@@ -138,6 +138,21 @@ export default function SocialPublishPage() {
       .catch(() => setConnections([]));
   }, []);
 
+  // Bài chờ duyệt giữ connectionId từ lúc được tạo. Nếu kết nối đó đã bị xóa (xóa rồi thêm lại
+  // sẽ ra id mới), id cũ vẫn nằm trong state nhưng KHÔNG có checkbox nào để bỏ chọn → bấm đăng
+  // là API trả 404 "không tìm thấy kết nối". Lọc bỏ ngay khi đã biết danh sách kết nối thật.
+  useEffect(() => {
+    if (!connections) return;
+    const alive = selectedConnectionIds.filter((id) => connections.some((item) => item.id === id));
+    if (alive.length === selectedConnectionIds.length) return;
+    setSelectedConnectionIds(alive);
+    setResult({
+      tone: 'warning',
+      message: `${selectedConnectionIds.length - alive.length} kết nối gắn với bài này không còn tồn tại (có thể đã bị xóa và tạo lại). Hãy chọn lại kênh muốn đăng.`,
+      items: [],
+    });
+  }, [connections, selectedConnectionIds]);
+
   useEffect(() => {
     const reviewId = searchParams.get('review');
     if (!reviewId) return;
@@ -179,7 +194,9 @@ export default function SocialPublishPage() {
         setImageProcessingEnabled(first.imageProcessing?.enabled !== false);
         setImageCropSquare(first.imageProcessing?.cropSquare !== false);
         setImageScale(first.imageProcessing?.scale ?? 1.1);
-        setImageBarHeight(first.imageProcessing?.barHeight ?? 10);
+        // Bài cũ (kiểu nền màu đã gỡ) lưu barHeight tới 320px — kẹp lại trong khoảng khung
+        // trắng hợp lệ, nếu không API sẽ từ chối khi bấm đăng lại.
+        setImageBarHeight(Math.min(80, first.imageProcessing?.barHeight ?? 10));
         setImageShowLogo(first.imageProcessing?.showLogo !== false);
         setImageLogoUrl(first.imageProcessing?.logoUrl ?? '');
         setResult({
@@ -205,6 +222,10 @@ export default function SocialPublishPage() {
     source.forEach((connection) => CAPABILITIES[connection.provider].forEach((type) => supported.add(type)));
     return ALL_MEDIA_TYPES.filter((type) => supported.has(type));
   }, [activeConnections, selectedConnections]);
+  const composerOptions = useMemo(
+    () => mediaOptions.map((type) => ({ label: MEDIA_LABEL[type], value: type })),
+    [mediaOptions],
+  );
   const unsupportedConnections = useMemo(
     () => selectedConnections.filter((connection) => !CAPABILITIES[connection.provider].includes(mediaType)),
     [mediaType, selectedConnections],
@@ -223,6 +244,11 @@ export default function SocialPublishPage() {
   useEffect(() => {
     if (mediaOptions.length && !mediaOptions.includes(mediaType)) setMediaType(mediaOptions[0]);
   }, [mediaOptions, mediaType]);
+
+  function changeComposerType(value: string) {
+    setMediaType(value as SocialMediaType);
+    setResult(null);
+  }
 
   const canPublish = useMemo(() => {
     if (!selectedConnections.length || !text.trim() || publishing) return false;
@@ -417,7 +443,9 @@ export default function SocialPublishPage() {
                   multiline={mediaType === 'image' ? 5 : false}
                   autoComplete="off"
                   placeholder={mediaType === 'image' ? 'https://example.com/image.jpg' : 'https://example.com/video.mp4'}
-                  helpText={mediaType === 'image' ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL. Nếu tắt xử lý ảnh, hệ thống sẽ dùng nguyên URL đã dán và không lưu ảnh về máy chủ.' : undefined}
+                  helpText={mediaType === 'image'
+                    ? 'Có thể nhập nhiều ảnh, mỗi dòng một URL. Nếu tắt xử lý ảnh, hệ thống sẽ dùng nguyên URL đã dán và không lưu ảnh về máy chủ.'
+                    : undefined}
                 />
               ) : null}
               <TextField
@@ -437,58 +465,20 @@ export default function SocialPublishPage() {
                 <Card>
                   <BlockStack gap="300">
                     <Text as="h3" variant="headingSm">Xử lý ảnh trước khi đăng</Text>
-                    <Checkbox
-                      label="Bật xử lý ảnh: tải về, tùy chỉnh kích thước, thêm khung trắng và logo"
-                      checked={imageProcessingEnabled}
-                      onChange={setImageProcessingEnabled}
+                    <SocialImageProcessingFields
+                      enabled={imageProcessingEnabled}
+                      cropSquare={imageCropSquare}
+                      scale={imageScale}
+                      barHeight={imageBarHeight}
+                      showLogo={imageShowLogo}
+                      logoUrl={imageLogoUrl}
+                      onEnabledChange={setImageProcessingEnabled}
+                      onCropSquareChange={setImageCropSquare}
+                      onScaleChange={setImageScale}
+                      onBarHeightChange={setImageBarHeight}
+                      onShowLogoChange={setImageShowLogo}
+                      onLogoUrlChange={setImageLogoUrl}
                     />
-                    {imageProcessingEnabled ? (
-                      <>
-                        <Checkbox
-                          label="Cắt ảnh thành hình vuông (tỷ lệ 1:1)"
-                          helpText="Mặc định bật. Tắt tùy chọn này để giữ nguyên tỷ lệ ảnh gốc."
-                          checked={imageCropSquare}
-                          onChange={setImageCropSquare}
-                        />
-                        <RangeSlider
-                          label={`Scale ảnh: ${imageScale.toFixed(2)}x`}
-                          min={1}
-                          max={1.5}
-                          step={0.05}
-                          value={imageScale}
-                          onChange={(value) => setImageScale(Number(value))}
-                          output
-                        />
-                        <RangeSlider
-                          label={`Độ dày khung trắng: ${imageBarHeight}px`}
-                          min={0}
-                          max={80}
-                          step={10}
-                          value={imageBarHeight}
-                          onChange={(value) => setImageBarHeight(Number(value))}
-                          output
-                        />
-                        <InlineGrid columns={{ xs: 1, md: 1 }} gap="300">
-                          <TextField
-                            label="Logo riêng (tùy chọn)"
-                            value={imageLogoUrl}
-                            onChange={setImageLogoUrl}
-                            autoComplete="off"
-                            placeholder="Để trống = /images/qreview_toke.webp"
-                            helpText="Có thể dùng URL http(s), data URI hoặc đường dẫn nội bộ /images/..."
-                          />
-                        </InlineGrid>
-                        <Checkbox
-                          label="Chèn logo vào góc ảnh"
-                          checked={imageShowLogo}
-                          onChange={setImageShowLogo}
-                        />
-                      </>
-                    ) : (
-                      <Text as="p" tone="subdued">
-                        Hệ thống sẽ gửi nguyên các URL ảnh đã dán lên nền tảng. URL phải là HTTPS công khai và đúng yêu cầu tỷ lệ/dung lượng của từng mạng xã hội.
-                      </Text>
-                    )}
                   </BlockStack>
                 </Card>
               ) : null}
@@ -506,12 +496,9 @@ export default function SocialPublishPage() {
                 </InlineStack>
                 <Select
                   label="Loại nội dung"
-                  options={mediaOptions.map((type) => ({ label: MEDIA_LABEL[type], value: type }))}
+                  options={composerOptions}
                   value={mediaType}
-                  onChange={(value) => {
-                    setMediaType(value as SocialMediaType);
-                    setResult(null);
-                  }}
+                  onChange={changeComposerType}
                   disabled={!activeConnections.length}
                 />
                 <BlockStack gap="200">

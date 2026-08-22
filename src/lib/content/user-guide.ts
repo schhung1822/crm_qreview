@@ -46,7 +46,7 @@ Trang **Đăng mạng xã hội** cho phép đăng nội dung lên một hoặc 
 - Có thể nhập nhiều URL ảnh, mỗi dòng một ảnh.
 - Có thể bật/tắt xử lý ảnh trước khi đăng.
 - Khi bật xử lý ảnh, hệ thống tải ảnh về, mặc định cắt vuông 1:1 (có thể tắt để giữ tỷ lệ gốc), scale theo cấu hình, thêm khung trắng và logo.
-- Ảnh xử lý xong xuất JPEG chất lượng cao, kích thước tới 2048px nếu ảnh gốc đủ lớn (ảnh nhỏ giữ nguyên khung 1080px, không phóng to). Toàn bộ chỉnh sửa chỉ nén một lần duy nhất nên ảnh gần như giữ nguyên chất lượng gốc.
+- Ảnh xử lý xong xuất JPEG chất lượng cao trong khung 1080px và có thể render tới 2048px nếu ảnh gốc đủ lớn. Toàn bộ chỉnh sửa chỉ nén một lần duy nhất nên hạn chế suy giảm chất lượng.
 - Nếu tắt xử lý ảnh, hệ thống dùng nguyên URL đã dán và không lưu ảnh về máy chủ.
 - Sau khi đăng, lịch sử được lưu tại **Bài đăng mạng xã hội**.
 

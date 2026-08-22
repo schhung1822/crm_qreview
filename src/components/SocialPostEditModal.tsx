@@ -7,13 +7,13 @@ import {
   InlineGrid,
   InlineStack,
   Modal,
-  RangeSlider,
   Select,
   Text,
   TextField,
 } from '@shopify/polaris';
 import { useEffect, useMemo, useState } from 'react';
 import { ProviderLogo } from '@/components/provider-logos';
+import { SocialImageProcessingFields } from '@/components/SocialImageProcessingFields';
 import type { SocialProvider } from '@/lib/connection-providers';
 import type { SocialMediaType } from '@/lib/social-publishing';
 import type { SocialPostRecord } from '@/lib/store/social-posts';
@@ -80,11 +80,16 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
   const [imageProcessingEnabled, setImageProcessingEnabled] = useState(post.imageProcessing?.enabled !== false);
   const [imageCropSquare, setImageCropSquare] = useState(post.imageProcessing?.cropSquare !== false);
   const [imageScale, setImageScale] = useState(post.imageProcessing?.scale ?? 1.1);
-  const [imageBarHeight, setImageBarHeight] = useState(post.imageProcessing?.barHeight ?? 10);
+  // Bài cũ (kiểu nền màu đã gỡ) lưu barHeight tới 320px — kẹp lại trong khoảng khung trắng
+  // hợp lệ, nếu không API sẽ từ chối khi bấm đăng lại.
+  const [imageBarHeight, setImageBarHeight] = useState(
+    Math.min(80, post.imageProcessing?.barHeight ?? 10),
+  );
   const [imageShowLogo, setImageShowLogo] = useState(post.imageProcessing?.showLogo !== false);
   const [imageLogoUrl, setImageLogoUrl] = useState(post.imageProcessing?.logoUrl ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [staleNotice, setStaleNotice] = useState('');
 
   useEffect(() => {
     fetch('/api/connections')
@@ -95,7 +100,23 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
           (connection: SocialConnection) => connection.kind === 'social',
         ) as SocialConnection[];
       })
-      .then(setConnections)
+      .then((rows) => {
+        setConnections(rows);
+        // Bài chờ duyệt giữ connectionId từ lúc được tạo. Nếu kết nối đó đã bị xóa (ví dụ xóa
+        // rồi thêm lại kết nối → id mới), id cũ vẫn nằm trong state nhưng KHÔNG có checkbox nào
+        // để bỏ chọn → bấm đăng là API trả 404 "không tìm thấy kết nối". Lọc bỏ ngay và báo rõ.
+        setSelectedConnectionIds((current) => {
+          const alive = current.filter((id) => rows.some((row) => row.id === id));
+          const dropped = current.length - alive.length;
+          if (dropped) {
+            setStaleNotice(
+              `${dropped} kết nối gắn với bài này không còn tồn tại (có thể đã bị xóa và tạo lại). ` +
+                'Hãy chọn lại kênh muốn đăng bên dưới.',
+            );
+          }
+          return alive;
+        });
+      })
       .catch((reason: unknown) => {
         setConnections([]);
         setError(reason instanceof Error ? reason.message : 'Không thể tải danh sách kết nối');
@@ -117,6 +138,12 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
     [mediaType, selectedConnections],
   );
   const hasTikTok = selectedConnections.some((connection) => connection.provider === 'tiktok');
+
+  function changeComposerType(value: string) {
+    setMediaType(value as SocialMediaType);
+    setError('');
+  }
+
   const canPublish = useMemo(() => {
     if (connections === null || !selectedConnections.length || !text.trim() || busy) return false;
     if (selectedConnections.some((connection) => connection.status !== 'active')) return false;
@@ -211,6 +238,9 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
       <Modal.Section>
         <BlockStack gap="400">
           {error ? <Banner tone="critical">{error}</Banner> : null}
+          {staleNotice ? (
+            <Banner tone="warning" onDismiss={() => setStaleNotice('')}>{staleNotice}</Banner>
+          ) : null}
           {unsupportedConnections.length ? (
             <Banner tone="warning">
               {MEDIA_LABEL[mediaType]} chưa được hỗ trợ bởi:{' '}
@@ -287,47 +317,21 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
 
               {mediaType === 'image' ? (
                 <BlockStack gap="300">
-                  <Checkbox
-                    label="Xử lý ảnh trước khi đăng (kích thước, scale, khung và logo)"
-                    checked={imageProcessingEnabled}
-                    onChange={setImageProcessingEnabled}
+                  <Text as="h3" variant="headingSm">Xử lý ảnh trước khi đăng</Text>
+                  <SocialImageProcessingFields
+                    enabled={imageProcessingEnabled}
+                    cropSquare={imageCropSquare}
+                    scale={imageScale}
+                    barHeight={imageBarHeight}
+                    showLogo={imageShowLogo}
+                    logoUrl={imageLogoUrl}
+                    onEnabledChange={setImageProcessingEnabled}
+                    onCropSquareChange={setImageCropSquare}
+                    onScaleChange={setImageScale}
+                    onBarHeightChange={setImageBarHeight}
+                    onShowLogoChange={setImageShowLogo}
+                    onLogoUrlChange={setImageLogoUrl}
                   />
-                  {imageProcessingEnabled ? (
-                    <>
-                      <Checkbox
-                        label="Cắt ảnh thành hình vuông (tỷ lệ 1:1)"
-                        helpText="Mặc định bật. Tắt tùy chọn này để giữ nguyên tỷ lệ ảnh gốc."
-                        checked={imageCropSquare}
-                        onChange={setImageCropSquare}
-                      />
-                      <RangeSlider
-                        label={`Scale ảnh: ${imageScale.toFixed(2)}x`}
-                        min={1}
-                        max={1.5}
-                        step={0.05}
-                        value={imageScale}
-                        onChange={(value) => setImageScale(Number(value))}
-                        output
-                      />
-                      <RangeSlider
-                        label={`Độ dày khung trắng: ${imageBarHeight}px`}
-                        min={0}
-                        max={80}
-                        step={10}
-                        value={imageBarHeight}
-                        onChange={(value) => setImageBarHeight(Number(value))}
-                        output
-                      />
-                      <TextField
-                        label="Logo riêng (tùy chọn)"
-                        value={imageLogoUrl}
-                        onChange={setImageLogoUrl}
-                        autoComplete="off"
-                        placeholder="Để trống để dùng logo mặc định"
-                      />
-                      <Checkbox label="Chèn logo vào góc ảnh" checked={imageShowLogo} onChange={setImageShowLogo} />
-                    </>
-                  ) : null}
                 </BlockStack>
               ) : null}
             </BlockStack>
@@ -340,10 +344,7 @@ export function SocialPostEditModal({ posts, onClose, onPublished }: Props) {
                   value: type,
                 }))}
                 value={mediaType}
-                onChange={(value) => {
-                  setMediaType(value as SocialMediaType);
-                  setError('');
-                }}
+                onChange={changeComposerType}
               />
               <Text as="h3" variant="headingSm">Nơi đăng</Text>
               {connections === null ? <Text as="p" tone="subdued">Đang tải kết nối...</Text> : null}

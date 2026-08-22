@@ -2,7 +2,9 @@ import sharp from 'sharp';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/lib/ai/image-store', () => ({ saveGeneratedImage: vi.fn() }));
-vi.mock('../src/lib/base-url', () => ({ requestBaseUrl: () => 'https://app.example.com' }));
+vi.mock('../src/lib/base-url', () => ({
+  requestBaseUrl: () => 'https://app.example.com',
+}));
 vi.mock('../src/lib/security/safe-fetch', () => ({ safeFetchBuffer: vi.fn() }));
 
 import { saveGeneratedImage } from '../src/lib/ai/image-store';
@@ -51,11 +53,33 @@ describe('social image output dimensions', () => {
   });
 
   it('tạo file đầu ra theo tỷ lệ gốc khi cropSquare là false', async () => {
-    const metadata = await runProcessing(1600, 900, { cropSquare: false, scale: 1, barHeight: 10, showLogo: false });
+    const metadata = await runProcessing(1600, 900, {
+      cropSquare: false,
+      scale: 1,
+      barHeight: 10,
+      showLogo: false,
+    });
     // Ảnh gốc 1600x900 đủ pixel để render lớn hơn khung 1080 → giữ chi tiết, không hạ mẫu vô ích.
     expect(metadata.width).toBe(1630);
     expect(metadata.height).toBe(930);
     expect(metadata.width! / metadata.height!).toBeCloseTo(1080 / 616, 2);
+  });
+});
+
+describe('social image frame', () => {
+  it('giữ nền khung trắng của bố cục ảnh', async () => {
+    const buffer = await runProcessingBuffer(500, 500, {
+      barHeight: 10,
+      scale: 1,
+      showLogo: false,
+    });
+    const { data, info } = await sharp(buffer)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const offset = (2 * info.width + 2) * info.channels;
+    expect(data[offset]).toBeGreaterThan(245);
+    expect(data[offset + 1]).toBeGreaterThan(245);
+    expect(data[offset + 2]).toBeGreaterThan(245);
   });
 });
 
@@ -75,21 +99,36 @@ describe('social image render scale', () => {
 
 describe('social image encoding', () => {
   it('giữ ảnh nhỏ ở đúng khung 1080 (không phóng to)', async () => {
-    const metadata = await runProcessing(500, 500, { scale: 1.1, barHeight: 10, showLogo: false });
+    const metadata = await runProcessing(500, 500, {
+      scale: 1.1,
+      barHeight: 10,
+      showLogo: false,
+    });
     expect(metadata.width).toBe(1080);
     expect(metadata.height).toBe(1080);
   });
 
   it('render tới trần 2048px khi ảnh gốc đủ lớn', async () => {
-    const metadata = await runProcessing(4000, 4000, { scale: 1.1, barHeight: 10, showLogo: false });
+    const metadata = await runProcessing(4000, 4000, {
+      scale: 1.1,
+      barHeight: 10,
+      showLogo: false,
+    });
     expect(metadata.width).toBe(2048);
     expect(metadata.height).toBe(2048);
   });
 
   it('xuất JPEG và không cho image-store nén lại lần hai', async () => {
-    const metadata = await runProcessing(2400, 2400, { scale: 1.1, barHeight: 10, showLogo: false });
+    const metadata = await runProcessing(2400, 2400, {
+      scale: 1.1,
+      barHeight: 10,
+      showLogo: false,
+    });
     expect(metadata.format).toBe('jpeg');
-    expect(mockSaveGeneratedImage.mock.calls[0][2]).toEqual({ format: 'jpeg', reencode: false });
+    expect(mockSaveGeneratedImage.mock.calls[0][2]).toEqual({
+      format: 'jpeg',
+      reencode: false,
+    });
   });
 });
 
@@ -98,9 +137,27 @@ async function runProcessing(
   height: number,
   opts: Parameters<typeof processSocialImageUrl>[3],
 ) {
+  const buffer = await runProcessingBuffer(width, height, opts);
+  return sharp(buffer).metadata();
+}
+
+async function runProcessingBuffer(
+  width: number,
+  height: number,
+  opts: Parameters<typeof processSocialImageUrl>[3],
+) {
   const source = await sharp({
     create: { width, height, channels: 3, background: '#dd5500' },
-  }).png().toBuffer();
+  })
+    .png()
+    .toBuffer();
+  return runProcessingSource(source, opts);
+}
+
+async function runProcessingSource(
+  source: Buffer,
+  opts: Parameters<typeof processSocialImageUrl>[3],
+) {
   mockSafeFetchBuffer.mockResolvedValue({ buffer: source, contentType: 'image/png' });
 
   await processSocialImageUrl(
@@ -111,5 +168,5 @@ async function runProcessing(
   );
 
   const savedBase64 = String(mockSaveGeneratedImage.mock.calls[0][0]);
-  return sharp(Buffer.from(savedBase64, 'base64')).metadata();
+  return Buffer.from(savedBase64, 'base64');
 }
