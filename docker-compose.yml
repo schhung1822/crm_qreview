@@ -3,7 +3,12 @@
 # trong .env (xem docs/POSTGRES-MIGRATION.md) — KHÔNG cần sửa file này.
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Bien NEXT_PUBLIC_* bi Next NHUNG CUNG vao bundle luc `npm run build`, khong doc lai luc
+        # chay → phai co mat ngay tu buoc build, khong the chi dat o `environment` ben duoi.
+        NEXT_PUBLIC_QREVIEW_SITE_URL: ${NEXT_PUBLIC_QREVIEW_SITE_URL:-}
     ports:
       - '3000:3000'
     environment:
@@ -29,6 +34,27 @@ services:
       # Mật khẩu Postgres KHÔNG hardcode — lấy từ .env (mặc định 'seogeo' chỉ để chạy dev nhanh).
       DATABASE_URL: postgresql://seogeo:${POSTGRES_PASSWORD:-seogeo}@db:5432/seogeo
       REDIS_URL: redis://redis:6379
+      # ── CSDL NOI DUNG cua WEBSITE Qreview (khu quan tri /qreview) ─────────────────────────
+      # KHAC `DATABASE_URL` o tren: do la CSDL cua CRM (Postgres), con day la CSDL noi dung cua
+      # website Qreview (MySQL). Thieu nhom bien nay thi MOI API /api/qreview/* tra 500 kem
+      # thong bao "Cau hinh co so du lieu website chua day du." (xem src/lib/qreview/api.ts).
+      #
+      # LUU Y: file .env cua Docker Compose CHI dung de thay the ${...} trong chinh file compose
+      # nay. Bien nam trong .env KHONG tu dong di vao container — phai khai bao tuong minh o day
+      # thi tien trinh Next moi doc duoc.
+      QREVIEW_DB_HOST: ${QREVIEW_DB_HOST:-}
+      QREVIEW_DB_PORT: ${QREVIEW_DB_PORT:-3306}
+      QREVIEW_DB_USER: ${QREVIEW_DB_USER:-}
+      QREVIEW_DB_PASSWORD: ${QREVIEW_DB_PASSWORD:-}
+      QREVIEW_DB_NAME: ${QREVIEW_DB_NAME:-}
+      # Email duoc coi la admin TREN WEBSITE — khong lien quan quyen vao khu quan tri
+      # (quyen do lay tu SUPERADMIN_EMAILS o tren).
+      QREVIEW_ADMIN_EMAILS: ${QREVIEW_ADMIN_EMAILS:-}
+      # Dia chi cong khai cua website Qreview (nut "Xem trang that", duong dan anh). Cung phai
+      # truyen qua build arg o tren vi day la bien NEXT_PUBLIC_*.
+      NEXT_PUBLIC_QREVIEW_SITE_URL: ${NEXT_PUBLIC_QREVIEW_SITE_URL:-}
+      # Token server-to-server cua website, de CRM day anh tai len sang Qreview.
+      QREVIEW_ADMIN_TOKEN: ${QREVIEW_ADMIN_TOKEN:-}
     volumes:
       - app-data:/app/.data
       - app-media:/app/public/generated

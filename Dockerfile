@@ -13,6 +13,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Địa chỉ công khai của website Qreview. Next NHÚNG CỨNG mọi biến NEXT_PUBLIC_* vào bundle ngay
+# lúc `npm run build` — đặt nó ở runtime (docker-compose environment) là QUÁ MUỘN, giá trị đã
+# thành chuỗi rỗng trong code đã build. Truyền vào đây qua build arg (compose đã khai báo sẵn).
+ARG NEXT_PUBLIC_QREVIEW_SITE_URL=
+ENV NEXT_PUBLIC_QREVIEW_SITE_URL=$NEXT_PUBLIC_QREVIEW_SITE_URL
 # Sinh Prisma client từ schema (cần cho STORAGE_DRIVER=prisma; ở file mode chỉ nằm im, vô hại).
 RUN npx prisma generate
 RUN npm run build
