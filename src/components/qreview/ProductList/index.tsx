@@ -210,8 +210,8 @@ const ProductList = () => {
   };
 
   return (
-    /* Bang san pham nhieu cot nen trang nay xin them be ngang so voi mac dinh. */
-    <div className="admin-page-wide">
+    /* Be ngang lay theo quy tac chung cua he thong (globals.css, toi da 1680px). */
+    <div>
       <PageHeader
         title="Sản phẩm"
         description="Mỗi sản phẩm cần có danh mục, thương hiệu, thông số kỹ thuật và ít nhất một link mua hàng."

@@ -1713,19 +1713,21 @@
 
 /* ─── Bề ngang nội dung ───────────────────────────────────────────────────
  *
- * `Page fullWidth` của Polaris trải hết bề ngang khung. Form dài mà kéo ngang
- * cả màn hình siêu rộng thì mắt phải quét rất xa giữa nhãn và ô nhập, nên siết
- * lại ở đây. Trang danh sách tự xin thêm chỗ bằng lớp `.admin-page-wide`:
- * bảng nhiều cột bị ép trong khung hẹp sẽ phải tràn ngang.
+ * KHÔNG khai báo chiều rộng ở đây nữa.
+ *
+ * Trước đây khu này dùng `Page fullWidth` (bỏ mọi giới hạn của Polaris) rồi tự
+ * siết lại bằng hai mức riêng — 1280px cho form, 1600px cho trang danh sách.
+ * Hệ quả: `/qreview` rộng khác mọi màn hình còn lại của CRM, và mỗi lần đổi
+ * bề ngang chung lại phải nhớ sửa thêm ở đây.
+ *
+ * Nay `QreviewPageShell` dùng `Page` thường, nên khu quản trị ăn ĐÚNG quy tắc
+ * chung đặt tại `src/app/globals.css`:
+ *
+ *     max-width: max(<mặc định Polaris>, min(94vw, 1680px))
+ *
+ * Một nguồn sự thật duy nhất cho toàn hệ thống. Muốn đổi trần 1680px thì sửa ở
+ * globals.css, mọi trang — kể cả khu này — đổi theo.
  */
-.qreview-admin > .Polaris-Page > .Polaris-Page__Content {
-  margin-inline: auto;
-  max-width: 1280px;
-}
-
-.qreview-admin > .Polaris-Page > .Polaris-Page__Content:has(.admin-page-wide) {
-  max-width: 1600px;
-}
 
 /* ─── Trang báo thiếu quyền ─────────────────────────────────────────────── */
 

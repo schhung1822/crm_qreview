@@ -724,7 +724,7 @@ const ProductForm = ({ productId }: { productId?: string }) => {
 
   if (isLoading) {
     return (
-      <div className="admin-page-wide">
+      <div>
         <PageHeader title={isEditing ? "Sửa sản phẩm" : "Thêm sản phẩm"} />
         <LoadingState />
       </div>
@@ -783,8 +783,8 @@ const ProductForm = ({ productId }: { productId?: string }) => {
   };
 
   return (
-    /* Form nay nhieu o va co luoi anh nen xin them be ngang so voi mac dinh. */
-    <div className="admin-page-wide">
+    /* Be ngang lay theo quy tac chung cua he thong (globals.css, toi da 1680px). */
+    <div>
       <PageHeader
         title={isEditing ? "Sửa sản phẩm" : "Thêm sản phẩm"}
         description={
