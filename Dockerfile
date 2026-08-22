@@ -13,9 +13,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Địa chỉ công khai của website Qreview. Next NHÚNG CỨNG mọi biến NEXT_PUBLIC_* vào bundle ngay
-# lúc `npm run build` — đặt nó ở runtime (docker-compose environment) là QUÁ MUỘN, giá trị đã
-# thành chuỗi rỗng trong code đã build. Truyền vào đây qua build arg (compose đã khai báo sẵn).
+# URL CRM + website Qreview cần ngay lúc Next tính rewrite. NEXT_PUBLIC_* còn bị nhúng cứng vào
+# bundle client, nên cả ba giá trị phải có từ bước build (compose truyền qua build args).
+ARG APP_URL=
+ENV APP_URL=$APP_URL
+ARG QREVIEW_SITE_URL=
+ENV QREVIEW_SITE_URL=$QREVIEW_SITE_URL
 ARG NEXT_PUBLIC_QREVIEW_SITE_URL=
 ENV NEXT_PUBLIC_QREVIEW_SITE_URL=$NEXT_PUBLIC_QREVIEW_SITE_URL
 # Sinh Prisma client từ schema (cần cho STORAGE_DRIVER=prisma; ở file mode chỉ nằm im, vô hại).

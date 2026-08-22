@@ -79,8 +79,10 @@ Nội dung website lưu **đường dẫn tương đối** (`/images/products/ab
   dưới `/images/` (`logo_amban.webp`...) nên không bị ảnh hưởng. Và vì là rewrite mặc
   định (`afterFiles`), tệp thật trong `public/` luôn được ưu tiên trước.
 
-Chưa đặt `NEXT_PUBLIC_QREVIEW_SITE_URL` thì: rewrite không bật (ảnh hỏng), nút tải ảnh
-báo lỗi 503 nói rõ thiếu biến nào, và nút "Xem trang thật" tự ẩn.
+Server ưu tiên `QREVIEW_SITE_URL`; `NEXT_PUBLIC_QREVIEW_SITE_URL` chỉ còn dùng cho link
+ở client và làm fallback tương thích. Hai biến phải trỏ về **website** (`https://qreview.asia`),
+không phải CRM (`https://crm.qreview.asia`). Route upload kiểm tra self-proxy và trả 503 rõ
+nguyên nhân; bước build cũng từ chối nếu `QREVIEW_SITE_URL` trùng origin với `APP_URL`.
 
 ---
 
@@ -93,11 +95,42 @@ QREVIEW_DB_USER=
 QREVIEW_DB_PASSWORD=
 QREVIEW_DB_NAME=
 
-NEXT_PUBLIC_QREVIEW_SITE_URL=   # https://... — địa chỉ website. Dùng cho rewrite ảnh,
-                                # tải ảnh lên và nút "Xem trang thật".
+QREVIEW_SITE_URL=https://qreview.asia
+                                # URL server-to-server + rewrite ảnh (ưu tiên).
+NEXT_PUBLIC_QREVIEW_SITE_URL=https://qreview.asia
+                                # Link website ở client; VPS lấy theo biến phía trên.
 QREVIEW_ADMIN_TOKEN=            # = ADMIN_TOKEN trong .env.local của dự án Qreview.
                                 # Chỉ dùng ở máy chủ, không lộ ra trình duyệt.
 QREVIEW_ADMIN_EMAILS=           # Email là admin TRÊN WEBSITE. Không cấp quyền vào /qreview.
+```
+
+Để kiểm thử hoàn toàn local, chạy website ở cổng khác CRM:
+
+```bash
+# terminal 1 — project Qreview
+npm run dev -- -p 3002
+
+# crm_qreview/.env
+QREVIEW_SITE_URL=http://localhost:3002
+NEXT_PUBLIC_QREVIEW_SITE_URL=http://localhost:3002
+# QREVIEW_ADMIN_TOKEN phải giống ADMIN_TOKEN trong Qreview/.env.local
+```
+
+Sau khi đổi URL/token, restart CRM vì rewrite trong `next.config.mjs` chỉ được tính
+khi Next khởi động. CRM vẫn chạy ở `http://localhost:3000`.
+
+Với VPS dùng nginx, deploy bằng overlay và **bắt buộc rebuild** vì rewrite được tính
+ở bước `next build`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build --force-recreate app
+```
+
+Sau deploy, kiểm tra một ảnh có thật phải trả `200` ở cả hai URL:
+
+```bash
+curl -I https://qreview.asia/images/products/1_main.png
+curl -I https://crm.qreview.asia/images/products/1_main.png
 ```
 
 ---
@@ -108,4 +141,4 @@ QREVIEW_ADMIN_EMAILS=           # Email là admin TRÊN WEBSITE. Không cấp qu
   JSX như bản gốc, chưa theo quy tắc ở §8.4 của `CLAUDE.md`. Chuyển sang `t()` là một
   đợt làm riêng (~15.000 dòng); chỉ nhãn điều hướng đã được đưa vào `messages/vi.json`.
 - **Ảnh trong trình soạn thảo bài viết** hiển thị nhờ rewrite ở mục 4, nên phụ thuộc vào
-  `NEXT_PUBLIC_QREVIEW_SITE_URL`. Chưa đặt biến này thì phần xem trước sẽ thiếu ảnh.
+  `QREVIEW_SITE_URL`. Chưa đặt biến này thì phần xem trước sẽ thiếu ảnh.

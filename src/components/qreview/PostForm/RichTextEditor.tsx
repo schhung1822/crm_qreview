@@ -193,9 +193,11 @@ export default function RichTextEditor({
       const body = new FormData();
       body.append("files", file);
       const response = await fetch("/api/qreview/uploads", { method: "POST", body });
-      const data = await response.json();
+      const data = (await response.json().catch(() => null)) as
+        | { urls?: string[]; error?: string }
+        | null;
       if (!response.ok || !data?.urls?.[0]) {
-        throw new Error(data?.error || "Không tải được ảnh.");
+        throw new Error(data?.error || `Không tải được ảnh (HTTP ${response.status}).`);
       }
 
       const alt = window.prompt("Mô tả ảnh (alt) cho SEO:")?.trim() ?? "";

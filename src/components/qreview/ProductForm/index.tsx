@@ -390,14 +390,19 @@ const ProductForm = ({ productId }: { productId?: string }) => {
       files.forEach((file) => body.append("files", file));
 
       const response = await fetch("/api/qreview/uploads", { method: "POST", body });
-      const data = await response.json();
+      const data = (await response.json().catch(() => null)) as
+        | { urls?: string[]; error?: string }
+        | null;
 
       if (!response.ok) {
-        setFeedback({ type: "error", text: data?.error ?? "Không tải được ảnh." });
+        setFeedback({
+          type: "error",
+          text: data?.error ?? `Không tải được ảnh (HTTP ${response.status}).`,
+        });
         return;
       }
 
-      const uploaded: ImageItem[] = (data.urls ?? []).map((url: string) => ({
+      const uploaded: ImageItem[] = (data?.urls ?? []).map((url: string) => ({
         url,
         isThumbnail: false,
         colorId: null,

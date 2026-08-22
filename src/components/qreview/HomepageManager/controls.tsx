@@ -169,10 +169,12 @@ export function ImageField({
       const body = new FormData();
       body.append("files", file);
       const response = await fetch("/api/qreview/uploads", { method: "POST", body });
-      const data = await response.json();
+      const data = (await response.json().catch(() => null)) as
+        | { urls?: string[]; error?: string }
+        | null;
 
       if (!response.ok) {
-        setError(data?.error ?? "Không tải được ảnh.");
+        setError(data?.error ?? `Không tải được ảnh (HTTP ${response.status}).`);
         return;
       }
 

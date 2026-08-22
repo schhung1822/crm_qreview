@@ -158,14 +158,19 @@ const PostForm = ({ postId }: { postId?: string }) => {
       body.append("files", files[0]);
 
       const response = await fetch("/api/qreview/uploads", { method: "POST", body });
-      const data = await response.json();
+      const data = (await response.json().catch(() => null)) as
+        | { urls?: string[]; error?: string }
+        | null;
 
       if (!response.ok) {
-        setFeedback({ type: "error", text: data?.error ?? "Không tải được ảnh." });
+        setFeedback({
+          type: "error",
+          text: data?.error ?? `Không tải được ảnh (HTTP ${response.status}).`,
+        });
         return;
       }
 
-      const url = data.urls?.[0];
+      const url = data?.urls?.[0];
       if (url) setForm((prev) => ({ ...prev, coverImage: url }));
     } catch {
       setFeedback({ type: "error", text: "Không kết nối được tới máy chủ." });

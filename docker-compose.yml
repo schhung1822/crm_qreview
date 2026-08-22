@@ -6,8 +6,9 @@ services:
     build:
       context: .
       args:
-        # Bien NEXT_PUBLIC_* bi Next NHUNG CUNG vao bundle luc `npm run build`, khong doc lai luc
-        # chay → phai co mat ngay tu buoc build, khong the chi dat o `environment` ben duoi.
+        APP_URL: ${APP_URL:-}
+        # QREVIEW_SITE_URL điều khiển server proxy/rewrite; NEXT_PUBLIC_* dùng cho link ở client.
+        QREVIEW_SITE_URL: ${QREVIEW_SITE_URL:-}
         NEXT_PUBLIC_QREVIEW_SITE_URL: ${NEXT_PUBLIC_QREVIEW_SITE_URL:-}
     ports:
       - '3000:3000'
@@ -50,8 +51,8 @@ services:
       # Email duoc coi la admin TREN WEBSITE — khong lien quan quyen vao khu quan tri
       # (quyen do lay tu SUPERADMIN_EMAILS o tren).
       QREVIEW_ADMIN_EMAILS: ${QREVIEW_ADMIN_EMAILS:-}
-      # Dia chi cong khai cua website Qreview (nut "Xem trang that", duong dan anh). Cung phai
-      # truyen qua build arg o tren vi day la bien NEXT_PUBLIC_*.
+      # URL server-to-server (ưu tiên) và URL public tương thích cho client.
+      QREVIEW_SITE_URL: ${QREVIEW_SITE_URL:-}
       NEXT_PUBLIC_QREVIEW_SITE_URL: ${NEXT_PUBLIC_QREVIEW_SITE_URL:-}
       # Token server-to-server cua website, de CRM day anh tai len sang Qreview.
       QREVIEW_ADMIN_TOKEN: ${QREVIEW_ADMIN_TOKEN:-}

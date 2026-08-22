@@ -18,6 +18,42 @@ const securityHeaders = [
 
 const isVercel = process.env.VERCEL === '1';
 
+function configuredHttpBase(raw, variableName) {
+  const value = (raw ?? '').trim().replace(/\/+$/, '');
+  if (!value) return '';
+
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${variableName} phải là URL tuyệt đối hợp lệ.`);
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`${variableName} chỉ được dùng http hoặc https.`);
+  }
+
+  return value;
+}
+
+// Server/rewrite dùng biến runtime riêng; NEXT_PUBLIC chỉ là fallback tương
+// thích. Trên VPS, docker-compose.vps.yml đặt QREVIEW_SITE_URL=qreview.asia.
+const qreviewSiteBase = configuredHttpBase(
+  process.env.QREVIEW_SITE_URL || process.env.NEXT_PUBLIC_QREVIEW_SITE_URL,
+  'QREVIEW_SITE_URL'
+);
+const crmSiteBase = configuredHttpBase(process.env.APP_URL, 'APP_URL');
+
+if (
+  qreviewSiteBase &&
+  crmSiteBase &&
+  new URL(qreviewSiteBase).origin === new URL(crmSiteBase).origin
+) {
+  throw new Error(
+    'QREVIEW_SITE_URL đang trỏ về chính APP_URL của CRM. Hãy dùng domain website, ví dụ https://qreview.asia.'
+  );
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -53,13 +89,14 @@ const nextConfig = {
    * mac dinh (afterFiles): tep that trong public/ luon duoc uu tien truoc.
    */
   async rewrites() {
-    const base = (process.env.NEXT_PUBLIC_QREVIEW_SITE_URL ?? '')
-      .trim()
-      .replace(/\/+$/, '');
+    if (!qreviewSiteBase) return [];
 
-    if (!base) return [];
-
-    return [{ source: '/images/:folder/:path*', destination: `${base}/images/:folder/:path*` }];
+    return [
+      {
+        source: '/images/:folder/:path*',
+        destination: `${qreviewSiteBase}/images/:folder/:path*`,
+      },
+    ];
   },
 };
 

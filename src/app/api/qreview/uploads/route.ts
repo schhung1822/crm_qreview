@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { guardAdminRequest } from "@/lib/qreview/api";
 import { serverErrorResponse } from "@/lib/qreview/api-security";
+import {
+  QreviewSiteConfigurationError,
+  requireQreviewUploadConfig,
+} from "@/lib/qreview/server-site";
 
 export const runtime = "nodejs";
 
@@ -26,13 +30,7 @@ export const runtime = "nodejs";
 /** Nguoi dung co the tai nhieu anh mot luc; noi rong so voi mac dinh 4MB. */
 export const maxDuration = 60;
 
-function siteBaseUrl() {
-  const raw = (process.env.NEXT_PUBLIC_QREVIEW_SITE_URL ?? "")
-    .trim()
-    .replace(/\/+$/, "");
-
-  return raw;
-}
+type UploadResponse = { urls?: unknown; error?: unknown };
 
 export async function POST(request: Request) {
   const guard = await guardAdminRequest(request, { bucket: "uploads", write: true });
@@ -41,22 +39,17 @@ export async function POST(request: Request) {
     return guard.response;
   }
 
-  const base = siteBaseUrl();
-  const token = (process.env.QREVIEW_ADMIN_TOKEN ?? "").trim();
+  let config: ReturnType<typeof requireQreviewUploadConfig>;
 
-  // Bao ro rang thieu cau hinh nao, thay vi de nguoi dung doan tai sao nut tai
-  // anh khong hoat dong.
-  if (!base || !token) {
-    const missing = [!base && "NEXT_PUBLIC_QREVIEW_SITE_URL", !token && "QREVIEW_ADMIN_TOKEN"]
-      .filter(Boolean)
-      .join(" và ");
-
-    return NextResponse.json(
-      {
-        error: `Chưa cấu hình ${missing} nên không tải ảnh lên website được. Bổ sung vào .env rồi khởi động lại.`,
-      },
-      { status: 503 }
-    );
+  try {
+    // Truyền request để phát hiện chính xác trường hợp URL website trỏ ngược
+    // về host CRM — nguyên nhân gây 404 upload và vòng lặp 500 ở ảnh.
+    config = requireQreviewUploadConfig(request);
+  } catch (error) {
+    if (error instanceof QreviewSiteConfigurationError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
   }
 
   try {
@@ -70,9 +63,9 @@ export async function POST(request: Request) {
       outgoing.append(key, value);
     }
 
-    const response = await fetch(`${base}/api/uploads`, {
+    const response = await fetch(`${config.base}/api/uploads`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${config.token}` },
       body: outgoing,
       // Dia chi lay tu bien moi truong (quan tri vien dat), khong phai tu
       // request cua nguoi dung, nen day khong phai be mat SSRF.
@@ -80,13 +73,51 @@ export async function POST(request: Request) {
     });
 
     const text = await response.text();
+    const contentType = response.headers.get("content-type") ?? "";
+    let data: UploadResponse | null = null;
 
-    // Tra lai NGUYEN VEN phan hoi cua website: thong bao loi cua no da du ro,
-    // dich lai mot lan nua chi lam sai lech.
-    return new NextResponse(text, {
-      status: response.status,
-      headers: { "Content-Type": response.headers.get("content-type") ?? "application/json" },
-    });
+    if (contentType.includes("application/json")) {
+      try {
+        data = JSON.parse(text || "null") as UploadResponse | null;
+      } catch {
+        data = null;
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json(
+          {
+            error:
+              "Website Qreview từ chối QREVIEW_ADMIN_TOKEN. Hãy đồng bộ token này với ADMIN_TOKEN của website rồi khởi động lại CRM.",
+          },
+          { status: 502 }
+        );
+      }
+
+      // Lỗi hợp lệ của website (file quá lớn, sai định dạng...) vẫn
+      // giữ nguyên status và thông báo. Riêng HTML/404 của sai upstream được
+      // đổi thành JSON 502 để frontend không rơi vào response.json() error.
+      if (data && typeof data.error === "string") {
+        return NextResponse.json(data, { status: response.status });
+      }
+
+      const detail =
+        response.status === 404
+          ? "Không tìm thấy /api/uploads trên website đích. Kiểm tra QREVIEW_SITE_URL có đang trỏ đúng https://qreview.asia không."
+          : `Website Qreview trả phản hồi không hợp lệ (HTTP ${response.status}).`;
+
+      return NextResponse.json({ error: detail }, { status: 502 });
+    }
+
+    if (!data || !Array.isArray(data.urls)) {
+      return NextResponse.json(
+        { error: "Website Qreview không trả về danh sách đường dẫn ảnh hợp lệ." },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     return serverErrorResponse(
       "Qreview upload proxy error",

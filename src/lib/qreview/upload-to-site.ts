@@ -2,6 +2,8 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 
+import { requireQreviewUploadConfig } from "@/lib/qreview/server-site";
+
 /**
  * Day mot anh da xu ly sang may chu cua WEBSITE Qreview va tra ve duong dan
  * tuong doi ma website se phuc vu (`/images/<thu-muc>/<ten-tep>.webp`).
@@ -17,26 +19,11 @@ import { randomUUID } from "crypto";
 
 export type SiteUploadFolder = "products" | "posts";
 
-function requireConfig() {
-  const base = (process.env.NEXT_PUBLIC_QREVIEW_SITE_URL ?? "").trim().replace(/\/+$/, "");
-  const token = (process.env.QREVIEW_ADMIN_TOKEN ?? "").trim();
-
-  if (!base || !token) {
-    const missing = [!base && "NEXT_PUBLIC_QREVIEW_SITE_URL", !token && "QREVIEW_ADMIN_TOKEN"]
-      .filter(Boolean)
-      .join(" và ");
-
-    throw new Error(`Chưa cấu hình ${missing} nên không gửi ảnh sang website được.`);
-  }
-
-  return { base, token };
-}
-
 export async function uploadImageToSite(
   webpBuffer: Buffer,
   folder: SiteUploadFolder
 ): Promise<string> {
-  const { base, token } = requireConfig();
+  const { base, token } = requireQreviewUploadConfig();
 
   const form = new FormData();
   // Ten tep chi de website co cai ma doc; ben do tu sinh ten that.
@@ -53,7 +40,17 @@ export async function uploadImageToSite(
   const data = (await response.json().catch(() => null)) as { urls?: string[]; error?: string } | null;
 
   if (!response.ok) {
-    throw new Error(data?.error ?? `Website từ chối ảnh (HTTP ${response.status}).`);
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        "Website Qreview từ chối QREVIEW_ADMIN_TOKEN; hãy đồng bộ với ADMIN_TOKEN của website."
+      );
+    }
+
+    const detail =
+      response.status === 404
+        ? "Không tìm thấy /api/uploads trên website đích; hãy kiểm tra QREVIEW_SITE_URL."
+        : `Website từ chối ảnh (HTTP ${response.status}).`;
+    throw new Error(data?.error ?? detail);
   }
 
   const url = data?.urls?.[0];
